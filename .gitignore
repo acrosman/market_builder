@@ -52,6 +52,7 @@ typings/
 
 # Optional eslint cache
 .eslintcache
+.sonarlint
 
 # Microbundle cache
 .rpt2_cache/
@@ -102,3 +103,7 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Editor Settings
+.vscode
+.atom
