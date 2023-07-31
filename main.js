@@ -1,17 +1,17 @@
 const electron = require('electron');
 
 // Module to control application life.
-const {app, BrowserWindow, ipcMain} = electron;
+const { app, BrowserWindow, ipcMain } = electron;
 
 // Developer Dependencies.
 const isDev = !app.isPackaged;
 if (isDev) {
-  require("electron-debug")();
+  // eslint-disable-next-line global-require
+  require('electron-debug')();
 }
 
 // Additional Tooling.
 const path = require('path');
-const url = require('url');
 
 // Get rid of the deprecated default.
 app.allowRendererProcessReuse = true;
@@ -83,10 +83,13 @@ app.on('web-contents-created', (event, contents) => {
   // https://electronjs.org/docs/tutorial/security#11-verify-webview-options-before-creation
   contents.on('will-attach-webview', (webevent, webPreferences) => {
     // Strip away preload scripts.
+    // eslint-disable-next-line no-param-reassign
     delete webPreferences.preload;
+    // eslint-disable-next-line no-param-reassign
     delete webPreferences.preloadURL;
 
     // Disable Node.js integration.
+    // eslint-disable-next-line no-param-reassign
     webPreferences.nodeIntegration = false;
   });
 
@@ -111,7 +114,7 @@ app.on('activate', () => {
 ipcMain.on('sample_message', (event, args) => {
   // Sample useless response.
   mainWindow.webContents.send('sample_response', {
-    message: 'Interface sent a message to main: ' + args.message_content,
+    message: `Interface sent a message to main: ${args.message_content}`,
   });
   return true;
 });
