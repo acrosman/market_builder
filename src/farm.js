@@ -1,8 +1,8 @@
 const { producer } = require('./producer.js');
 
 class farm extends producer {
-  constructor(name, employees, goodsList, xcoordinate, ycoordinate) {
-    super('farm', name, employees, goodsList, xcoordinate, ycoordinate);
+  constructor(name, employees, goodsList, xCoordinate, yCoordinate) {
+    super('farm', name, employees, goodsList, xCoordinate, yCoordinate);
   }
 }
 

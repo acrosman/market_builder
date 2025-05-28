@@ -1,8 +1,8 @@
 const { actor } = require('./actor.js');
 
 class producer extends actor {
-  constructor(type, name, employees, goodsList, xcoordinate, ycoordinate) {
-    super('producer', type, name, employees, goodsList, xcoordinate, ycoordinate);
+  constructor(type, name, employees, goodsList, xCoordinate, yCoordinate) {
+    super('producer', type, name, employees, goodsList, xCoordinate, yCoordinate);
     this.employees = {
       new: employees,
       trained: 0,
