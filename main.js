@@ -5,10 +5,6 @@ const { app, BrowserWindow, ipcMain } = electron;
 
 // Developer Dependencies.
 const isDev = !app.isPackaged;
-if (isDev) {
-  // eslint-disable-next-line global-require
-  require('electron-debug')();
-}
 
 // Additional Tooling.
 const path = require('path');
