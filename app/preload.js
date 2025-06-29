@@ -7,14 +7,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   send: (channel, data) => {
     // List channels to allow.
-    const validChannels = ['sample_message', 'open-new-game'];
+    const validChannels = ['sample_message', 'open-new-game', 'create-universe'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }
   },
   receive: (channel, func) => {
     // List channels to allow.
-    const validChannels = ['sample_response'];
+    const validChannels = ['sample_response', 'universe-created'];
     if (validChannels.includes(channel)) {
       // Remove the event to avoid information leaks.
       ipcRenderer.on(channel, (event, ...args) => func(...args));

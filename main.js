@@ -8,6 +8,7 @@ const isDev = !app.isPackaged;
 
 // Additional Tooling.
 const path = require('path');
+const { createUniverse } = require('./src/universe');
 
 // Get rid of the deprecated default.
 app.allowRendererProcessReuse = true;
@@ -136,3 +137,20 @@ function openNewGameWindow() {
 }
 
 ipcMain.on('open-new-game', openNewGameWindow);
+
+ipcMain.on('create-universe', (event, params) => {
+  // params: { universeName, systemCount, connectionCount, stellarObjectCount }
+  const universe = createUniverse(
+    params.systemCount,
+    params.connectionCount,
+    params.stellarObjectCount
+  );
+  // You can store the universe object, save it, or pass it to the main window as needed
+  // For example, send it to the main window:
+  if (mainWindow) {
+    mainWindow.webContents.send('universe-created', {
+      name: params.universeName,
+      universe,
+    });
+  }
+});
