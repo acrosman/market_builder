@@ -77,22 +77,19 @@ app.on('web-contents-created', (event, contents) => {
   });
 
   // https://electronjs.org/docs/tutorial/security#11-verify-webview-options-before-creation
-  contents.on('will-attach-webview', (webevent, webPreferences) => {
+  contents.on('will-attach-webview', (webEvent, webPreferences) => {
     // Strip away preload scripts.
-    // eslint-disable-next-line no-param-reassign
     delete webPreferences.preload;
-    // eslint-disable-next-line no-param-reassign
     delete webPreferences.preloadURL;
 
     // Disable Node.js integration.
-    // eslint-disable-next-line no-param-reassign
     webPreferences.nodeIntegration = false;
   });
 
   // Block new windows from within the App
   // https://electronjs.org/docs/tutorial/security#13-disable-or-limit-creation-of-new-windows
-  contents.on('new-window', async (newevent) => {
-    newevent.preventDefault();
+  contents.on('new-window', async (newEvent) => {
+    newEvent.preventDefault();
   });
 });
 
@@ -107,10 +104,35 @@ app.on('activate', () => {
 /**
  * Example IPC message handler.
  */
-ipcMain.on('sample_message', (event, args) => {
-  // Sample useless response.
-  mainWindow.webContents.send('sample_response', {
-    message: `Interface sent a message to main: ${args.message_content}`,
+// ipcMain.on('sample_message', (event, args) => {
+//   // Sample useless response.
+//   mainWindow.webContents.send('sample_response', {
+//     message: `Interface sent a message to main: ${args.message_content}`,
+//   });
+//   return true;
+// });
+
+let newGameWindow = null;
+
+function openNewGameWindow() {
+  if (newGameWindow) {
+    newGameWindow.focus();
+    return;
+  }
+  newGameWindow = new BrowserWindow({
+    width: 400,
+    height: 600,
+    parent: mainWindow,
+    modal: true,
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(app.getAppPath(), 'app/preload.js'),
+    },
   });
-  return true;
-});
+  newGameWindow.loadURL(`file://${__dirname}/app/new_game.html`);
+  newGameWindow.on('closed', () => {
+    newGameWindow = null;
+  });
+}
+
+ipcMain.on('open-new-game', openNewGameWindow);
