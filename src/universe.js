@@ -1,0 +1,133 @@
+const fs = require('fs');
+const path = require('path');
+
+// Load stellar object definitions from JSON
+const stellarObjectsData = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../data/stellarObjects.json'), 'utf-8')
+);
+
+/**
+ * Represents a Universe in Universe Market Builder.
+ */
+class Universe {
+  constructor() {
+    this.systems = [];
+    this.stellarObjects = [];
+  }
+}
+
+/**
+ * Represents a star system in the universe.
+ */
+class System {
+  constructor(id, name) {
+    this.id = id;
+    this.name = name;
+    this.connections = []; // List of connected system ids
+  }
+}
+
+/**
+ * Represents a stellar object (e.g., planet, station, asteroid) in the universe.
+ */
+class StellarObject {
+  constructor(id, type, className, location, details) {
+    this.id = id;
+    this.type = type; // e.g. "Planet", "Space Station", "Astroid"
+    this.className = className; // e.g. "Earth-like", "Trading Post"
+    this.location = location; // system id where the object is located
+
+    // General properties from the data file
+    this.market = details.market === "Yes";
+    this.buildings = details.buildings === "Yes";
+    this.shipyard = details.shipyard === "Yes";
+    this.shields = details.shields === "Yes";
+    this.cannons = details.cannons === "Yes";
+    this.fighters = details.fighters === "Yes";
+    this.resistance = details.resistance === "Yes";
+
+    // Class-specific properties
+    const classDetails = details.classes[className];
+    this.description = classDetails.description || "";
+    this.populationLimit = classDetails.populationLimit || 0;
+    this.reproductionRate = classDetails.reproductionRate || 0;
+    this.buildingCredits = classDetails.buildingCredits || 0;
+    this.buildingLimit = classDetails.buildingLimit || 0;
+
+    // Generalized goods: copy all goods fields
+    this.goods = { ...classDetails.goods };
+  }
+}
+
+/**
+ * Creates a new Universe instance.
+ * @param {number} systemCount - Number of star systems in the universe.
+ * @param {number} connectionCount - Number of connections between systems.
+ * @param {number} objectsCount - Number of objects (e.g., planets, stations).
+ * @returns {Universe} The created Universe instance.
+ */
+function createUniverse(systemCount, connectionCount, objectsCount) {
+  const universe = new Universe();
+
+  // Create systems
+  for (let i = 0; i < systemCount; i++) {
+    universe.systems.push(new System(i, `System ${i + 1}`));
+  }
+
+  // Shuffle systems to ensure all are connected in a chain
+  const shuffled = universe.systems.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Connect each system to the next in the shuffled list
+  for (let i = 0; i < shuffled.length - 1; i++) {
+    const sysA = shuffled[i];
+    const sysB = shuffled[i + 1];
+    if (!sysA.connections.includes(sysB.id)) sysA.connections.push(sysB.id);
+    if (!sysB.connections.includes(sysA.id)) sysB.connections.push(sysA.id);
+  }
+
+  let remainingConnections = connectionCount - (systemCount - 1);
+
+  // Sort systems by id for consistent random selection
+  universe.systems.sort((a, b) => a.id - b.id);
+
+  // Add remaining random connections
+  while (remainingConnections > 0) {
+    const first = universe.systems[Math.floor(Math.random() * universe.systems.length)];
+    const second = universe.systems[Math.floor(Math.random() * universe.systems.length)];
+    if (first.id === second.id) continue;
+    if (first.connections.includes(second.id)) continue;
+    first.connections.push(second.id);
+    second.connections.push(first.id);
+    remainingConnections--;
+  }
+
+  // Create stellar objects and assign to random systems
+  const stellarTypes = Object.keys(stellarObjectsData);
+  for (let i = 0; i < objectsCount; i++) {
+    // Randomly select a type and class
+    const type = stellarTypes[Math.floor(Math.random() * stellarTypes.length)];
+    const typeDetails = stellarObjectsData[type];
+    const classNames = Object.keys(typeDetails.classes);
+    const className = classNames[Math.floor(Math.random() * classNames.length)];
+    const location = Math.floor(Math.random() * systemCount);
+
+    const obj = new StellarObject(i, type, className, location, typeDetails);
+    universe.stellarObjects.push(obj);
+    // Optionally, add to the system's own list if you add that property
+    // universe.systems[location].stellarObjects = universe.systems[location].stellarObjects || [];
+    // universe.systems[location].stellarObjects.push(obj);
+  }
+
+  return universe;
+}
+
+module.exports = {
+  Universe,
+  System,
+  StellarObject,
+  createUniverse,
+}

@@ -1,0 +1,127 @@
+{
+  "Planet": {
+    "market": "Yes",
+    "buildings": "Yes",
+    "shipyard": "Yes",
+    "shields": "Yes",
+    "cannons": "Yes",
+    "fighters": "Yes",
+    "resistance": "Yes",
+    "classes": {
+      "Earth-like": {
+        "description": "This is an earth-like world. I can produce a variety of marterials and support a large population. The population is likely to grew rapidly and be able to defend itself.",
+        "populationLimit": 8000000000,
+        "reproductionRate": 5,
+        "buildingCredits": 0,
+        "buildingLimit": 150,
+        "goods": {
+          "metal": 10,
+          "food": 2,
+          "chemicals": 5,
+          "energy": 10
+        }
+      },
+      "Farm World": {
+        "description": "This is a planet with a climate well suited to farming. Planets of this type generally produce a great deal of food, which allows them to maintain exteremly large populations.",
+        "populationLimit": 80000000000,
+        "reproductionRate": 10,
+        "buildingCredits": 0,
+        "buildingLimit": 100,
+        "goods": {
+          "metal": 5,
+          "food": 10,
+          "chemicals": 1,
+          "energy": 10
+        }
+      },
+      "Metal World": {
+        "description": "Metal worlds are barren tough worlds.  Rich is metal oars, these planets are hard to survive on. Building improvements will help people survive the elements and maintain population, without them, workers will frequently die from exposure.",
+        "populationLimit": 80000000,
+        "reproductionRate": -20,
+        "buildingCredits": 0,
+        "buildingLimit": 125,
+        "goods": {
+          "metal": 50,
+          "food": 1,
+          "chemicals": 10,
+          "energy": 20
+        }
+      }
+    }
+  },
+  "Space Station": {
+    "market": "Yes",
+    "buildings": "Yes",
+    "shipyard": "Yes",
+    "shields": "Yes",
+    "cannons": "Yes",
+    "fighters": "Yes",
+    "resistance": "No",
+    "classes": {
+      "Trading Post": {
+        "description": "Generally trading posts have active markets, with a variety of goods. But they are not good at providing themselves with much defence, and production of goods is limited.",
+        "populationLimit": 50000,
+        "reproductionRate": 2,
+        "buildingCredits": 5000,
+        "buildingLimit": 10,
+        "goods": {
+          "metal": 0,
+          "food": 1,
+          "chemicals": 10,
+          "energy": 10
+        }
+      },
+      "Battle Station": {
+        "name": "Battle Station",
+        "description": "Designed for small populations, but meant to be able to defend themselves against intruders. Population growth is low, but no place produces fighters faster than a battle station.",
+        "populationLimit": 10000,
+        "reproductionRate": 1,
+        "buildingCredits": 8000,
+        "buildingLimit": 20,
+        "goods": {
+          "metal": 5,
+          "food": 2,
+          "chemicals": 10,
+          "energy": 30
+        }
+      },
+      "Abandoned Station": {
+        "description": "Generally these places were abandoned for a reason. Unless you plan to convert this station to another type, best not to stay long.",
+        "populationLimit": 0,
+        "reproductionRate": -100,
+        "buildingCredits": 0,
+        "buildingLimit": 0,
+        "goods": {
+          "metal": 0,
+          "food": 0,
+          "chemicals": 0,
+          "energy": 0
+        }
+      }
+    }
+  },
+  "Astroid": {
+    "market": "No",
+    "buildings": "Yes",
+    "shipyard": "No",
+    "shields": "No",
+    "cannons": "No",
+    "fighters": "No",
+    "resistance": "Yes",
+    "classes": {
+      "Ice": {
+        "description": "Made of Ice, these astroid are capable of growing some food, but not much else.",
+        "populationLimit": 500,
+        "reproductionRate": 2,
+        "buildingCredits": 0,
+        "buildingLimit": 2,
+        "goods": {
+          "metal": 0,
+          "food": 3,
+          "chemicals": 1,
+          "energy": 10
+        }
+      }
+    }
+  }
+}
