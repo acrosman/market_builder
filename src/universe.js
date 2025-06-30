@@ -1,10 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
-// Load stellar object definitions from JSON
-const stellarObjectsData = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '../data/stellarObjects.json'), 'utf-8')
-);
+/**
+ * Generic loader for JSON data files in the ../data directory.
+ * @param {string} fileName - The name of the JSON file to load (without extension).
+ * @returns {Object} The parsed JSON data.
+ */
+function loadDataFile(fileName) {
+  const dataFile = path.join(__dirname, '../data', `${fileName}.json`);
+  return JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+}
 
 /**
  * Represents a Universe in Universe Market Builder.
@@ -38,13 +43,13 @@ class StellarObject {
     this.location = location; // system id where the object is located
 
     // General properties from the data file
-    this.market = details.market === "Yes";
-    this.buildings = details.buildings === "Yes";
-    this.shipyard = details.shipyard === "Yes";
-    this.shields = details.shields === "Yes";
-    this.cannons = details.cannons === "Yes";
-    this.fighters = details.fighters === "Yes";
-    this.resistance = details.resistance === "Yes";
+    this.market = details.market;
+    this.buildings = details.buildings;
+    this.shipyard = details.shipyard;
+    this.shields = details.shields;
+    this.cannons = details.cannons;
+    this.fighters = details.fighters;
+    this.resistance = details.resistance;
 
     // Class-specific properties
     const classDetails = details.classes[className];
@@ -68,6 +73,9 @@ class StellarObject {
  */
 function createUniverse(systemCount, connectionCount, objectsCount) {
   const universe = new Universe();
+
+  // Load stellar object definitions from JSON
+  const stellarObjectsData = loadDataFile('stellarObjects');
 
   // Create systems
   for (let i = 0; i < systemCount; i++) {

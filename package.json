@@ -1,11 +1,11 @@
 {
-  "name": "Markets Builder",
+  "name": "market_universe",
   "version": "1.0.0",
-  "description": "Electron Starter Template",
+  "description": "A space trading game with goods production, interstellar trading, production, and a stock market",
   "main": "main.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/acrosman/ElectronSimpleStarter.git"
+    "url": "https://github.com/acrosman/market_builder"
   },
   "keywords": [
     "Electron",
@@ -15,7 +15,7 @@
   "scripts": {
     "start": "electron .",
     "lint": "eslint src app",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "dependencies": {
     "uuid": "^8"
@@ -23,16 +23,18 @@
   "author": "Aaron Crosman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/acrosman/ElectronSimpleStarter/issues"
+    "url": "https://github.com/acrosman/market_builder/issues"
   },
-  "homepage": "https://github.com/acrosman/ElectronSimpleStarter#readme",
+  "homepage": "https://github.com/acrosman/market_builder#readme",
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.27.0",
+    "babel-plugin-rewire": "^1.2.0",
     "electron": "^36",
     "eslint": "^9.27.0",
     "jest": "^30.0.3",
     "neostandard": "^0.12.1",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "rewire": "^8.0.0"
   }
 }

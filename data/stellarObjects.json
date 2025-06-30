@@ -1,15 +1,15 @@
 {
   "Planet": {
-    "market": "Yes",
-    "buildings": "Yes",
-    "shipyard": "Yes",
-    "shields": "Yes",
-    "cannons": "Yes",
-    "fighters": "Yes",
-    "resistance": "Yes",
+    "market": true,
+    "buildings": true,
+    "shipyard": true,
+    "shields": true,
+    "cannons": true,
+    "fighters": true,
+    "resistance": true,
     "classes": {
       "Earth-like": {
-        "description": "This is an earth-like world. I can produce a variety of marterials and support a large population. The population is likely to grew rapidly and be able to defend itself.",
+        "description": "This is an earth-like world. I can produce a variety of materials and support a large population. The population is likely to grew rapidly and be able to defend itself.",
         "populationLimit": 8000000000,
         "reproductionRate": 5,
         "buildingCredits": 0,
@@ -50,13 +50,13 @@
     }
   },
   "Space Station": {
-    "market": "Yes",
-    "buildings": "Yes",
-    "shipyard": "Yes",
-    "shields": "Yes",
-    "cannons": "Yes",
-    "fighters": "Yes",
-    "resistance": "No",
+    "market": true,
+    "buildings": true,
+    "shipyard": true,
+    "shields": true,
+    "cannons": true,
+    "fighters": true,
+    "resistance": false,
     "classes": {
       "Trading Post": {
         "description": "Generally trading posts have active markets, with a variety of goods. But they are not good at providing themselves with much defence, and production of goods is limited.",
@@ -101,13 +101,13 @@
     }
   },
   "Astroid": {
-    "market": "No",
-    "buildings": "Yes",
-    "shipyard": "No",
-    "shields": "No",
-    "cannons": "No",
-    "fighters": "No",
-    "resistance": "Yes",
+    "market": false,
+    "buildings": true,
+    "shipyard": false,
+    "shields": false,
+    "cannons": false,
+    "fighters": false,
+    "resistance": true,
     "classes": {
       "Ice": {
         "description": "Made of Ice, these astroid are capable of growing some food, but not much else.",
