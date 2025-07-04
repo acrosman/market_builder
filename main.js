@@ -102,17 +102,6 @@ app.on('activate', () => {
   }
 });
 
-/**
- * Example IPC message handler.
- */
-// ipcMain.on('sample_message', (event, args) => {
-//   // Sample useless response.
-//   mainWindow.webContents.send('sample_response', {
-//     message: `Interface sent a message to main: ${args.message_content}`,
-//   });
-//   return true;
-// });
-
 let newGameWindow = null;
 
 function openNewGameWindow() {
@@ -121,8 +110,8 @@ function openNewGameWindow() {
     return;
   }
   newGameWindow = new BrowserWindow({
-    width: 400,
-    height: 600,
+    width: 1100, // Increased width to fit form and diagram side by side
+    height: 700, // Increased height for better fit
     parent: mainWindow,
     modal: true,
     webPreferences: {
@@ -147,8 +136,8 @@ ipcMain.on('create-universe', (event, params) => {
   );
   // You can store the universe object, save it, or pass it to the main window as needed
   // For example, send it to the main window:
-  if (mainWindow) {
-    mainWindow.webContents.send('universe-created', {
+  if (newGameWindow) {
+    newGameWindow.webContents.send('universe-created', {
       name: params.universeName,
       universe,
     });
