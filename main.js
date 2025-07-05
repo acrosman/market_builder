@@ -127,19 +127,53 @@ function openNewGameWindow() {
 
 ipcMain.on('open-new-game', openNewGameWindow);
 
+let currentUniverse = null;
+
 ipcMain.on('create-universe', (event, params) => {
-  // params: { universeName, systemCount, connectionCount, stellarObjectCount }
-  const universe = createUniverse(
+  currentUniverse = createUniverse(
     params.systemCount,
     params.connectionCount,
     params.stellarObjectCount
   );
-  // You can store the universe object, save it, or pass it to the main window as needed
-  // For example, send it to the main window:
   if (newGameWindow) {
+    // Send only a summary or graph data, not the whole object
     newGameWindow.webContents.send('universe-created', {
       name: params.universeName,
-      universe,
+      graph: getUniverseGraph(currentUniverse),
+      summary: getUniverseSummary(currentUniverse),
     });
   }
+});
+
+function getUniverseGraph(universe) {
+  // Return only the data needed for D3 (nodes and links)
+  return {
+    systems: universe.systems.map(sys => ({
+      id: sys.id,
+      name: sys.name,
+      connections: sys.connections,
+    })),
+    stellarObjects: universe.stellarObjects.map(obj => ({
+      id: obj.id,
+      type: obj.type,
+      location: obj.location,
+    })),
+  };
+}
+
+function getUniverseSummary(universe) {
+  return {
+    typeTotals: universe.getStellarObjectTypeTotals(),
+    typeCountsBySystem: universe.getStellarObjectTypeCountsBySystem(),
+  };
+}
+
+ipcMain.handle('get-universe-graph', () => {
+  if (!currentUniverse) return null;
+  return getUniverseGraph(currentUniverse);
+});
+
+ipcMain.handle('get-universe-summary', () => {
+  if (!currentUniverse) return null;
+  return getUniverseSummary(currentUniverse);
 });

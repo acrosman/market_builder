@@ -18,11 +18,12 @@ document.getElementById('close-btn').addEventListener('click', () => {
 });
 
 // Listen for the generated universe and render with D3
-window.api.receive('universe-created', (payload) => {
-  const universe = payload.universe;
-  renderUniverseDiagram(universe);
-  displayStellarObjectCounts(universe);
-  displayColorKey(universe);
+window.api.receive('universe-created', async (payload) => {
+  const graph = payload.graph;
+  const summary = payload.summary;
+  renderUniverseDiagram(graph);
+  displayStellarObjectCounts(summary.typeTotals);
+  displayColorKey(graph.stellarObjects);
 });
 
 function renderUniverseDiagram(universe) {
@@ -75,6 +76,7 @@ function renderUniverseDiagram(universe) {
   // Add SVG and group for zooming
   const svg = d3.select("#universe-diagram")
     .append("svg")
+    .attr("class", "universe-svg")
     .attr("width", width)
     .attr("height", height);
 
@@ -95,18 +97,16 @@ function renderUniverseDiagram(universe) {
     .force("center", d3.forceCenter(width / 2, height / 2));
 
   const link = container.append("g")
-    .attr("stroke", "#aaa")
     .selectAll("line")
     .data(links)
     .join("line")
-    .attr("stroke-width", 1.5);
+    .attr("class", "universe-link");
 
   const node = container.append("g")
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 1.5)
     .selectAll("circle")
     .data(nodes)
     .join("circle")
+    .attr("class", "universe-node")
     .attr("r", 8)
     .attr("fill", d => d.type ? color(d.type) : "#888")
     .call(drag(simulation));
@@ -115,10 +115,8 @@ function renderUniverseDiagram(universe) {
     .selectAll("text")
     .data(nodes)
     .join("text")
+    .attr("class", "universe-label")
     .attr("dy", -12)
-    .attr("text-anchor", "middle")
-    .attr("fill", "#fff")
-    .attr("font-size", 10)
     .text(d => d.name);
 
   simulation.on("tick", () => {
@@ -159,38 +157,27 @@ function renderUniverseDiagram(universe) {
   }
 }
 
-function displayStellarObjectCounts(universe) {
-  // Remove any previous summary
+function displayStellarObjectCounts(typeTotals) {
   let summaryDiv = document.getElementById('stellar-object-summary');
   if (!summaryDiv) {
     summaryDiv = document.createElement('div');
     summaryDiv.id = 'stellar-object-summary';
-    summaryDiv.style.margin = '16px 0';
-    summaryDiv.style.color = '#fff';
+    summaryDiv.className = 'universe-summary';
     document.querySelector('.main-layout').insertBefore(summaryDiv, document.getElementById('universe-diagram'));
   }
-  // Get counts
-  const counts = universe.stellarObjects.reduce((acc, obj) => {
-    acc[obj.type] = (acc[obj.type] || 0) + 1;
-    return acc;
-  }, {});
   summaryDiv.innerHTML = `<b>Stellar Object Counts:</b><br>` +
-    Object.entries(counts).map(([type, count]) => `${type}: ${count}`).join('<br>');
+    Object.entries(typeTotals).map(([type, count]) => `${type}: ${count}`).join('<br>');
 }
 
-function displayColorKey(universe) {
-  // Remove any previous key
+function displayColorKey(stellarObjects) {
   let keyDiv = document.getElementById('stellar-object-color-key');
   if (!keyDiv) {
     keyDiv = document.createElement('div');
     keyDiv.id = 'stellar-object-color-key';
-    keyDiv.style.margin = '16px 0';
-    keyDiv.style.color = '#fff';
-    keyDiv.style.fontSize = '0.95em';
+    keyDiv.className = 'universe-color-key';
     document.querySelector('.main-layout').insertBefore(keyDiv, document.getElementById('universe-diagram'));
   }
-  // Get types and colors
-  const types = Array.from(new Set(universe.stellarObjects.map(obj => obj.type)));
+  const types = Array.from(new Set(stellarObjects.map(obj => obj.type)));
   const color = d3.scaleOrdinal()
     .domain(types)
     .range(d3.schemeCategory10);
