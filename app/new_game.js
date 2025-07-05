@@ -49,24 +49,36 @@ function renderUniverseDiagram(universe) {
   // Clear previous diagram
   d3.select("#universe-diagram").selectAll("*").remove();
 
+  // Add SVG and group for zooming
   const svg = d3.select("#universe-diagram")
     .append("svg")
     .attr("width", width)
     .attr("height", height);
+
+  const container = svg.append("g");
+
+  // Add zoom behavior
+  svg.call(
+    d3.zoom()
+      .scaleExtent([0.2, 5])
+      .on("zoom", (event) => {
+        container.attr("transform", event.transform);
+      })
+  );
 
   const simulation = d3.forceSimulation(nodes)
     .force("link", d3.forceLink(links).id(d => d.id).distance(50))
     .force("charge", d3.forceManyBody().strength(-120))
     .force("center", d3.forceCenter(width / 2, height / 2));
 
-  const link = svg.append("g")
+  const link = container.append("g")
     .attr("stroke", "#aaa")
     .selectAll("line")
     .data(links)
     .join("line")
     .attr("stroke-width", 1.5);
 
-  const node = svg.append("g")
+  const node = container.append("g")
     .attr("stroke", "#fff")
     .attr("stroke-width", 1.5)
     .selectAll("circle")
@@ -76,7 +88,7 @@ function renderUniverseDiagram(universe) {
     .attr("fill", "#4299e1")
     .call(drag(simulation));
 
-  const label = svg.append("g")
+  const label = container.append("g")
     .selectAll("text")
     .data(nodes)
     .join("text")
