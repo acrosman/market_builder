@@ -19,6 +19,44 @@ class Universe {
     this.systems = [];
     this.stellarObjects = [];
   }
+
+  /**
+   * Returns an object mapping each system id to a count of each type of stellar object it contains.
+   * Example return:
+   * {
+   *   0: { Planet: 2, Astroid: 1 },
+   *   1: { Planet: 1 },
+   *   ...
+   * }
+   */
+  getStellarObjectTypeCountsBySystem() {
+    const counts = {};
+    this.systems.forEach(system => {
+      counts[system.id] = {};
+    });
+    this.stellarObjects.forEach(obj => {
+      const sysId = obj.location;
+      const type = obj.type;
+      if (!counts[sysId]) counts[sysId] = {};
+      if (!counts[sysId][type]) counts[sysId][type] = 0;
+      counts[sysId][type]++;
+    });
+    return counts;
+  }
+
+  /**
+   * Returns an object mapping each stellar object type to the total count in the universe.
+   * Example return:
+   * { Planet: 10, Astroid: 5 }
+   */
+  getStellarObjectTypeTotals() {
+    const totals = {};
+    this.stellarObjects.forEach(obj => {
+      if (!totals[obj.type]) totals[obj.type] = 0;
+      totals[obj.type]++;
+    });
+    return totals;
+  }
 }
 
 /**

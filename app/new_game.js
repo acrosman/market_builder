@@ -21,16 +21,39 @@ document.getElementById('close-btn').addEventListener('click', () => {
 window.api.receive('universe-created', (payload) => {
   const universe = payload.universe;
   renderUniverseDiagram(universe);
+  displayStellarObjectCounts(universe);
+  displayColorKey(universe);
 });
 
 function renderUniverseDiagram(universe) {
   const width = document.getElementById('universe-diagram').clientWidth || 800;
   const height = document.getElementById('universe-diagram').clientHeight || 400;
 
+  // Assign a color to each type
+  const types = Array.from(new Set(universe.stellarObjects.map(obj => obj.type)));
+  const color = d3.scaleOrdinal()
+    .domain(types)
+    .range(d3.schemeCategory10);
+
+  // Map system id to the most common stellar object type in that system
+  const systemType = {};
+  universe.systems.forEach(sys => {
+    const objs = universe.stellarObjects.filter(obj => obj.location === sys.id);
+    if (objs.length > 0) {
+      // Use the most common type in this system
+      const typeCounts = {};
+      objs.forEach(obj => { typeCounts[obj.type] = (typeCounts[obj.type] || 0) + 1; });
+      systemType[sys.id] = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0][0];
+    } else {
+      systemType[sys.id] = null;
+    }
+  });
+
   // Prepare nodes and links for D3
   const nodes = universe.systems.map(sys => ({
     id: sys.id,
-    name: sys.name
+    name: sys.name,
+    type: systemType[sys.id]
   }));
 
   // Build unique links (avoid duplicates)
@@ -85,7 +108,7 @@ function renderUniverseDiagram(universe) {
     .data(nodes)
     .join("circle")
     .attr("r", 8)
-    .attr("fill", "#4299e1")
+    .attr("fill", d => d.type ? color(d.type) : "#888")
     .call(drag(simulation));
 
   const label = container.append("g")
@@ -115,7 +138,7 @@ function renderUniverseDiagram(universe) {
   });
 
   function drag(simulation) {
-    function dragstarted(event, d) {
+    function dragStarted(event, d) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
@@ -124,14 +147,56 @@ function renderUniverseDiagram(universe) {
       d.fx = event.x;
       d.fy = event.y;
     }
-    function dragended(event, d) {
+    function dragEnded(event, d) {
       if (!event.active) simulation.alphaTarget(0);
       d.fx = null;
       d.fy = null;
     }
     return d3.drag()
-      .on("start", dragstarted)
+      .on("start", dragStarted)
       .on("drag", dragged)
-      .on("end", dragended);
+      .on("end", dragEnded);
   }
+}
+
+function displayStellarObjectCounts(universe) {
+  // Remove any previous summary
+  let summaryDiv = document.getElementById('stellar-object-summary');
+  if (!summaryDiv) {
+    summaryDiv = document.createElement('div');
+    summaryDiv.id = 'stellar-object-summary';
+    summaryDiv.style.margin = '16px 0';
+    summaryDiv.style.color = '#fff';
+    document.querySelector('.main-layout').insertBefore(summaryDiv, document.getElementById('universe-diagram'));
+  }
+  // Get counts
+  const counts = universe.stellarObjects.reduce((acc, obj) => {
+    acc[obj.type] = (acc[obj.type] || 0) + 1;
+    return acc;
+  }, {});
+  summaryDiv.innerHTML = `<b>Stellar Object Counts:</b><br>` +
+    Object.entries(counts).map(([type, count]) => `${type}: ${count}`).join('<br>');
+}
+
+function displayColorKey(universe) {
+  // Remove any previous key
+  let keyDiv = document.getElementById('stellar-object-color-key');
+  if (!keyDiv) {
+    keyDiv = document.createElement('div');
+    keyDiv.id = 'stellar-object-color-key';
+    keyDiv.style.margin = '16px 0';
+    keyDiv.style.color = '#fff';
+    keyDiv.style.fontSize = '0.95em';
+    document.querySelector('.main-layout').insertBefore(keyDiv, document.getElementById('universe-diagram'));
+  }
+  // Get types and colors
+  const types = Array.from(new Set(universe.stellarObjects.map(obj => obj.type)));
+  const color = d3.scaleOrdinal()
+    .domain(types)
+    .range(d3.schemeCategory10);
+
+  keyDiv.innerHTML = `<b>System Color Key:</b><br>` +
+    types.map(type =>
+      `<span style="display:inline-block;width:16px;height:16px;background:${color(type)};margin-right:8px;border-radius:50%;vertical-align:middle;"></span>${type}`
+    ).join('<br>');
 }
