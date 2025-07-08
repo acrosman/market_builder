@@ -30,12 +30,11 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.27.0",
-    "babel-plugin-rewire": "^1.2.0",
     "electron": "^36",
     "eslint": "^9.27.0",
     "jest": "^30.0.3",
     "neostandard": "^0.12.1",
     "prettier": "^3.5.3",
-    "rewire": "^8.0.0"
+    "rewire": "^9.0.0"
   }
 }
