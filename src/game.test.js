@@ -25,7 +25,8 @@ describe('Game Module', () => {
     mockSettings = {
       initial_ship: 'Shuttle',
       food_per_person: 1,
-      game_turn_limit: 100
+      game_turn_limit: 100,
+      starting_credits: 1000
     };
 
     // Create saves directory if it doesn't exist
@@ -48,7 +49,7 @@ describe('Game Module', () => {
       const player = new Player('TestPlayer', mockSettings);
 
       expect(player.name).toBe('TestPlayer');
-      expect(player.credits).toBe(1000);
+      expect(player.credits).toBe(mockSettings.starting_credits);
       expect(player.location).toBe(0);
       expect(player.ship).toBe(mockSettings.initial_ship);
       expect(player.cargo).toEqual({});
@@ -68,7 +69,7 @@ describe('Game Module', () => {
       expect(npc.type).toBe('trader');
       expect(npc.homeSystem).toBe(2);
       expect(npc.currentSystem).toBe(2);
-      expect(npc.credits).toBe(1000);
+      expect(npc.credits).toBe(mockSettings.starting_credits);
       expect(npc.ship).toBe('Shuttle');
       expect(npc.cargo).toEqual({});
     });
@@ -131,7 +132,7 @@ describe('Game Module', () => {
       const state = game.getPlayerState();
 
       expect(state.name).toBe('TestPlayer');
-      expect(state.credits).toBe(1000);
+      expect(state.credits).toBe(mockSettings.starting_credits);
       expect(state.ship).toBe(mockSettings.initial_ship);
       expect(state.cargo).toEqual({});
       expect(state.stats).toBeTruthy();

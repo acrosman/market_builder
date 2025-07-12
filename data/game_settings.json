@@ -1,5 +1,20 @@
 {
-    "initial_ship":"Shuttle",
+    "initial_ship": "Shuttle",
     "food_per_person": 1,
-	"game_turn_limit": -1
+    "game_turn_limit": -1,
+    "starting_credits": 1000,
+    "starting_system": {
+        "required_objects": [
+            {
+                "type": "Planet",
+                "class": "Earth-like",
+                "description": "Your home planet"
+            },
+            {
+                "type": "Space Station",
+                "class": "Trading Post",
+                "description": "Your first trading post"
+            }
+        ]
+    }
 }

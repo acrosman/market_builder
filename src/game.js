@@ -7,7 +7,7 @@ const path = require('path');
 class Player {
   constructor(name, settings) {
     this.name = name;
-    this.credits = 1000; // Starting money
+    this.credits = settings.starting_credits;
     this.location = 0; // Starting system ID
     this.ship = settings.initial_ship;
     this.cargo = {};

@@ -111,8 +111,7 @@ class StellarObject {
  */
 function createUniverse(systemCount, connectionCount, objectsCount) {
   const universe = new Universe();
-
-  // Load stellar object definitions from JSON
+  const settings = loadDataFile('game_settings');
   const stellarObjectsData = loadDataFile('stellarObjects');
 
   // Create systems
@@ -151,21 +150,39 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     remainingConnections--;
   }
 
-  // Create stellar objects and assign to random systems
+
+  // Add required objects to system zero
+  let objectId = 0;
+  if (settings.starting_system && settings.starting_system.required_objects) {
+    settings.starting_system.required_objects.forEach(required => {
+      const typeDetails = stellarObjectsData[required.type];
+      const obj = new StellarObject(
+        objectId++,
+        required.type,
+        required.class,
+        0, // System zero
+        typeDetails
+      );
+      universe.stellarObjects.push(obj);
+    });
+  }
+
+  // Create remaining stellar objects and assign to random systems (avoiding system 0)
   const stellarTypes = Object.keys(stellarObjectsData);
-  for (let i = 0; i < objectsCount; i++) {
+  const remainingObjects = objectsCount - objectId;
+
+  for (let i = 0; i < remainingObjects; i++) {
     // Randomly select a type and class
     const type = stellarTypes[Math.floor(Math.random() * stellarTypes.length)];
     const typeDetails = stellarObjectsData[type];
     const classNames = Object.keys(typeDetails.classes);
     const className = classNames[Math.floor(Math.random() * classNames.length)];
-    const location = Math.floor(Math.random() * systemCount);
 
-    const obj = new StellarObject(i, type, className, location, typeDetails);
+    // Assign to random system (but not system 0)
+    const location = Math.floor(Math.random() * (systemCount - 1)) + 1;
+
+    const obj = new StellarObject(objectId++, type, className, location, typeDetails);
     universe.stellarObjects.push(obj);
-    // Optionally, add to the system's own list if you add that property
-    // universe.systems[location].stellarObjects = universe.systems[location].stellarObjects || [];
-    // universe.systems[location].stellarObjects.push(obj);
   }
 
   return universe;

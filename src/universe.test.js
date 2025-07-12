@@ -107,4 +107,19 @@ describe('createUniverse', () => {
       expect(classNames).toContain(obj.className);
     });
   });
+
+  test('Creates universe with required objects in system zero', () => {
+    const universe = createUniverse(5, 6, 3);
+
+    // Check system zero objects
+    const systemZeroObjects = universe.stellarObjects.filter(obj => obj.location === 0);
+    expect(systemZeroObjects.length).toBeGreaterThanOrEqual(2);
+
+    // Verify required objects exist
+    const planet = systemZeroObjects.find(obj => obj.type === 'Planet' && obj.className === 'Earth-like');
+    const station = systemZeroObjects.find(obj => obj.type === 'Space Station' && obj.className === 'Trading Post');
+
+    expect(planet).toBeTruthy();
+    expect(station).toBeTruthy();
+  });
 });
