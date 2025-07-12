@@ -1,0 +1,56 @@
+{
+    "Shuttle": {
+        "price": 10,
+        "hitPoints": 10,
+        "cargoCapacity": 0,
+        "crew": 3,
+        "shields": 10,
+        "energy": 10,
+        "energyPerJump": 5,
+        "energyRecharge": 1,
+        "shieldRecharge": 1,
+        "escapePod": "No",
+        "weapons": {
+            "guns": 0,
+            "missiles": 0,
+            "beams": 0,
+            "maxFighters": 0
+        }
+    },
+    "Cargo Hauler": {
+        "price": 1000,
+        "hitPoints": 10,
+        "cargoCapacity": 1000,
+        "crew": 10,
+        "shields": 100,
+        "energy": 1000,
+        "energyPerJump": 5,
+        "energyRecharge": 1,
+        "shieldRecharge": 1,
+        "escapePod": "Yes",
+        "weapons": {
+            "guns": 4,
+            "missiles": 0,
+            "beams": 0,
+            "maxFighters": 10
+        }
+    },
+    "Small Fighter": {
+        "price": 1000,
+        "hitPoints": 10,
+        "cargoCapacity": 10,
+        "crew": 5,
+        "shields": 300,
+        "energy": 100,
+        "energyPerJump": 5,
+        "energyRecharge": 3,
+        "shieldRecharge": 30,
+        "escapePod": "Yes",
+        "weapons": {
+            "guns": 5,
+            "missiles": 5,
+            "beams": 1,
+            "maxFighters": 10
+        }
+    }
+}
