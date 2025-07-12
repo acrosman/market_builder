@@ -107,3 +107,6 @@ dist
 # Editor Settings
 .vscode
 .atom
+
+# Ignore saved game files.
+saves/
