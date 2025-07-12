@@ -1,14 +1,25 @@
 const electron = require('electron');
-
-// Module to control application life.
+const path = require('path');
+const fs = require('fs');
 const { app, BrowserWindow, ipcMain } = electron;
+const { createUniverse } = require('./src/universe');
 
 // Developer Dependencies.
 const isDev = !app.isPackaged;
 
-// Additional Tooling.
-const path = require('path');
-const { createUniverse } = require('./src/universe');
+// Load game settings
+const gameSettingsPath = path.join(__dirname, 'data', 'game_settings.json');
+let gameSettings = {};
+try {
+  gameSettings = JSON.parse(fs.readFileSync(gameSettingsPath, 'utf-8'));
+} catch (error) {
+  console.error('Error loading game settings:', error);
+  gameSettings = {
+    initial_ship: "Shuttle",
+    food_per_person: 1,
+    game_turn_limit: -1
+  };
+}
 
 // Get rid of the deprecated default.
 app.allowRendererProcessReuse = true;
@@ -176,4 +187,9 @@ ipcMain.handle('get-universe-graph', () => {
 ipcMain.handle('get-universe-summary', () => {
   if (!currentUniverse) return null;
   return getUniverseSummary(currentUniverse);
+});
+
+// Add this with your other IPC handlers
+ipcMain.handle('get-game-settings', () => {
+  return gameSettings;
 });

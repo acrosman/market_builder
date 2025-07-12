@@ -22,4 +22,5 @@ contextBridge.exposeInMainWorld('api', {
   },
   getUniverseGraph: () => ipcRenderer.invoke('get-universe-graph'),
   getUniverseSummary: () => ipcRenderer.invoke('get-universe-summary'),
+  getGameSettings: () => ipcRenderer.invoke('get-game-settings'), // Add this line
 });
