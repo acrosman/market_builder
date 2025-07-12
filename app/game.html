@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Universe Market Builder - Main Game</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/game.css">
+</head>
+
+<body>
+  <div class="game-layout">
+    <div class="game-top">
+      <div class="game-status-left">
+        <h2>Location Status</h2>
+        <div id="location-status">
+          <!-- Current system/object info goes here -->
+          <p>System: Alpha Centauri</p>
+          <p>Type: Planet</p>
+          <p>Population: 12,000</p>
+        </div>
+      </div>
+      <div class="game-status-center">
+        <img id="location-image" src="images/planet.jpg" alt="Location Image">
+      </div>
+      <div class="game-status-right">
+        <h2>Ship Status</h2>
+        <div id="ship-status">
+          <!-- Ship info goes here -->
+          <p>Ship: Shuttle</p>
+          <p>HP: 10/10</p>
+          <p>Cargo: 0/100</p>
+        </div>
+      </div>
+    </div>
+    <div class="game-bottom">
+      <h2>Game Console</h2>
+      <div id="game-console" class="game-console"></div>
+      <input id="game-input" type="text" placeholder="Type your command here..." autocomplete="off">
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+
+</html>
