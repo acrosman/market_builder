@@ -121,8 +121,8 @@ function openNewGameWindow() {
     return;
   }
   newGameWindow = new BrowserWindow({
-    width: 1100, // Increased width to fit form and diagram side by side
-    height: 700, // Increased height for better fit
+    width: 1400,  // Increased from previous size
+    height: 900,  // Increased from previous size
     parent: mainWindow,
     modal: true,
     webPreferences: {
@@ -131,15 +131,40 @@ function openNewGameWindow() {
     },
   });
   newGameWindow.loadURL(`file://${__dirname}/app/new_game.html`);
+  newGameWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': ["default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-d3js';"]
+      }
+    });
+  });
   newGameWindow.on('closed', () => {
     newGameWindow = null;
   });
+  newGameWindow.webContents.openDevTools();
 }
 
 ipcMain.on('open-new-game', openNewGameWindow);
 
 let currentUniverse = null;
 
+function getUniverseGraph(universe) {
+  return {
+    systems: universe.systems.map(sys => ({
+      id: sys.id,
+      name: sys.name,
+      connections: sys.connections
+    })),
+    stellarObjects: universe.stellarObjects.map(obj => ({
+      id: obj.id,
+      type: obj.type,
+      location: obj.location
+    }))
+  };
+}
+
+// Place this function before your IPC handlers
 ipcMain.on('create-universe', (event, params) => {
   currentUniverse = createUniverse(
     params.systemCount,
@@ -147,37 +172,47 @@ ipcMain.on('create-universe', (event, params) => {
     params.stellarObjectCount
   );
   if (newGameWindow) {
-    // Send only a summary or graph data, not the whole object
+    // Send universe data back to renderer to display
     newGameWindow.webContents.send('universe-created', {
-      name: params.universeName,
       graph: getUniverseGraph(currentUniverse),
-      summary: getUniverseSummary(currentUniverse),
+      summary: {
+        typeTotals: currentUniverse.getStellarObjectTypeTotals(),
+        typeCountsBySystem: currentUniverse.getStellarObjectTypeCountsBySystem()
+      }
     });
   }
 });
 
-function getUniverseGraph(universe) {
-  // Return only the data needed for D3 (nodes and links)
-  return {
-    systems: universe.systems.map(sys => ({
-      id: sys.id,
-      name: sys.name,
-      connections: sys.connections,
-    })),
-    stellarObjects: universe.stellarObjects.map(obj => ({
-      id: obj.id,
-      type: obj.type,
-      location: obj.location,
-    })),
-  };
-}
+// Add new handler for transitioning to player creation
+ipcMain.on('proceed-to-player-creation', () => {
+  if (newGameWindow) {
+    newGameWindow.loadURL(`file://${__dirname}/app/player_creation.html`);
+  }
+});
 
-function getUniverseSummary(universe) {
-  return {
-    typeTotals: universe.getStellarObjectTypeTotals(),
-    typeCountsBySystem: universe.getStellarObjectTypeCountsBySystem(),
-  };
-}
+ipcMain.on('create-player', (event, playerData) => {
+  // Validate player data
+  if (!playerData.name || !playerData.pronouns || !playerData.description) {
+    event.reply('player-creation-error', { message: 'All fields are required' });
+    return;
+  }
+
+  // Create new game with universe and player
+  currentGame = new Game(currentUniverse, gameSettings);
+  currentGame.initializeGame(playerData);
+
+  // Close new game window and open main game window
+  if (newGameWindow) {
+    newGameWindow.close();
+  }
+  openGameWindow();
+});
+
+ipcMain.on('return-to-universe-creation', () => {
+  if (newGameWindow) {
+    newGameWindow.loadURL(`file://${__dirname}/app/new_game.html`);
+  }
+});
 
 ipcMain.handle('get-universe-graph', () => {
   if (!currentUniverse) return null;

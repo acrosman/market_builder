@@ -10,7 +10,8 @@ document.getElementById('new-game-form').addEventListener('submit', (e) => {
   // Send data to main process to create the universe
   window.api.send('create-universe', data);
 
-  // Do NOT close the window here
+  // Disable the form
+  e.target.querySelectorAll('input, button').forEach(el => el.disabled = true);
 });
 
 document.getElementById('close-btn').addEventListener('click', () => {
@@ -24,6 +25,16 @@ window.api.receive('universe-created', async (payload) => {
   renderUniverseDiagram(graph);
   displayStellarObjectCounts(summary.typeTotals);
   displayColorKey(graph.stellarObjects);
+
+  // Show and enable the proceed button after universe is generated
+  const proceedBtn = document.getElementById('proceed-btn');
+  proceedBtn.style.display = 'block';
+  proceedBtn.disabled = false;
+
+  // Re-attach event listener since the button might have been disabled
+  proceedBtn.addEventListener('click', () => {
+    window.api.send('proceed-to-player-creation');
+  });
 });
 
 function renderUniverseDiagram(universe) {
@@ -70,8 +81,13 @@ function renderUniverseDiagram(universe) {
     return { source, target };
   });
 
-  // Clear previous diagram
+  // Clear previous diagram and info
   d3.select("#universe-diagram").selectAll("*").remove();
+
+  // Create container for summary and key
+  const infoContainer = d3.select(".universe-view")
+    .insert("div", "#universe-diagram")
+    .attr("class", "universe-info");
 
   // Add SVG and group for zooming
   const svg = d3.select("#universe-diagram")
@@ -82,14 +98,14 @@ function renderUniverseDiagram(universe) {
 
   const container = svg.append("g");
 
-  // Add zoom behavior
-  svg.call(
-    d3.zoom()
-      .scaleExtent([0.2, 5])
-      .on("zoom", (event) => {
-        container.attr("transform", event.transform);
-      })
-  );
+  // Add zoom behavior with initial transform to fit all nodes
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 5])
+    .on("zoom", (event) => {
+      container.attr("transform", event.transform);
+    });
+
+  svg.call(zoom);
 
   const simulation = d3.forceSimulation(nodes)
     .force("link", d3.forceLink(links).id(d => d.id).distance(50))
@@ -135,6 +151,24 @@ function renderUniverseDiagram(universe) {
       .attr("y", d => d.y);
   });
 
+  // After nodes are created, fit view to show all nodes
+  setTimeout(() => {
+    const bounds = container.node().getBBox();
+    const dx = bounds.width;
+    const dy = bounds.height;
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+
+    const scale = 0.9 / Math.max(dx / width, dy / height);
+    const translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+    svg.transition()
+      .duration(750)
+      .call(zoom.transform, d3.zoomIdentity
+        .translate(translate[0], translate[1])
+        .scale(scale));
+  }, 100);
+
   function drag(simulation) {
     function dragStarted(event, d) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -163,7 +197,7 @@ function displayStellarObjectCounts(typeTotals) {
     summaryDiv = document.createElement('div');
     summaryDiv.id = 'stellar-object-summary';
     summaryDiv.className = 'universe-summary';
-    document.querySelector('.main-layout').insertBefore(summaryDiv, document.getElementById('universe-diagram'));
+    document.querySelector('.universe-info').appendChild(summaryDiv);
   }
   summaryDiv.innerHTML = `<b>Stellar Object Counts:</b><br>` +
     Object.entries(typeTotals).map(([type, count]) => `${type}: ${count}`).join('<br>');
@@ -175,7 +209,7 @@ function displayColorKey(stellarObjects) {
     keyDiv = document.createElement('div');
     keyDiv.id = 'stellar-object-color-key';
     keyDiv.className = 'universe-color-key';
-    document.querySelector('.main-layout').insertBefore(keyDiv, document.getElementById('universe-diagram'));
+    document.querySelector('.universe-info').appendChild(keyDiv);
   }
   const types = Array.from(new Set(stellarObjects.map(obj => obj.type)));
   const color = d3.scaleOrdinal()

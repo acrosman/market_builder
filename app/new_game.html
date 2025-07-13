@@ -4,6 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <title>New Universe - Universe Market Builder</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-d3js';">
+  <meta http-equiv="X-Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-d3js';">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/new_game.css">
   <link rel="stylesheet" href="css/universe.css">
@@ -31,12 +35,15 @@
         <input type="number" name="stellarObjectCount" min="1" max="1000" value="10" required>
       </label><br><br>
       <button type="submit" id="generate-btn">Generate Universe</button>
+      <button type="button" id="proceed-btn" style="display: none;">Create Player</button>
       <button type="button" id="close-btn">Close</button>
     </form>
-    <div id="universe-diagram"></div>
+    <div class="universe-view">
+      <div id="universe-diagram"></div>
+    </div>
   </div>
-  <script src="../node_modules/d3/dist/d3.min.js"></script>
-  <script src="new_game.js"></script>
+  <script nonce="d3js" src="../node_modules/d3/dist/d3.min.js"></script>
+  <script nonce="d3js" src="new_game.js"></script>
 </body>
 
 </html>

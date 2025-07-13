@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Create Your Character - Universe Market Builder</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <meta http-equiv="X-Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/new_game.css">
+</head>
+
+<body>
+  <div class="game-logo"></div>
+  <h1>Create Your Character</h1>
+  <div class="main-layout">
+    <form id="player-form" class="description">
+      <label>
+        Name:<br>
+        <input type="text" name="playerName" required>
+      </label><br><br>
+
+      <label>
+        Pronouns:<br>
+        <select name="pronouns" required>
+          <option value="">Select your pronouns</option>
+        </select>
+      </label><br><br>
+
+      <label>
+        Description:<br>
+        <textarea name="description" rows="4" maxlength="500" placeholder="Tell us about yourself..."
+          required></textarea>
+      </label><br><br>
+
+      <button type="submit" id="start-game-btn">Start Game</button>
+      <button type="button" id="back-btn">Back</button>
+    </form>
+  </div>
+  <script src="player_creation.js"></script>
+</body>
+
+</html>

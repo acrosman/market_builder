@@ -1,3 +1,13 @@
+#universe-diagram {
+  flex: 1;
+  background: #222a38;
+  border-radius: 8px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .universe-svg {
   width: 100%;
   height: 100%;
@@ -31,4 +41,36 @@
 .universe-summary {
   margin: 16px 0;
   color: #fff;
+}
+
+.universe-view {
+  flex: 2 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 400px;
+}
+
+.universe-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px;
+  background: #232b3a;
+  border-radius: 8px;
+}
+
+.universe-summary,
+.universe-color-key {
+  flex: 1;
+  font-size: 0.9em;
+  color: #fff;
+}
+
+#universe-diagram {
+  flex: 1;
+  min-height: 400px;
+  background: #222a38;
+  border-radius: 8px;
+  margin: 0;
 }
