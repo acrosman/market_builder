@@ -24,8 +24,8 @@ class Universe {
    * Returns an object mapping each system id to a count of each type of stellar object it contains.
    * Example return:
    * {
-   *   0: { Planet: 2, Astroid: 1 },
-   *   1: { Planet: 1 },
+   *   1: { Planet: 2, Astroid: 1 },
+   *   2: { Planet: 1 },
    *   ...
    * }
    */
@@ -67,6 +67,7 @@ class System {
     this.id = id;
     this.name = name;
     this.connections = []; // List of connected system ids
+    this.image = ''; // Will be set during universe creation
   }
 }
 
@@ -184,6 +185,28 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     const obj = new StellarObject(objectId++, type, className, location, typeDetails);
     universe.stellarObjects.push(obj);
   }
+
+  // After all objects are created, assign images to systems
+  const starfieldImages = [
+    'images/StarField1.jpg',
+    'images/StarField2.jpg',
+    'images/StarField3.jpg',
+    'images/StarField4.jpg'
+  ];
+
+  // First set System 1's image (it should always have objects)
+  universe.systems.find(s => s.id === 1).image = 'images/System1.jpg';
+
+  // For all other systems, if they have no objects, assign a random starfield
+  universe.systems.forEach(system => {
+    if (system.id === 1) return; // Skip system 1
+
+    const hasObjects = universe.stellarObjects.some(obj => obj.location === system.id);
+    if (!hasObjects) {
+      const randomIndex = Math.floor(Math.random() * starfieldImages.length);
+      system.image = starfieldImages[randomIndex];
+    }
+  });
 
   return universe;
 }

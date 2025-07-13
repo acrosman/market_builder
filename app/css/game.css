@@ -47,6 +47,23 @@
   background: #181f2a;
 }
 
+.no-image-placeholder {
+  display: none;
+  color: #4a5568;
+  font-size: 1.2em;
+  text-align: center;
+}
+
+#location-image:not([src]),
+#location-image[src=""] {
+  display: none;
+}
+
+#location-image:not([src]) + .no-image-placeholder,
+#location-image[src=""] + .no-image-placeholder {
+  display: block;
+}
+
 .game-bottom {
   width: 100%;
   height: 50%;

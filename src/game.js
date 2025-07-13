@@ -8,7 +8,7 @@ class Player {
   constructor(name, settings) {
     this.name = name;
     this.credits = settings.starting_credits;
-    this.location = 1; // Start in System 1 (not 0)
+    this.location = 1;  // Start in System 1
     this.ship = settings.initial_ship;
     this.cargo = {};
     this.stats = {

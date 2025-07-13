@@ -20,11 +20,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map(obj => `${obj.type} (${obj.className})`)
       .join(', ');
 
+    // Update location status
     locationStatus.innerHTML = `
       <p>System: ${system.name}</p>
       <p>Objects: ${objectsList || 'None'}</p>
       <p>Total Population: ${totalPopulation.toLocaleString()}</p>
     `;
+
+    // Update location image
+    const locationImage = document.getElementById('location-image');
+    if (system.image) {
+      locationImage.src = system.image;
+      locationImage.style.display = 'block';
+    } else {
+      locationImage.style.display = 'none';
+    }
   }
 
   // Add ship status update function
