@@ -50,7 +50,7 @@ describe('Game Module', () => {
 
       expect(player.name).toBe('TestPlayer');
       expect(player.credits).toBe(mockSettings.starting_credits);
-      expect(player.location).toBe(0);
+      expect(player.location).toBe(1);
       expect(player.ship).toBe(mockSettings.initial_ship);
       expect(player.cargo).toEqual({});
       expect(player.stats).toEqual({
@@ -92,10 +92,18 @@ describe('Game Module', () => {
     });
 
     test('initializes game with player and NPCs', () => {
-      game.initializeGame('TestPlayer');
+      const playerData = {
+        name: 'TestPlayer',
+        pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
+        description: 'Test player description'
+      };
+
+      game.initializeGame(playerData);
 
       expect(game.player).toBeTruthy();
       expect(game.player.name).toBe('TestPlayer');
+      expect(game.player.pronouns).toEqual(playerData.pronouns);
+      expect(game.player.description).toBe(playerData.description);
       expect(game.npcs.length).toBe(2); // One for each system except starting system
     });
 
@@ -122,13 +130,19 @@ describe('Game Module', () => {
       game.initializeGame('TestPlayer');
       const state = game.getCurrentLocationState();
 
-      expect(state.system).toBe(mockUniverse.systems[0]);
-      expect(state.objects).toEqual([mockUniverse.stellarObjects[0]]);
+      expect(state.system).toBe(mockUniverse.systems[1]);
+      expect(state.objects).toEqual([mockUniverse.stellarObjects[1]]);
       expect(Array.isArray(state.npcs)).toBe(true);
     });
 
     test('gets player state', () => {
-      game.initializeGame('TestPlayer');
+      const playerData = {
+        name: 'TestPlayer',
+        pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
+        description: 'Test player description'
+      };
+
+      game.initializeGame(playerData);
       const state = game.getPlayerState();
 
       expect(state.name).toBe('TestPlayer');
@@ -140,16 +154,21 @@ describe('Game Module', () => {
 
     describe('Save and Load', () => {
       const testFilename = 'test-save';
+      const playerData = {
+        name: 'TestPlayer',
+        pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
+        description: 'Test player description'
+      };
 
       beforeEach(() => {
-        game.initializeGame('TestPlayer');
+        game.initializeGame(playerData);
       });
 
       test('saves game state to file and loads it back', () => {
         // Save the game
         game.saveGame(testFilename);
 
-        // Verify file exists
+        // Verify file exists.
         const savePath = path.join(savesDir, `${testFilename}.json`);
         expect(fs.existsSync(savePath)).toBe(true);
 
@@ -158,7 +177,7 @@ describe('Game Module', () => {
 
         // Verify loaded game state matches original
         expect(loadedGame).toBeInstanceOf(Game);
-        expect(loadedGame.player.name).toBe('TestPlayer');
+        expect(loadedGame.player.name).toBe(playerData.name);
         expect(loadedGame.settings).toEqual(mockSettings);
         expect(loadedGame.universe).toEqual(mockUniverse);
         expect(loadedGame.turn).toBe(game.turn);
