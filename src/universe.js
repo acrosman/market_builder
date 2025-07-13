@@ -114,9 +114,9 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   const settings = loadDataFile('game_settings');
   const stellarObjectsData = loadDataFile('stellarObjects');
 
-  // Create systems
-  for (let i = 0; i < systemCount; i++) {
-    universe.systems.push(new System(i, `System ${i + 1}`));
+  // Create systems starting from 1
+  for (let i = 1; i <= systemCount; i++) {
+    universe.systems.push(new System(i, `System ${i}`));
   }
 
   // Shuffle systems to ensure all are connected in a chain
@@ -151,7 +151,7 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   }
 
 
-  // Add required objects to system zero
+  // Add required objects to system one (home system)
   let objectId = 0;
   if (settings.starting_system && settings.starting_system.required_objects) {
     settings.starting_system.required_objects.forEach(required => {
@@ -160,14 +160,14 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
         objectId++,
         required.type,
         required.class,
-        0, // System zero
+        1, // System one instead of zero
         typeDetails
       );
       universe.stellarObjects.push(obj);
     });
   }
 
-  // Create remaining stellar objects and assign to random systems (avoiding system 0)
+  // Create remaining stellar objects and assign to random systems (avoiding system 1)
   const stellarTypes = Object.keys(stellarObjectsData);
   const remainingObjects = objectsCount - objectId;
 
@@ -178,8 +178,8 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     const classNames = Object.keys(typeDetails.classes);
     const className = classNames[Math.floor(Math.random() * classNames.length)];
 
-    // Assign to random system (but not system 0)
-    const location = Math.floor(Math.random() * (systemCount - 1)) + 1;
+    // Assign to random system (but not system 1)
+    const location = Math.floor(Math.random() * (systemCount - 1)) + 2;
 
     const obj = new StellarObject(objectId++, type, className, location, typeDetails);
     universe.stellarObjects.push(obj);

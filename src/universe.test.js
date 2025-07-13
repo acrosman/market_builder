@@ -108,18 +108,25 @@ describe('createUniverse', () => {
     });
   });
 
-  test('Creates universe with required objects in system zero', () => {
+  test('Creates universe with required objects in system one', () => {
     const universe = createUniverse(5, 6, 3);
 
-    // Check system zero objects
-    const systemZeroObjects = universe.stellarObjects.filter(obj => obj.location === 0);
-    expect(systemZeroObjects.length).toBeGreaterThanOrEqual(2);
+    // Check system one objects
+    const systemOneObjects = universe.stellarObjects.filter(obj => obj.location === 1);
+    expect(systemOneObjects.length).toBeGreaterThanOrEqual(2);
 
     // Verify required objects exist
-    const planet = systemZeroObjects.find(obj => obj.type === 'Planet' && obj.className === 'Earth-like');
-    const station = systemZeroObjects.find(obj => obj.type === 'Space Station' && obj.className === 'Trading Post');
+    const planet = systemOneObjects.find(obj => obj.type === 'Planet' && obj.className === 'Earth-like');
+    const station = systemOneObjects.find(obj => obj.type === 'Space Station' && obj.className === 'Trading Post');
 
     expect(planet).toBeTruthy();
     expect(station).toBeTruthy();
+  });
+
+  test('Systems are numbered starting from 1', () => {
+    const universe = createUniverse(5, 6, 3);
+    const systemIds = universe.systems.map(sys => sys.id);
+    expect(Math.min(...systemIds)).toBe(1);
+    expect(Math.max(...systemIds)).toBe(5);
   });
 });

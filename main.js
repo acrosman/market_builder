@@ -247,3 +247,8 @@ ipcMain.handle('get-location-state', () => {
   if (!currentGame) return null;
   return currentGame.getCurrentLocationState();
 });
+
+ipcMain.handle('get-ship-data', () => {
+  const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'ships.json'), 'utf-8'));
+  return shipsData;
+});

@@ -8,7 +8,7 @@ class Player {
   constructor(name, settings) {
     this.name = name;
     this.credits = settings.starting_credits;
-    this.location = 0; // Starting system ID
+    this.location = 1; // Start in System 1 (not 0)
     this.ship = settings.initial_ship;
     this.cargo = {};
     this.stats = {
@@ -49,16 +49,19 @@ class Game {
 
   /**
    * Initialize a new game
-   * @param {string} playerName - Name of the player
+   * @param {Object} playerData - Player information
    */
-  initializeGame(playerName) {
-    // Create player
-    this.player = new Player(playerName, this.settings);
+  initializeGame(playerData) {
+    // Create player with proper starting location
+    this.player = new Player(playerData.name, this.settings);
+    this.player.location = 1;  // System 1 is home
+    this.player.pronouns = playerData.pronouns;
+    this.player.description = playerData.description;
 
     // Create NPCs (one trader per system for now)
-    this.universe.systems.forEach((system, index) => {
-      if (index === 0) return; // Skip starting system
-      this.npcs.push(new NPC(index, 'trader', system.id));
+    this.universe.systems.forEach((system) => {
+      if (system.id === 1) return; // Skip player's starting system
+      this.npcs.push(new NPC(system.id, 'trader', system.id));
     });
 
     // Initialize market prices and quantities

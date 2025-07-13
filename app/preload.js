@@ -24,4 +24,5 @@ contextBridge.exposeInMainWorld('api', {
   },
   getLocationState: () => ipcRenderer.invoke('get-location-state'),  // Add this
   getGameSettings: () => ipcRenderer.invoke('get-game-settings'), // Add this line
+  getShipData: () => ipcRenderer.invoke('get-ship-data'),
 });
