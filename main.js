@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { app, BrowserWindow, ipcMain } = electron;
 const { createUniverse } = require('./src/universe');
+const { Game } = require('./src/game');  // Add this line
 
 // Developer Dependencies.
 const isDev = !app.isPackaged;
@@ -148,6 +149,7 @@ function openNewGameWindow() {
 ipcMain.on('open-new-game', openNewGameWindow);
 
 let currentUniverse = null;
+let currentGame = null;  // Add this line to track the current game
 
 function getUniverseGraph(universe) {
   return {
@@ -207,6 +209,19 @@ ipcMain.on('create-player', (event, playerData) => {
   }
   openGameWindow();
 });
+
+// Add this function to handle opening the main game window
+function openGameWindow() {
+  const gameWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(app.getAppPath(), 'app/preload.js'),
+    },
+  });
+  gameWindow.loadURL(`file://${__dirname}/app/game.html`);
+}
 
 ipcMain.on('return-to-universe-creation', () => {
   if (newGameWindow) {
