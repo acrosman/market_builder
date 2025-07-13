@@ -1,6 +1,30 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const consoleDiv = document.getElementById('game-console');
   const input = document.getElementById('game-input');
+  const locationStatus = document.getElementById('location-status');
+
+  // Update location display
+  async function updateLocationDisplay() {
+    const locationState = await window.api.getLocationState();
+    if (!locationState) return;
+
+    const system = locationState.system;
+    const objects = locationState.objects;
+
+    // Find the primary object (planet or station) in this system
+    const primaryObject = objects.find(obj =>
+      obj.type === 'Planet' || obj.type === 'Space Station'
+    );
+
+    locationStatus.innerHTML = `
+      <p>System: ${system.name}</p>
+      <p>Type: ${primaryObject ? primaryObject.type : 'Empty System'}</p>
+      <p>Population: ${primaryObject ? primaryObject.populationLimit.toLocaleString() : 0}</p>
+    `;
+  }
+
+  // Initial location update
+  await updateLocationDisplay();
 
   // Example: Add a welcome message
   function addMessage(msg) {

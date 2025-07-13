@@ -143,7 +143,6 @@ function openNewGameWindow() {
   newGameWindow.on('closed', () => {
     newGameWindow = null;
   });
-  newGameWindow.webContents.openDevTools();
 }
 
 ipcMain.on('open-new-game', openNewGameWindow);
@@ -242,4 +241,9 @@ ipcMain.handle('get-universe-summary', () => {
 // Add this with your other IPC handlers
 ipcMain.handle('get-game-settings', () => {
   return gameSettings;
+});
+
+ipcMain.handle('get-location-state', () => {
+  if (!currentGame) return null;
+  return currentGame.getCurrentLocationState();
 });

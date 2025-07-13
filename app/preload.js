@@ -7,18 +7,21 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   send: (channel, data) => {
     // List channels to allow.
-    const validChannels = ['open-new-game', 'create-universe', 'create-player', 'return-to-universe-creation', 'proceed-to-player-creation'];
+    const validChannels = ['open-new-game', 'create-universe', 'create-player', 'return-to-universe-creation', 'proceed-to-player-creation', 'get-location-info'  // Add this
+    ];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }
   },
   receive: (channel, func) => {
     // List channels to allow.
-    const validChannels = ['universe-created', 'player-creation-error', 'player-creation-success'];
+    const validChannels = ['universe-created', 'player-creation-error', 'player-creation-success', 'location-update'    // Add this
+    ];
     if (validChannels.includes(channel)) {
       // Remove the event to avoid information leaks.
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
   },
+  getLocationState: () => ipcRenderer.invoke('get-location-state'),  // Add this
   getGameSettings: () => ipcRenderer.invoke('get-game-settings'), // Add this line
 });
