@@ -10,6 +10,17 @@ class Player {
     this.credits = settings.starting_credits;
     this.location = 1;  // Start in System 1
     this.ship = settings.initial_ship;
+
+    // Load ship data to initialize ship-specific properties
+    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/ships.json'), 'utf-8'));
+    const shipData = shipsData[settings.initial_ship];
+
+    // Track ship's current energy level
+    this.shipEnergy = shipData.energy;
+    this.shipMaxEnergy = shipData.energy;
+    this.energyPerJump = shipData.energyPerJump;
+    this.energyRecharge = shipData.energyRecharge;
+
     this.cargo = {};
     this.stats = {
       jumps: 0,
@@ -90,6 +101,9 @@ class Game {
       return;
     }
 
+    // Recharge ship energy
+    this.rechargeShipEnergy();
+
     // Process NPC actions
     this.processNPCActions();
 
@@ -139,9 +153,78 @@ class Game {
       name: this.player.name,
       credits: this.player.credits,
       ship: this.player.ship,
+      shipEnergy: this.player.shipEnergy,
+      shipMaxEnergy: this.player.shipMaxEnergy,
       cargo: this.player.cargo,
       stats: this.player.stats
     };
+  }
+
+  /**
+   * Check if a jump to the target system is valid
+   * @param {number} targetSystemId - ID of the system to jump to
+   * @returns {Object} Result of validation {valid: boolean, reason: string}
+   */
+  validateJump(targetSystemId) {
+    // Check if the target system exists
+    const targetSystem = this.universe.systems.find(s => s.id === targetSystemId);
+    if (!targetSystem) {
+      return { valid: false, reason: "Target system does not exist" };
+    }
+
+    // Check if current system has a connection to the target system
+    const currentSystem = this.universe.systems.find(s => s.id === this.player.location);
+    if (!currentSystem.connections.includes(targetSystemId)) {
+      return { valid: false, reason: "No direct connection to target system" };
+    }
+
+    // Check if ship has enough energy for the jump
+    if (this.player.shipEnergy < this.player.energyPerJump) {
+      return { valid: false, reason: "Not enough energy for jump" };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Perform a jump to the target system
+   * @param {number} targetSystemId - ID of the system to jump to
+   * @returns {Object} Result of the jump operation
+   */
+  jumpToSystem(targetSystemId) {
+    // Validate the jump
+    const validation = this.validateJump(targetSystemId);
+    if (!validation.valid) {
+      return { success: false, reason: validation.reason };
+    }
+
+    // Consume energy for the jump
+    this.player.shipEnergy -= this.player.energyPerJump;
+
+    // Update player location
+    this.player.location = targetSystemId;
+
+    // Update player stats
+    this.player.stats.jumps += 1;
+
+    // Return the new location state
+    return {
+      success: true,
+      locationState: this.getCurrentLocationState(),
+      playerState: this.getPlayerState()
+    };
+  }
+
+  /**
+   * Recharge ship energy (called during turn processing)
+   */
+  rechargeShipEnergy() {
+    if (this.player.shipEnergy < this.player.shipMaxEnergy) {
+      this.player.shipEnergy = Math.min(
+        this.player.shipMaxEnergy,
+        this.player.shipEnergy + this.player.energyRecharge
+      );
+    }
   }
 
   /**

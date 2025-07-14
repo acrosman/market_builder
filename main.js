@@ -247,10 +247,32 @@ ipcMain.handle('get-game-settings', () => {
 
 ipcMain.handle('get-location-state', () => {
   if (!currentGame) return null;
-  return currentGame.getCurrentLocationState();
+  const locationState = currentGame.getCurrentLocationState();
+
+  // Add player state to the location state for the renderer
+  locationState.playerState = currentGame.getPlayerState();
+
+  return locationState;
 });
 
 ipcMain.handle('get-ship-data', () => {
   const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'ships.json'), 'utf-8'));
   return shipsData;
+});
+
+// Handle jump-to-system request from renderer
+ipcMain.on('jump-to-system', (event, targetSystemId) => {
+  if (!currentGame) {
+    event.reply('jump-result', { success: false, reason: "No active game" });
+    return;
+  }
+
+  // Convert targetSystemId to number if it's a string
+  const systemId = parseInt(targetSystemId, 10);
+
+  // Attempt to jump to the target system
+  const result = currentGame.jumpToSystem(systemId);
+
+  // Send the result back to the renderer
+  event.reply('jump-result', result);
 });

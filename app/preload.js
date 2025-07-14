@@ -15,7 +15,12 @@ contextBridge.exposeInMainWorld('api', {
   },
   receive: (channel, func) => {
     // List channels to allow.
-    const validChannels = ['universe-created', 'player-creation-error', 'player-creation-success', 'location-update'    // Add this
+    const validChannels = [
+      'universe-created',
+      'player-creation-error',
+      'player-creation-success',
+      'location-update',
+      'jump-result'  // Add this channel for jump results
     ];
     if (validChannels.includes(channel)) {
       // Remove the event to avoid information leaks.

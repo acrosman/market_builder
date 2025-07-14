@@ -41,16 +41,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Add ship status update function
   async function updateShipStatus() {
+    const locationState = await window.api.getLocationState();
+    if (!locationState) return;
+
     const settings = await window.api.getGameSettings();
     const ships = await window.api.getShipData();
-    const shuttleData = ships[settings.initial_ship];
+    const shipType = settings.initial_ship;
+    const shipData = ships[shipType];
+
+    // Get player state for current energy levels
+    const playerState = locationState.playerState || {
+      shipEnergy: shipData.energy,
+      shipMaxEnergy: shipData.energy
+    };
 
     shipStatus.innerHTML = `
-      <p>Ship: ${settings.initial_ship}</p>
-      <p>HP: ${shuttleData.hitPoints}/${shuttleData.hitPoints}</p>
-      <p>Cargo: 0/${shuttleData.cargoCapacity}</p>
-      <p>Shields: ${shuttleData.shields}/${shuttleData.shields}</p>
-      <p>Energy: ${shuttleData.energy}/${shuttleData.energy}</p>
+      <p>Ship: ${shipType}</p>
+      <p>HP: ${shipData.hitPoints}/${shipData.hitPoints}</p>
+      <p>Cargo: 0/${shipData.cargoCapacity}</p>
+      <p>Shields: ${shipData.shields}/${shipData.shields}</p>
+      <p>Energy: ${playerState.shipEnergy}/${playerState.shipMaxEnergy}</p>
     `;
   }
 
@@ -124,9 +134,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function handleJump(targetSystemId) {
     addMessage(`Jumping to System ${targetSystemId}...`);
-    // TODO: Implement actual jump logic
+
+    // Disable all jump buttons during the jump process
+    const buttons = document.querySelectorAll('.action-btn');
+    buttons.forEach(btn => btn.disabled = true);
+
+    // Send jump request to main process
     window.api.send('jump-to-system', targetSystemId);
   }
+
+  // Listen for jump result from main process
+  window.api.receive('jump-result', (result) => {
+    if (result.success) {
+      // Jump was successful
+      addMessage(`Jump to ${result.locationState.system.name} completed successfully.`);
+
+      // Update the UI with the new location information
+      updateLocationDisplay();
+      updateShipStatus();
+    } else {
+      // Jump failed
+      addMessage(`Jump failed: ${result.reason}`);
+
+      // Re-enable buttons
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = false);
+    }
+  });
 
   function handleDock() {
     addMessage('Requesting docking permission...');
