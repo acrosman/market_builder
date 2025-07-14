@@ -14,7 +14,7 @@ describe('loadDataFile', () => {
     const data = loadDataFile('stellarObjects');
     expect(data).toHaveProperty('Planet');
     expect(data).toHaveProperty('Space Station');
-    expect(data).toHaveProperty('Astroid');
+    expect(data).toHaveProperty('Asteroid');
   });
 });
 

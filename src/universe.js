@@ -1,6 +1,49 @@
 const fs = require('fs');
 const path = require('path');
 
+// References to default images for various stellar object types.
+// This is probably the wrong place for them, but it will do for now.
+const stellarImages = {
+  starField: [
+    'images/StarField1.jpg',
+    'images/StarField2.jpg',
+    'images/StarField3.jpg',
+    'images/StarField4.jpg'
+  ],
+  planets: {
+    "Earth-like": [
+      'images/EarthLike1.jpg',
+      'images/EarthLike2.jpg',
+      'images/EarthLike3.jpg',
+      'images/EarthLike3.jpg',
+    ],
+    "Metal World": [
+      'images/MetalWorld1.jpg',
+      'images/MetalWorld2.jpg',
+      'images/MetalWorld3.jpg',
+      'images/MetalWorld3.jpg',
+    ],
+    "Farm World": [
+      'images/FarmWorld1.jpg',
+      'images/FarmWorld2.jpg',
+      'images/FarmWorld3.jpg',
+      'images/FarmWorld3.jpg',
+    ],
+  },
+  "Space Station": [
+    'images/Station1.jpg',
+    'images/Station2.jpg',
+    'images/Station3.jpg',
+    'images/Station3.jpg',
+  ],
+  Asteroid: [
+    'images/Asteroid1.jpg',
+    'images/Asteroid2.jpg',
+    'images/Asteroid3.jpg',
+    'images/Asteroid3.jpg',
+  ]
+};
+
 /**
  * Generic loader for JSON data files in the ../data directory.
  * @param {string} fileName - The name of the JSON file to load (without extension).
@@ -24,7 +67,7 @@ class Universe {
    * Returns an object mapping each system id to a count of each type of stellar object it contains.
    * Example return:
    * {
-   *   1: { Planet: 2, Astroid: 1 },
+   *   1: { Planet: 2, Asteroid: 1 },
    *   2: { Planet: 1 },
    *   ...
    * }
@@ -47,7 +90,7 @@ class Universe {
   /**
    * Returns an object mapping each stellar object type to the total count in the universe.
    * Example return:
-   * { Planet: 10, Astroid: 5 }
+   * { Planet: 10, Asteroid: 5 }
    */
   getStellarObjectTypeTotals() {
     const totals = {};
@@ -77,7 +120,7 @@ class System {
 class StellarObject {
   constructor(id, type, className, location, details) {
     this.id = id;
-    this.type = type; // e.g. "Planet", "Space Station", "Astroid"
+    this.type = type; // e.g. "Planet", "Space Station", "Asteroid"
     this.className = className; // e.g. "Earth-like", "Trading Post"
     this.location = location; // system id where the object is located
 
@@ -100,6 +143,23 @@ class StellarObject {
 
     // Generalized goods: copy all goods fields
     this.goods = { ...classDetails.goods };
+  }
+
+  /**
+   * Gets an image for this type of object.
+   * TODO: Move this to a more sensible location.
+   * @returns string, path to image.
+   */
+  getRandomImage() {
+    let imageList;
+    if (this.type === 'Planet') {
+      imageList = stellarImages.planets[this.className];
+    } else {
+      imageList = stellarImages[this.type];
+    }
+
+    const randomIndex = Math.floor(Math.random() * imageList.length);
+    return imageList[randomIndex];
   }
 }
 
@@ -161,7 +221,7 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
         objectId++,
         required.type,
         required.class,
-        1, // System one instead of zero
+        1,
         typeDetails
       );
       universe.stellarObjects.push(obj);
@@ -184,15 +244,12 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
 
     const obj = new StellarObject(objectId++, type, className, location, typeDetails);
     universe.stellarObjects.push(obj);
-  }
 
-  // After all objects are created, assign images to systems
-  const starfieldImages = [
-    'images/StarField1.jpg',
-    'images/StarField2.jpg',
-    'images/StarField3.jpg',
-    'images/StarField4.jpg'
-  ];
+    // Add an image for the system.
+    const imagePath = obj.getRandomImage();
+    universe.systems.find(s => s.id === location).image = imagePath;
+
+  }
 
   // First set System 1's image (it should always have objects)
   universe.systems.find(s => s.id === 1).image = 'images/System1.jpg';
@@ -202,9 +259,11 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     if (system.id === 1) return; // Skip system 1
 
     const hasObjects = universe.stellarObjects.some(obj => obj.location === system.id);
-    if (!hasObjects) {
-      const randomIndex = Math.floor(Math.random() * starfieldImages.length);
-      system.image = starfieldImages[randomIndex];
+    if (hasObjects) {
+      system.stellarObjects
+    } else {
+      const randomIndex = Math.floor(Math.random() * stellarImages.starField.length);
+      system.image = stellarImages.starField[randomIndex];
     }
   });
 

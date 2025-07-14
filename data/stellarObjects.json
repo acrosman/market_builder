@@ -100,7 +100,7 @@
       }
     }
   },
-  "Astroid": {
+  "Asteroid": {
     "market": false,
     "buildings": true,
     "shipyard": false,
@@ -110,7 +110,7 @@
     "resistance": true,
     "classes": {
       "Ice": {
-        "description": "Made of Ice, these astroid are capable of growing some food, but not much else.",
+        "description": "Made of Ice, these asteroid are capable of growing some food, but not much else.",
         "populationLimit": 500,
         "reproductionRate": 2,
         "buildingCredits": 0,
