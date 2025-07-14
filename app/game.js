@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       locationImage.style.display = 'none';
     }
+
+    updateAvailableActions(locationState);
   }
 
   // Add ship status update function
@@ -74,4 +76,67 @@ document.addEventListener('DOMContentLoaded', async () => {
       input.value = '';
     }
   });
+
+  // Update action button states based on location
+  async function updateAvailableActions(locationState) {
+    const jumpButtons = document.getElementById('jump-buttons');
+    const localButtons = document.getElementById('local-buttons');
+
+    // Clear existing buttons
+    jumpButtons.innerHTML = '';
+    localButtons.innerHTML = '';
+
+    // Add jump buttons for connected systems
+    locationState.system.connections.forEach(systemId => {
+      const button = document.createElement('button');
+      button.className = 'action-btn';
+      button.dataset.action = 'jump';
+      button.dataset.targetSystem = systemId;
+      button.textContent = `Jump to System ${systemId}`;
+      button.addEventListener('click', () => handleJump(systemId));
+      jumpButtons.appendChild(button);
+    });
+
+    // Add local action buttons based on available objects
+    const hasStation = locationState.objects.some(obj => obj.type === 'Space Station');
+    const hasPlanet = locationState.objects.some(obj =>
+      obj.type === 'Planet' || obj.type === 'Asteroid'
+    );
+
+    if (hasStation) {
+      const dockButton = document.createElement('button');
+      dockButton.className = 'action-btn';
+      dockButton.dataset.action = 'dock';
+      dockButton.textContent = 'Dock at Station';
+      dockButton.addEventListener('click', () => handleDock());
+      localButtons.appendChild(dockButton);
+    }
+
+    if (hasPlanet) {
+      const landButton = document.createElement('button');
+      landButton.className = 'action-btn';
+      landButton.dataset.action = 'land';
+      landButton.textContent = 'Land on Surface';
+      landButton.addEventListener('click', () => handleLand());
+      localButtons.appendChild(landButton);
+    }
+  }
+
+  function handleJump(targetSystemId) {
+    addMessage(`Jumping to System ${targetSystemId}...`);
+    // TODO: Implement actual jump logic
+    window.api.send('jump-to-system', targetSystemId);
+  }
+
+  function handleDock() {
+    addMessage('Requesting docking permission...');
+    // TODO: Implement docking logic
+    window.api.send('dock-at-station');
+  }
+
+  function handleLand() {
+    addMessage('Preparing for landing...');
+    // TODO: Implement landing logic
+    window.api.send('land-on-surface');
+  }
 });

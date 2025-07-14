@@ -220,7 +220,9 @@ function openGameWindow() {
     },
   });
   gameWindow.loadURL(`file://${__dirname}/app/game.html`);
+  gameWindow.webContents.openDevTools();
 }
+
 
 ipcMain.on('return-to-universe-creation', () => {
   if (newGameWindow) {

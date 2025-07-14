@@ -120,7 +120,7 @@ class Game {
    * @returns {Object} Location state information
    */
   getCurrentLocationState() {
-    const system = this.universe.systems[this.player.location];
+    const system = this.universe.systems.find(s => s.id === this.player.location);
     const objects = this.universe.stellarObjects.filter(obj => obj.location === system.id);
 
     return {

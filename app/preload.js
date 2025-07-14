@@ -7,7 +7,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   send: (channel, data) => {
     // List channels to allow.
-    const validChannels = ['open-new-game', 'create-universe', 'create-player', 'return-to-universe-creation', 'proceed-to-player-creation', 'get-location-info'  // Add this
+    const validChannels = ['open-new-game', 'create-universe', 'create-player', 'return-to-universe-creation', 'proceed-to-player-creation', 'get-location-info', 'jump-to-system', 'dock-at-station', 'land-on-surface'  // Add this
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
