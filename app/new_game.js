@@ -10,8 +10,10 @@ document.getElementById('new-game-form').addEventListener('submit', (e) => {
   // Send data to main process to create the universe
   window.api.send('create-universe', data);
 
-  // Disable the form
-  e.target.querySelectorAll('input, button').forEach(el => el.disabled = true);
+  // Disable the form during document generation.
+  const generateBtn = document.getElementById('generate-btn');
+  generateBtn.disabled = true;
+  generateBtn.textContent = 'Generating...';
 });
 
 document.getElementById('close-btn').addEventListener('click', () => {
@@ -26,13 +28,22 @@ window.api.receive('universe-created', async (payload) => {
   displayStellarObjectCounts(summary.typeTotals);
   displayColorKey(graph.stellarObjects);
 
+  // Re-enable the generate button for subsequent generations
+  const generateBtn = document.getElementById('generate-btn');
+  generateBtn.disabled = false;
+  generateBtn.textContent = 'Generate Universe';
+
   // Show and enable the proceed button after universe is generated
   const proceedBtn = document.getElementById('proceed-btn');
   proceedBtn.style.display = 'block';
   proceedBtn.disabled = false;
 
-  // Re-attach event listener since the button might have been disabled
-  proceedBtn.addEventListener('click', () => {
+  // Remove any existing event listeners to avoid duplicates
+  const newProceedBtn = proceedBtn.cloneNode(true);
+  proceedBtn.parentNode.replaceChild(newProceedBtn, proceedBtn);
+
+  // Add fresh event listener
+  newProceedBtn.addEventListener('click', () => {
     window.api.send('proceed-to-player-creation');
   });
 });
