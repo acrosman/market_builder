@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const input = document.getElementById('game-input');
   const locationStatus = document.getElementById('location-status');
   const shipStatus = document.getElementById('ship-status');
+  const saveGameBtn = document.getElementById('save-game-btn');
+  const loadGameBtn = document.getElementById('load-game-btn');
+  const playerStatusBtn = document.getElementById('player-status-btn');
+  const gameSettingsBtn = document.getElementById('game-settings-btn');
 
   // Update location display
   async function updateLocationDisplay() {
@@ -173,4 +177,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     // TODO: Implement landing logic
     window.api.send('land-on-surface');
   }
+
+  // Handle save game action
+  saveGameBtn.addEventListener('click', () => {
+    addMessage('Saving game...');
+    window.api.send('save-game');
+  });
+
+  // Listen for save game result from main process
+  window.api.receive('save-game-result', (result) => {
+    if (result.success) {
+      addMessage(`Game saved successfully. Save file: ${result.savePath}`);
+    } else {
+      addMessage(`Failed to save game: ${result.reason}`);
+    }
+  });
+
+  // Handle load game action
+  loadGameBtn.addEventListener('click', () => {
+    addMessage('Requesting save files...');
+    window.api.send('get-save-files');
+  });
+
+  // Listen for save files list from main process
+  window.api.receive('save-files-list', (saveFiles) => {
+    if (saveFiles.length === 0) {
+      addMessage('No save files found.');
+      return;
+    }
+
+    // For simplicity, we'll just load the most recent save file
+    // In a full implementation, you'd want to show a list to the user
+    const mostRecentSave = saveFiles[saveFiles.length - 1];
+    addMessage(`Loading most recent save: ${mostRecentSave}`);
+    window.api.send('load-game', mostRecentSave);
+  });
+
+  // Listen for load game result from main process
+  window.api.receive('load-game-result', (result) => {
+    if (result.success) {
+      addMessage('Game loaded successfully.');
+      // Update the game state here
+      updateLocationDisplay();
+      updateShipStatus();
+    } else {
+      addMessage(`Failed to load game: ${result.reason}`);
+    }
+  });
+
+  // Player Status and Game Settings buttons are currently inactive
+  playerStatusBtn.addEventListener('click', () => {
+    addMessage('Player Status feature is not yet implemented.');
+  });
+
+  gameSettingsBtn.addEventListener('click', () => {
+    addMessage('Game Settings feature is not yet implemented.');
+  });
 });

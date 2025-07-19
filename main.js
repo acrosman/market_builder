@@ -276,3 +276,57 @@ ipcMain.on('jump-to-system', (event, targetSystemId) => {
   // Send the result back to the renderer
   event.reply('jump-result', result);
 });
+
+// Handle save-game request from renderer
+ipcMain.on('save-game', (event) => {
+  if (!currentGame) {
+    event.reply('save-game-result', { success: false, reason: "No active game" });
+    return;
+  }
+
+  try {
+    const saveData = currentGame.getSaveData();
+    const savePath = path.join(app.getPath('userData'), 'saves');
+
+    if (!fs.existsSync(savePath)) {
+      fs.mkdirSync(savePath, { recursive: true });
+    }
+
+    const saveFilePath = path.join(savePath, `save_${Date.now()}.json`);
+    fs.writeFileSync(saveFilePath, JSON.stringify(saveData, null, 2));
+
+    event.reply('save-game-result', { success: true, savePath: saveFilePath });
+  } catch (error) {
+    console.error('Error saving game:', error);
+    event.reply('save-game-result', { success: false, reason: "Error saving game" });
+  }
+});
+
+// Handle get-save-files request from renderer
+ipcMain.on('get-save-files', (event) => {
+  const savePath = path.join(app.getPath('userData'), 'saves');
+  try {
+    if (!fs.existsSync(savePath)) {
+      fs.mkdirSync(savePath, { recursive: true });
+    }
+    const files = fs.readdirSync(savePath)
+      .filter(file => file.endsWith('.json'))
+      .map(file => path.join(savePath, file));
+    event.reply('save-files-list', files);
+  } catch (error) {
+    console.error('Error getting save files:', error);
+    event.reply('save-files-list', []);
+  }
+});
+
+// Handle load-game request from renderer
+ipcMain.on('load-game', (event, saveFilePath) => {
+  try {
+    const saveData = JSON.parse(fs.readFileSync(saveFilePath, 'utf-8'));
+    currentGame = Game.loadGame(saveData);
+    event.reply('load-game-result', { success: true });
+  } catch (error) {
+    console.error('Error loading game:', error);
+    event.reply('load-game-result', { success: false, reason: "Error loading game" });
+  }
+});

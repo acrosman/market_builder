@@ -228,30 +228,25 @@ class Game {
   }
 
   /**
-   * Save the current game state
-   * @param {string} filename - Name of save file
+   * Get the current game state data for saving
+   * @returns {Object} Save data object
    */
-  saveGame(filename) {
-    const saveData = {
+  getSaveData() {
+    return {
       universe: this.universe,
       player: this.player,
       npcs: this.npcs,
       turn: this.turn,
       settings: this.settings
     };
-
-    const savePath = path.join(__dirname, '../saves', `${filename}.json`);
-    fs.writeFileSync(savePath, JSON.stringify(saveData, null, 2));
   }
 
   /**
    * Load a saved game state
-   * @param {string} filename - Name of save file
+   * @param {Object} saveData - Saved game data
+   * @returns {Game} Loaded game instance
    */
-  static loadGame(filename) {
-    const savePath = path.join(__dirname, '../saves', `${filename}.json`);
-    const saveData = JSON.parse(fs.readFileSync(savePath, 'utf-8'));
-
+  static loadGame(saveData) {
     const game = new Game(saveData.universe, saveData.settings);
     game.player = saveData.player;
     game.npcs = saveData.npcs;

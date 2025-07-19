@@ -7,7 +7,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   send: (channel, data) => {
     // List channels to allow.
-    const validChannels = ['open-new-game', 'create-universe', 'create-player', 'return-to-universe-creation', 'proceed-to-player-creation', 'get-location-info', 'jump-to-system', 'dock-at-station', 'land-on-surface'  // Add this
+    const validChannels = ['open-new-game', 'create-universe', 'create-player', 'return-to-universe-creation', 'proceed-to-player-creation', 'get-location-info', 'jump-to-system', 'dock-at-station', 'land-on-surface', 'save-game', 'load-game', 'get-save-files'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
@@ -20,7 +20,10 @@ contextBridge.exposeInMainWorld('api', {
       'player-creation-error',
       'player-creation-success',
       'location-update',
-      'jump-result'  // Add this channel for jump results
+      'jump-result',
+      'save-game-result',
+      'load-game-result',
+      'save-files-list'
     ];
     if (validChannels.includes(channel)) {
       // Remove the event to avoid information leaks.
