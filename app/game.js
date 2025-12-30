@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const input = document.getElementById('game-input');
   const locationStatus = document.getElementById('location-status');
   const shipStatus = document.getElementById('ship-status');
+  const locationImage = document.getElementById('location-image');
+  const noImagePlaceholder = document.getElementById('no-image-placeholder');
   const saveGameBtn = document.getElementById('save-game-btn');
   const loadGameBtn = document.getElementById('load-game-btn');
   const playerStatusBtn = document.getElementById('player-status-btn');
@@ -32,12 +34,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     // Update location image
-    const locationImage = document.getElementById('location-image');
     if (system.image) {
       locationImage.src = system.image;
       locationImage.style.display = 'block';
+      if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
     } else {
+      locationImage.src = '';
       locationImage.style.display = 'none';
+      if (noImagePlaceholder) noImagePlaceholder.style.display = 'block';
     }
 
     updateAvailableActions(locationState);
@@ -71,6 +75,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initial updates
   await updateLocationDisplay();
   await updateShipStatus();
+
+  // Attach image load/error handlers to comply with CSP (avoid inline handlers)
+  if (locationImage) {
+    locationImage.addEventListener('error', () => {
+      locationImage.style.display = 'none';
+      if (noImagePlaceholder) noImagePlaceholder.style.display = 'block';
+    });
+
+    locationImage.addEventListener('load', () => {
+      if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
+      locationImage.style.display = 'block';
+    });
+  }
 
   // Example: Add a welcome message
   function addMessage(msg) {
