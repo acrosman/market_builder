@@ -173,6 +173,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Update the UI with the new location information
       updateLocationDisplay();
       updateShipStatus();
+
+      // Re-enable buttons
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = false);
     } else {
       // Jump failed
       addMessage(`Jump failed: ${result.reason}`);

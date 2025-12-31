@@ -351,6 +351,9 @@ ipcMain.on('load-game', (event, saveFilePath) => {
     const saveData = JSON.parse(fs.readFileSync(saveFilePath, 'utf-8'));
     currentGame = Game.loadGame(saveData);
     event.reply('load-game-result', { success: true });
+
+    // Open the game window to start playing
+    openGameWindow();
   } catch (error) {
     console.error('Error loading game:', error);
     event.reply('load-game-result', { success: false, reason: "Error loading game" });
