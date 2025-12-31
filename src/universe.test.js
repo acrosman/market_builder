@@ -129,4 +129,72 @@ describe('createUniverse', () => {
     expect(Math.min(...systemIds)).toBe(1);
     expect(Math.max(...systemIds)).toBe(5);
   });
+
+  test('getUniqueName handles types with and without name data', () => {
+    const universe = createUniverse(5, 6, 10);
+
+    // All objects should have names assigned without error
+    universe.stellarObjects.forEach(obj => {
+      expect(obj.name).toBeDefined();
+      expect(typeof obj.name).toBe('string');
+      expect(obj.name.length).toBeGreaterThan(0);
+    });
+
+    // Planets and Stations should have unique names within their type
+    const planets = universe.stellarObjects.filter(obj => obj.type === 'Planet');
+    const stations = universe.stellarObjects.filter(obj => obj.type === 'Space Station');
+
+    const planetNames = planets.map(p => p.name);
+    const stationNames = stations.map(s => s.name);
+
+    // Check uniqueness
+    expect(new Set(planetNames).size).toBe(planetNames.length);
+    expect(new Set(stationNames).size).toBe(stationNames.length);
+  });
+
+  test('getUniqueName works with Asteroid type using nameSource mapping', () => {
+    const getUniqueName = universeModule.__get__('getUniqueName');
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const stellarObjectsData = loadDataFile('stellarObjects');
+    const asteroidDetails = stellarObjectsData.Asteroid;
+
+    // Verify Asteroid has nameSource property
+    expect(asteroidDetails.nameSource).toBe('stations');
+
+    // Generate multiple names for asteroids
+    const asteroidName1 = getUniqueName('Asteroid', asteroidDetails);
+    const asteroidName2 = getUniqueName('Asteroid', asteroidDetails);
+
+    // Should get real station names, not generic fallback like "Asteroid 123456"
+    expect(asteroidName1).toBeDefined();
+    expect(asteroidName2).toBeDefined();
+    expect(asteroidName1).not.toMatch(/^Asteroid \d+$/);
+    expect(asteroidName2).not.toMatch(/^Asteroid \d+$/);
+
+    // Names should be different for different calls
+    expect(asteroidName1).not.toBe(asteroidName2);
+  });
+
+  test('Asteroids in generated universe receive proper names from station names', () => {
+    const universe = createUniverse(5, 6, 15);
+
+    // Find all asteroids
+    const asteroids = universe.stellarObjects.filter(obj => obj.type === 'Asteroid');
+
+    // Should have at least some asteroids created
+    expect(asteroids.length).toBeGreaterThan(0);
+
+    // Each asteroid should have a name
+    asteroids.forEach(asteroid => {
+      expect(asteroid.name).toBeDefined();
+      expect(typeof asteroid.name).toBe('string');
+      expect(asteroid.name.length).toBeGreaterThan(0);
+      // Should not be generic fallback format
+      expect(asteroid.name).not.toMatch(/^Asteroid \d+$/);
+    });
+
+    // Asteroid names should be unique
+    const asteroidNames = asteroids.map(a => a.name);
+    expect(new Set(asteroidNames).size).toBe(asteroidNames.length);
+  });
 });

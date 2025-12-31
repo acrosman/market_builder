@@ -1,5 +1,6 @@
 {
   "Planet": {
+    "nameSource": "planets",
     "market": true,
     "buildings": true,
     "shipyard": true,
@@ -50,6 +51,7 @@
     }
   },
   "Space Station": {
+    "nameSource": "stations",
     "market": true,
     "buildings": true,
     "shipyard": true,
@@ -101,6 +103,7 @@
     }
   },
   "Asteroid": {
+    "nameSource": "stations",
     "market": false,
     "buildings": true,
     "shipyard": false,

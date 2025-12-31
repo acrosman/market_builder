@@ -185,16 +185,29 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   /**
    * Get a random unique name for a stellar object
    * @param {string} type - The type of object (Planet, Space Station, Asteroid)
+   * @param {object} typeDetails - The stellar object type details from stellarObjects.json
    * @returns {string} A unique name for the object
    */
-  function getUniqueName(type) {
+  function getUniqueName(type, typeDetails) {
     let nameList, usedNames;
-    if (type === 'Space Station') {
-      nameList = stationNamesData.names;
+
+    // Determine which name source to use
+    const nameSource = typeDetails?.nameSource;
+
+    if (nameSource === 'planets') {
+      nameList = planetNamesData?.names;
+      usedNames = usedPlanetNames;
+    } else if (nameSource === 'stations') {
+      nameList = stationNamesData?.names;
       usedNames = usedStationNames;
     } else {
-      nameList = planetNamesData.names;
-      usedNames = usedPlanetNames;
+      // For types without name data, generate a generic name
+      return `${type} ${Math.floor(Math.random() * 1000000)}`;
+    }
+
+    // If name data is missing, fall back to generic name
+    if (!nameList || !Array.isArray(nameList) || nameList.length === 0) {
+      return `${type} ${Math.floor(Math.random() * 1000000)}`;
     }
 
     // Get a random name that hasn't been used yet
@@ -251,7 +264,7 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   if (settings.starting_system && settings.starting_system.required_objects) {
     settings.starting_system.required_objects.forEach(required => {
       const typeDetails = stellarObjectsData[required.type];
-      const name = getUniqueName(required.type);
+      const name = getUniqueName(required.type, typeDetails);
       const obj = new StellarObject(
         objectId++,
         required.type,
@@ -278,7 +291,7 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     // Assign to random system (but not system 1)
     const location = Math.floor(Math.random() * (systemCount - 1)) + 2;
 
-    const name = getUniqueName(type);
+    const name = getUniqueName(type, typeDetails);
     const obj = new StellarObject(objectId++, type, className, location, typeDetails, name);
     universe.stellarObjects.push(obj);
 
