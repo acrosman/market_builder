@@ -194,5 +194,178 @@ describe('Game Module', () => {
         }).toThrow();
       });
     });
+
+    describe('Docking', () => {
+      test('dockAtStation returns success when docking at valid station', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0; // Set player location to system 0
+
+        // Update mock data to have a station
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Space Station', name: 'Trading Post', location: 0, className: 'Trading Post' }
+        ];
+
+        const result = game.dockAtStation(100);
+
+        expect(result.success).toBe(true);
+        expect(result.dockedObject.name).toBe('Trading Post');
+        expect(game.player.dockedAt).toBe(100);
+        expect(game.player.landedOn).toBeNull();
+        expect(game.player.stats.trades).toBe(1);
+      });
+
+      test('dockAtStation returns error when station does not exist', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.universe.stellarObjects = [];
+
+        const result = game.dockAtStation(999);
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('Station does not exist');
+      });
+
+      test('dockAtStation returns error when station is not in current system', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Space Station', name: 'Trading Post', location: 1 }
+        ];
+
+        const result = game.dockAtStation(100);
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('Station is not in your current system');
+      });
+
+      test('dockAtStation returns error when trying to dock at non-station', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
+        ];
+
+        const result = game.dockAtStation(100);
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('Cannot dock at this object');
+      });
+    });
+
+    describe('Landing', () => {
+      test('landOnPlanet returns success when landing on valid planet', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(true);
+        expect(result.landedObject.name).toBe('Earth');
+        expect(game.player.landedOn).toBe(100);
+        expect(game.player.dockedAt).toBeNull();
+        expect(game.player.stats.trades).toBe(1);
+      });
+
+      test('landOnPlanet returns success when landing on valid asteroid', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Asteroid', name: 'IceAsteroid', location: 0, className: 'Ice' }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(true);
+        expect(result.landedObject.name).toBe('IceAsteroid');
+        expect(game.player.landedOn).toBe(100);
+      });
+
+      test('landOnPlanet returns error when planet does not exist', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.universe.stellarObjects = [];
+
+        const result = game.landOnPlanet(999);
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('Planet does not exist');
+      });
+
+      test('landOnPlanet returns error when planet is not in current system', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 1 }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('Planet is not in your current system');
+      });
+
+      test('landOnPlanet returns error when trying to land on non-planet/asteroid', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Space Station', name: 'Station', location: 0 }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('Can only land on planets or asteroids');
+      });
+
+      test('landing clears previous docked status', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+        game.player.dockedAt = 50; // Previously docked
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 0 }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(true);
+        expect(game.player.landedOn).toBe(100);
+        expect(game.player.dockedAt).toBeNull();
+      });
+
+      test('docking clears previous landed status', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.player.location = 0;
+        game.player.landedOn = 50; // Previously landed
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Space Station', name: 'Station', location: 0 }
+        ];
+
+        const result = game.dockAtStation(100);
+
+        expect(result.success).toBe(true);
+        expect(game.player.dockedAt).toBe(100);
+        expect(game.player.landedOn).toBeNull();
+      });
+    });
   });
 });

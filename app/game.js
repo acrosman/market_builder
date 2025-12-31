@@ -10,10 +10,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const playerStatusBtn = document.getElementById('player-status-btn');
   const gameSettingsBtn = document.getElementById('game-settings-btn');
 
+  // Store current location state for access in other functions
+  let currentLocationState = null;
+  let currentDockedAt = null;
+  let currentLandedOn = null;
+
   // Update location display
   async function updateLocationDisplay() {
     const locationState = await window.api.getLocationState();
     if (!locationState) return;
+
+    // Store the location state
+    currentLocationState = locationState;
+    currentDockedAt = locationState.playerState?.dockedAt || null;
+    currentLandedOn = locationState.playerState?.landedOn || null;
 
     const system = locationState.system;
     const objects = locationState.objects;
@@ -32,6 +42,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       <p>Objects: ${objectsList || 'None'}</p>
       <p>Total Population: ${totalPopulation.toLocaleString()}</p>
     `;
+
+    // If docked or landed, show the location information
+    if (currentDockedAt || currentLandedOn) {
+      const objectId = currentDockedAt || currentLandedOn;
+      const object = objects.find(obj => obj.id === objectId);
+      if (object) {
+        const status = currentDockedAt ? 'Docked at' : 'Landed on';
+        locationStatus.innerHTML += `<p><strong>${status}: ${object.name}</strong></p>`;
+      }
+    }
 
     // Update location image
     if (system.image) {
@@ -63,14 +83,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       shipMaxEnergy: shipData.energy
     };
 
+    // Determine ship status (in space, docked, or landed)
+    let statusText = 'Status: In Space';
+    if (playerState.dockedAt) {
+      const dockedObject = locationState.objects.find(obj => obj.id === playerState.dockedAt);
+      statusText = `Status: Docked at ${dockedObject?.name || 'Station'}`;
+    } else if (playerState.landedOn) {
+      const landedObject = locationState.objects.find(obj => obj.id === playerState.landedOn);
+      statusText = `Status: Landed on ${landedObject?.name || 'Planet'}`;
+    }
+
     shipStatus.innerHTML = `
       <p>Ship: ${shipType}</p>
+      <p>${statusText}</p>
       <p>HP: ${shipData.hitPoints}/${shipData.hitPoints}</p>
       <p>Cargo: 0/${shipData.cargoCapacity}</p>
       <p>Shields: ${shipData.shields}/${shipData.shields}</p>
       <p>Energy: ${playerState.shipEnergy}/${playerState.shipMaxEnergy}</p>
     `;
   }
+
 
   // Initial updates
   await updateLocationDisplay();
@@ -129,28 +161,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Add local action buttons based on available objects
-    const hasStation = locationState.objects.some(obj => obj.type === 'Space Station');
-    const hasPlanet = locationState.objects.some(obj =>
-      obj.type === 'Planet' || obj.type === 'Asteroid'
-    );
-
-    if (hasStation) {
-      const dockButton = document.createElement('button');
-      dockButton.className = 'action-btn';
-      dockButton.dataset.action = 'dock';
-      dockButton.textContent = 'Dock at Station';
-      dockButton.addEventListener('click', () => handleDock());
-      localButtons.appendChild(dockButton);
-    }
-
-    if (hasPlanet) {
-      const landButton = document.createElement('button');
-      landButton.className = 'action-btn';
-      landButton.dataset.action = 'land';
-      landButton.textContent = 'Land on Surface';
-      landButton.addEventListener('click', () => handleLand());
-      localButtons.appendChild(landButton);
-    }
+    locationState.objects.forEach(obj => {
+      if (obj.type === 'Space Station') {
+        const dockButton = document.createElement('button');
+        dockButton.className = 'action-btn';
+        dockButton.dataset.action = 'dock';
+        dockButton.dataset.objectId = obj.id;
+        dockButton.textContent = `Dock at ${obj.name}`;
+        dockButton.addEventListener('click', () => handleDock(obj.id, obj.name));
+        localButtons.appendChild(dockButton);
+      } else if (obj.type === 'Planet' || obj.type === 'Asteroid') {
+        const landButton = document.createElement('button');
+        landButton.className = 'action-btn';
+        landButton.dataset.action = 'land';
+        landButton.dataset.objectId = obj.id;
+        landButton.textContent = `Land on ${obj.name}`;
+        landButton.addEventListener('click', () => handleLand(obj.id, obj.name));
+        localButtons.appendChild(landButton);
+      }
+    });
   }
 
   function handleJump(targetSystemId) {
@@ -187,17 +216,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  function handleDock() {
-    addMessage('Requesting docking permission...');
-    // TODO: Implement docking logic
-    window.api.send('dock-at-station');
+  // Listen for dock result from main process
+  window.api.receive('dock-result', (result) => {
+    if (result.success) {
+      // Dock was successful
+      addMessage(`Welcome to ${result.dockedObject.name}. Docking sequence complete.`);
+
+      // Update the UI with the new docked status
+      updateLocationDisplay();
+      updateShipStatus();
+
+      // Re-enable buttons
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = false);
+    } else {
+      // Dock failed
+      addMessage(`Docking failed: ${result.reason}`);
+
+      // Re-enable buttons
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = false);
+    }
+  });
+
+  // Listen for land result from main process
+  window.api.receive('land-result', (result) => {
+    if (result.success) {
+      // Land was successful
+      addMessage(`Welcome to ${result.landedObject.name}. Landing sequence complete.`);
+
+      // Update the UI with the new landed status
+      updateLocationDisplay();
+      updateShipStatus();
+
+      // Re-enable buttons
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = false);
+    } else {
+      // Land failed
+      addMessage(`Landing failed: ${result.reason}`);
+
+      // Re-enable buttons
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = false);
+    }
+  });
+
+
+  function handleDock(objectId, objectName) {
+    addMessage(`Requesting docking permission at ${objectName}...`);
+
+    // Disable all action buttons during the docking process
+    const buttons = document.querySelectorAll('.action-btn');
+    buttons.forEach(btn => btn.disabled = true);
+
+    // Send dock request to main process
+    window.api.send('dock-at-station', objectId);
   }
 
-  function handleLand() {
-    addMessage('Preparing for landing...');
-    // TODO: Implement landing logic
-    window.api.send('land-on-surface');
+  function handleLand(objectId, objectName) {
+    addMessage(`Preparing for landing on ${objectName}...`);
+
+    // Disable all action buttons during the landing process
+    const buttons = document.querySelectorAll('.action-btn');
+    buttons.forEach(btn => btn.disabled = true);
+
+    // Send land request to main process
+    window.api.send('land-on-surface', objectId);
   }
+
 
   // Handle save game action
   saveGameBtn.addEventListener('click', () => {

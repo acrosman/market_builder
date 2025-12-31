@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('api', {
       'player-creation-success',
       'location-update',
       'jump-result',
+      'dock-result',
+      'land-result',
       'save-game-result',
       'load-game-result',
       'save-files-list'

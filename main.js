@@ -278,6 +278,40 @@ ipcMain.on('jump-to-system', (event, targetSystemId) => {
   event.reply('jump-result', result);
 });
 
+// Handle dock-at-station request from renderer
+ipcMain.on('dock-at-station', (event, objectId) => {
+  if (!currentGame) {
+    event.reply('dock-result', { success: false, reason: "No active game" });
+    return;
+  }
+
+  // Convert objectId to number if it's a string
+  const stationId = parseInt(objectId, 10);
+
+  // Attempt to dock at the station
+  const result = currentGame.dockAtStation(stationId);
+
+  // Send the result back to the renderer
+  event.reply('dock-result', result);
+});
+
+// Handle land-on-surface request from renderer
+ipcMain.on('land-on-surface', (event, objectId) => {
+  if (!currentGame) {
+    event.reply('land-result', { success: false, reason: "No active game" });
+    return;
+  }
+
+  // Convert objectId to number if it's a string
+  const planetId = parseInt(objectId, 10);
+
+  // Attempt to land on the planet
+  const result = currentGame.landOnPlanet(planetId);
+
+  // Send the result back to the renderer
+  event.reply('land-result', result);
+});
+
 // Handle save-game request from renderer
 ipcMain.on('save-game', (event) => {
   if (!currentGame) {

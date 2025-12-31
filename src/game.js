@@ -10,6 +10,8 @@ class Player {
     this.credits = settings.starting_credits;
     this.location = 1;  // Start in System 1
     this.ship = settings.initial_ship;
+    this.dockedAt = null;  // ID of stellar object if docked
+    this.landedOn = null;  // ID of stellar object if landed
 
     // Load ship data to initialize ship-specific properties
     const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/ships.json'), 'utf-8'));
@@ -162,9 +164,12 @@ class Game {
       shipEnergy: this.player.shipEnergy,
       shipMaxEnergy: this.player.shipMaxEnergy,
       cargo: this.player.cargo,
-      stats: this.player.stats
+      stats: this.player.stats,
+      dockedAt: this.player.dockedAt,
+      landedOn: this.player.landedOn
     };
   }
+
 
   /**
    * Check if a jump to the target system is valid
@@ -223,6 +228,74 @@ class Game {
       success: true,
       locationState: this.getCurrentLocationState(),
       playerState: this.getPlayerState()
+    };
+  }
+
+  /**
+   * Dock at a station
+   * @param {number} objectId - ID of the stellar object to dock at
+   * @returns {Object} Result of the dock operation
+   */
+  dockAtStation(objectId) {
+    // Validate the object exists and is in the current system
+    const object = this.universe.stellarObjects.find(obj => obj.id === objectId);
+    if (!object) {
+      return { success: false, reason: "Station does not exist" };
+    }
+
+    if (object.location !== this.player.location) {
+      return { success: false, reason: "Station is not in your current system" };
+    }
+
+    // Check if object is a station
+    if (object.type !== 'Space Station') {
+      return { success: false, reason: "Cannot dock at this object" };
+    }
+
+    // Dock at the station
+    this.player.dockedAt = objectId;
+    this.player.landedOn = null; // Clear landed status if previously landed
+    this.player.stats.trades += 1; // Increment trades stat when docking
+
+    return {
+      success: true,
+      locationState: this.getCurrentLocationState(),
+      playerState: this.getPlayerState(),
+      dockedObject: object
+    };
+  }
+
+  /**
+   * Land on a planet
+   * @param {number} objectId - ID of the stellar object to land on
+   * @returns {Object} Result of the land operation
+   */
+  landOnPlanet(objectId) {
+    // Validate the object exists and is in the current system
+    const object = this.universe.stellarObjects.find(obj => obj.id === objectId);
+    if (!object) {
+      return { success: false, reason: "Planet does not exist" };
+    }
+
+    if (object.location !== this.player.location) {
+      return { success: false, reason: "Planet is not in your current system" };
+    }
+
+    // Check if object is a planet or asteroid
+    if (object.type !== 'Planet' && object.type !== 'Asteroid') {
+      return { success: false, reason: "Can only land on planets or asteroids" };
+    }
+
+    // Land on the planet
+    this.player.landedOn = objectId;
+    this.player.dockedAt = null; // Clear docked status if previously docked
+    this.player.stats.trades += 1; // Increment trades stat when landing
+
+    return {
+      success: true,
+      locationState: this.getCurrentLocationState(),
+      playerState: this.getPlayerState(),
+      landedObject: object
     };
   }
 

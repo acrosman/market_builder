@@ -118,11 +118,12 @@ class System {
  * Represents a stellar object (e.g., planet, station, asteroid) in the universe.
  */
 class StellarObject {
-  constructor(id, type, className, location, details) {
+  constructor(id, type, className, location, details, name) {
     this.id = id;
     this.type = type; // e.g. "Planet", "Space Station", "Asteroid"
     this.className = className; // e.g. "Earth-like", "Trading Post"
     this.location = location; // system id where the object is located
+    this.name = name; // e.g. "Aurora", "Apex Station"
 
     // General properties from the data file
     this.market = details.market;
@@ -174,6 +175,39 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   const universe = new Universe();
   const settings = loadDataFile('game_settings');
   const stellarObjectsData = loadDataFile('stellarObjects');
+  const planetNamesData = loadDataFile('planet_names');
+  const stationNamesData = loadDataFile('station_names');
+
+  // Create a set of used names to avoid duplicates
+  const usedPlanetNames = new Set();
+  const usedStationNames = new Set();
+
+  /**
+   * Get a random unique name for a stellar object
+   * @param {string} type - The type of object (Planet, Space Station, Asteroid)
+   * @returns {string} A unique name for the object
+   */
+  function getUniqueName(type) {
+    let nameList, usedNames;
+    if (type === 'Space Station') {
+      nameList = stationNamesData.names;
+      usedNames = usedStationNames;
+    } else {
+      nameList = planetNamesData.names;
+      usedNames = usedPlanetNames;
+    }
+
+    // Get a random name that hasn't been used yet
+    let name;
+    let attempts = 0;
+    do {
+      name = nameList[Math.floor(Math.random() * nameList.length)];
+      attempts++;
+    } while (usedNames.has(name) && attempts < 100);
+
+    usedNames.add(name);
+    return name;
+  }
 
   // Create systems starting from 1
   for (let i = 1; i <= systemCount; i++) {
@@ -217,12 +251,14 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   if (settings.starting_system && settings.starting_system.required_objects) {
     settings.starting_system.required_objects.forEach(required => {
       const typeDetails = stellarObjectsData[required.type];
+      const name = getUniqueName(required.type);
       const obj = new StellarObject(
         objectId++,
         required.type,
         required.class,
         1,
-        typeDetails
+        typeDetails,
+        name
       );
       universe.stellarObjects.push(obj);
     });
@@ -242,7 +278,8 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     // Assign to random system (but not system 1)
     const location = Math.floor(Math.random() * (systemCount - 1)) + 2;
 
-    const obj = new StellarObject(objectId++, type, className, location, typeDetails);
+    const name = getUniqueName(type);
+    const obj = new StellarObject(objectId++, type, className, location, typeDetails, name);
     universe.stellarObjects.push(obj);
 
     // Add an image for the system.
