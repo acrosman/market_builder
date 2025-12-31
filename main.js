@@ -1,7 +1,8 @@
 const electron = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { app, BrowserWindow, ipcMain } = electron;
+const os = require('os');
+const { app, BrowserWindow, ipcMain, dialog } = electron;
 const { createUniverse } = require('./src/universe');
 const { Game } = require('./src/game');  // Add this line
 
@@ -286,7 +287,7 @@ ipcMain.on('save-game', (event) => {
 
   try {
     const saveData = currentGame.getSaveData();
-    const savePath = path.join(app.getPath('userData'), 'saves');
+    const savePath = path.join(os.homedir(), 'market_builder', 'saves');
 
     if (!fs.existsSync(savePath)) {
       fs.mkdirSync(savePath, { recursive: true });
@@ -304,7 +305,7 @@ ipcMain.on('save-game', (event) => {
 
 // Handle get-save-files request from renderer
 ipcMain.on('get-save-files', (event) => {
-  const savePath = path.join(app.getPath('userData'), 'saves');
+  const savePath = path.join(os.homedir(), 'market_builder', 'saves');
   try {
     if (!fs.existsSync(savePath)) {
       fs.mkdirSync(savePath, { recursive: true });
@@ -316,6 +317,31 @@ ipcMain.on('get-save-files', (event) => {
   } catch (error) {
     console.error('Error getting save files:', error);
     event.reply('save-files-list', []);
+  }
+});
+
+// Handle open-load-game-dialog request from renderer
+ipcMain.handle('open-load-game-dialog', async (event) => {
+  const savePath = path.join(os.homedir(), 'market_builder', 'saves');
+
+  // Ensure the save directory exists
+  if (!fs.existsSync(savePath)) {
+    fs.mkdirSync(savePath, { recursive: true });
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath: savePath,
+    filters: [
+      { name: 'Save Files', extensions: ['json'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return { success: true, filePath: result.filePaths[0] };
+  } else {
+    return { success: false, filePath: null };
   }
 });
 

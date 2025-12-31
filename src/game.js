@@ -56,6 +56,7 @@ class Game {
     this.npcs = [];
     this.turn = 0;
     this.gameOver = false;
+    this.exploredSystems = []; // List of system ids the player has explored
   }
 
   /**
@@ -77,6 +78,11 @@ class Game {
 
     // Initialize market prices and quantities
     this.initializeMarkets();
+
+    // Mark starting system as explored
+    if (!this.exploredSystems.includes(this.player.location)) {
+      this.exploredSystems.push(this.player.location);
+    }
   }
 
   /**
@@ -207,6 +213,11 @@ class Game {
     // Update player stats
     this.player.stats.jumps += 1;
 
+    // Mark the new system as explored
+    if (!this.exploredSystems.includes(this.player.location)) {
+      this.exploredSystems.push(this.player.location);
+    }
+
     // Return the new location state
     return {
       success: true,
@@ -229,16 +240,59 @@ class Game {
 
   /**
    * Get the current game state data for saving
-   * @returns {Object} Save data object
+   * @returns {Object} Save data object with plain serializable objects
    */
   getSaveData() {
+    // Convert universe to plain object to avoid circular references
+    const universeData = {
+      systems: this.universe.systems.map(sys => ({
+        id: sys.id,
+        name: sys.name,
+        connections: sys.connections,
+        image: sys.image
+      })),
+      stellarObjects: this.universe.stellarObjects.map(obj => ({
+        id: obj.id,
+        type: obj.type,
+        className: obj.className,
+        location: obj.location,
+        market: obj.market,
+        buildings: obj.buildings,
+        shipyard: obj.shipyard,
+        shields: obj.shields,
+        cannons: obj.cannons,
+        fighters: obj.fighters,
+        resistance: obj.resistance,
+        description: obj.description,
+        populationLimit: obj.populationLimit,
+        reproductionRate: obj.reproductionRate,
+        buildingCredits: obj.buildingCredits,
+        buildingLimit: obj.buildingLimit,
+        goods: obj.goods
+      }))
+    };
+
     return {
-      universe: this.universe,
+      universe: universeData,
       player: this.player,
       npcs: this.npcs,
       turn: this.turn,
-      settings: this.settings
+      settings: this.settings,
+      exploredSystems: this.exploredSystems
     };
+  }
+
+  /**
+   * Save the current game to a file in the repository saves/ directory.
+   * @param {string} filename - Base filename (without extension)
+   */
+  saveGame(filename) {
+    const saveDir = path.join(__dirname, '..', 'saves');
+    if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
+    const savePath = path.join(saveDir, `${filename}.json`);
+    const data = this.getSaveData();
+    fs.writeFileSync(savePath, JSON.stringify(data, null, 2), 'utf8');
+    return savePath;
   }
 
   /**
@@ -247,10 +301,63 @@ class Game {
    * @returns {Game} Loaded game instance
    */
   static loadGame(saveData) {
-    const game = new Game(saveData.universe, saveData.settings);
+    // If a filename (string) is provided, read the file from repository saves/ directory
+    if (typeof saveData === 'string') {
+      const savePath = path.join(__dirname, '..', 'saves', `${saveData}.json`);
+      if (!fs.existsSync(savePath)) {
+        throw new Error(`Save file not found: ${savePath}`);
+      }
+      const raw = fs.readFileSync(savePath, 'utf8');
+      saveData = JSON.parse(raw);
+    }
+
+    // Reconstruct Universe from plain data
+    const { Universe, System, StellarObject } = require('./universe');
+    const universe = new Universe();
+
+    // Reconstruct systems
+    universe.systems = (saveData.universe.systems || []).map(sysData => {
+      const sys = new System(sysData.id, sysData.name);
+      sys.connections = sysData.connections || [];
+      sys.image = sysData.image || '';
+      return sys;
+    });
+
+    // Reconstruct stellar objects
+    universe.stellarObjects = (saveData.universe.stellarObjects || []).map(objData => {
+      const obj = new StellarObject(
+        objData.id,
+        objData.type,
+        objData.className,
+        objData.location,
+        {
+          market: objData.market,
+          buildings: objData.buildings,
+          shipyard: objData.shipyard,
+          shields: objData.shields,
+          cannons: objData.cannons,
+          fighters: objData.fighters,
+          resistance: objData.resistance,
+          classes: {
+            [objData.className]: {
+              description: objData.description,
+              populationLimit: objData.populationLimit,
+              reproductionRate: objData.reproductionRate,
+              buildingCredits: objData.buildingCredits,
+              buildingLimit: objData.buildingLimit,
+              goods: objData.goods
+            }
+          }
+        }
+      );
+      return obj;
+    });
+
+    const game = new Game(universe, saveData.settings);
     game.player = saveData.player;
     game.npcs = saveData.npcs;
     game.turn = saveData.turn;
+    game.exploredSystems = saveData.exploredSystems || [];
 
     return game;
   }

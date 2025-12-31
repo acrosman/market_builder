@@ -13,6 +13,13 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.send(channel, data);
     }
   },
+  invoke: (channel, data) => {
+    // List channels to allow.
+    const validChannels = ['get-location-state', 'get-game-settings', 'get-ship-data', 'get-universe-graph', 'get-universe-summary', 'open-load-game-dialog'];
+    if (validChannels.includes(channel)) {
+      return ipcRenderer.invoke(channel, data);
+    }
+  },
   receive: (channel, func) => {
     // List channels to allow.
     const validChannels = [
