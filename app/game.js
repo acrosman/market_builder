@@ -255,9 +255,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Player Status and Game Settings buttons are currently inactive
-  playerStatusBtn.addEventListener('click', () => {
-    addMessage('Player Status feature is not yet implemented.');
+  // Player Status and Game Settings buttons
+  const playerStatusModal = document.getElementById('player-status-modal');
+  const modalCloseBtn = document.getElementById('modal-close-btn');
+  const playerStatusContent = document.getElementById('player-status-content');
+
+  /**
+   * Open the player status modal and populate it with current player data
+   */
+  async function openPlayerStatusModal() {
+    const locationState = await window.api.getLocationState();
+    if (!locationState) return;
+
+    const playerState = locationState.playerState;
+
+    // Format cargo display
+    const cargoDisplay = Object.keys(playerState.cargo).length > 0
+      ? Object.entries(playerState.cargo)
+        .map(([good, quantity]) => `${good}: ${quantity}`)
+        .join(', ')
+      : 'Empty';
+
+    // Update modal content with player data
+    document.getElementById('stat-name').textContent = playerState.name;
+    document.getElementById('stat-credits').textContent = playerState.credits.toLocaleString();
+    document.getElementById('stat-ship').textContent = playerState.ship;
+    document.getElementById('stat-energy').textContent = `${playerState.shipEnergy}/${playerState.shipMaxEnergy}`;
+    document.getElementById('stat-cargo').textContent = cargoDisplay;
+    document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
+    document.getElementById('stat-trades').textContent = playerState.stats.trades;
+    document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
+
+    // Show the modal
+    playerStatusModal.classList.add('visible');
+  }
+
+  /**
+   * Close the player status modal
+   */
+  function closePlayerStatusModal() {
+    playerStatusModal.classList.remove('visible');
+  }
+
+  playerStatusBtn.addEventListener('click', openPlayerStatusModal);
+
+  // Close modal when close button is clicked
+  modalCloseBtn.addEventListener('click', closePlayerStatusModal);
+
+  // Close modal when Escape key is pressed
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && playerStatusModal.classList.contains('visible')) {
+      closePlayerStatusModal();
+    }
+  });
+
+  // Close modal when clicking outside the modal content
+  playerStatusModal.addEventListener('click', (event) => {
+    if (event.target === playerStatusModal) {
+      closePlayerStatusModal();
+    }
   });
 
   gameSettingsBtn.addEventListener('click', () => {
