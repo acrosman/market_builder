@@ -215,9 +215,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Handle load game action
-  loadGameBtn.addEventListener('click', () => {
-    addMessage('Requesting save files...');
-    window.api.send('get-save-files');
+  loadGameBtn.addEventListener('click', async () => {
+    try {
+      const result = await window.api.invoke('open-load-game-dialog');
+      if (result.success && result.filePath) {
+        addMessage('Loading game...');
+        // Load the game with the selected file
+        window.api.send('load-game', result.filePath);
+      }
+    } catch (error) {
+      console.error('Error opening load game dialog:', error);
+      addMessage('Error opening file dialog');
+    }
   });
 
   // Listen for save files list from main process
