@@ -255,64 +255,96 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Player Status and Game Settings buttons
-  const playerStatusModal = document.getElementById('player-status-modal');
+  // Modal system - reusable for different modal types
+  const gameModal = document.getElementById('game-modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBody = document.getElementById('modal-body');
   const modalCloseBtn = document.getElementById('modal-close-btn');
-  const playerStatusContent = document.getElementById('player-status-content');
+
+  /**
+   * Load and display a modal with the specified title and content file
+   * @param {string} title - Title to display in the modal header
+   * @param {string} contentFile - Path to the HTML content file (relative to app/)
+   * @param {Function} onLoad - Optional callback function called after content is loaded
+   */
+  async function loadModal(title, contentFile, onLoad) {
+    try {
+      const response = await fetch(contentFile);
+      if (!response.ok) {
+        console.error(`Failed to load modal content: ${contentFile}`);
+        return;
+      }
+      const html = await response.text();
+
+      // Set modal title and content
+      modalTitle.textContent = title;
+      modalBody.innerHTML = html;
+
+      // Call the optional callback to populate the content
+      if (onLoad && typeof onLoad === 'function') {
+        await onLoad();
+      }
+
+      // Show the modal
+      gameModal.classList.add('visible');
+    } catch (error) {
+      console.error('Error loading modal:', error);
+    }
+  }
+
+  /**
+   * Close the currently displayed modal
+   */
+  function closeModal() {
+    gameModal.classList.remove('visible');
+    modalBody.innerHTML = '';
+  }
 
   /**
    * Open the player status modal and populate it with current player data
    */
   async function openPlayerStatusModal() {
-    const locationState = await window.api.getLocationState();
-    if (!locationState) return;
+    await loadModal('Player Status', './modals/player-status.html', async () => {
+      const locationState = await window.api.getLocationState();
+      if (!locationState) return;
 
-    const playerState = locationState.playerState;
+      const playerState = locationState.playerState;
 
-    // Format cargo display
-    const cargoDisplay = Object.keys(playerState.cargo).length > 0
-      ? Object.entries(playerState.cargo)
-        .map(([good, quantity]) => `${good}: ${quantity}`)
-        .join(', ')
-      : 'Empty';
+      // Format cargo display
+      const cargoDisplay = Object.keys(playerState.cargo).length > 0
+        ? Object.entries(playerState.cargo)
+          .map(([good, quantity]) => `${good}: ${quantity}`)
+          .join(', ')
+        : 'Empty';
 
-    // Update modal content with player data
-    document.getElementById('stat-name').textContent = playerState.name;
-    document.getElementById('stat-credits').textContent = playerState.credits.toLocaleString();
-    document.getElementById('stat-ship').textContent = playerState.ship;
-    document.getElementById('stat-energy').textContent = `${playerState.shipEnergy}/${playerState.shipMaxEnergy}`;
-    document.getElementById('stat-cargo').textContent = cargoDisplay;
-    document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
-    document.getElementById('stat-trades').textContent = playerState.stats.trades;
-    document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
-
-    // Show the modal
-    playerStatusModal.classList.add('visible');
-  }
-
-  /**
-   * Close the player status modal
-   */
-  function closePlayerStatusModal() {
-    playerStatusModal.classList.remove('visible');
+      // Update modal content with player data
+      document.getElementById('stat-name').textContent = playerState.name;
+      document.getElementById('stat-credits').textContent = playerState.credits.toLocaleString();
+      document.getElementById('stat-ship').textContent = playerState.ship;
+      document.getElementById('stat-energy').textContent = `${playerState.shipEnergy}/${playerState.shipMaxEnergy}`;
+      document.getElementById('stat-cargo').textContent = cargoDisplay;
+      document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
+      document.getElementById('stat-trades').textContent = playerState.stats.trades;
+      document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
+    });
   }
 
   playerStatusBtn.addEventListener('click', openPlayerStatusModal);
 
   // Close modal when close button is clicked
-  modalCloseBtn.addEventListener('click', closePlayerStatusModal);
+  modalCloseBtn.addEventListener('click', closeModal);
 
   // Close modal when Escape key is pressed
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && playerStatusModal.classList.contains('visible')) {
-      closePlayerStatusModal();
+    if (event.key === 'Escape' && gameModal.classList.contains('visible')) {
+      closeModal();
     }
   });
 
   // Close modal when clicking outside the modal content
-  playerStatusModal.addEventListener('click', (event) => {
-    if (event.target === playerStatusModal) {
-      closePlayerStatusModal();
+  gameModal.addEventListener('click', (event) => {
+    if (event.target === gameModal) {
+      closeModal();
     }
   });
 
