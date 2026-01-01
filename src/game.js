@@ -72,6 +72,7 @@ class Game {
     this.player.location = 1;  // System 1 is home
     this.player.pronouns = playerData.pronouns;
     this.player.description = playerData.description;
+    this.player.corporation = playerData.corporation || { name: 'Unknown Corp', description: 'A trading company' };
 
     // Create NPCs (one trader per system for now)
     this.universe.systems.forEach((system) => {

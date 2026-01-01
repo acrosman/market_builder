@@ -194,7 +194,8 @@ ipcMain.on('proceed-to-player-creation', () => {
 
 ipcMain.on('create-player', (event, playerData) => {
   // Validate player data
-  if (!playerData.name || !playerData.pronouns || !playerData.description) {
+  if (!playerData.name || !playerData.pronouns || !playerData.description ||
+    !playerData.corporation || !playerData.corporation.name || !playerData.corporation.description) {
     event.reply('player-creation-error', { message: 'All fields are required' });
     return;
   }

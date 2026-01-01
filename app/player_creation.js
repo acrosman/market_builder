@@ -17,7 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const playerData = {
       name: formData.get('playerName'),
       pronouns: settings.pronoun_options[parseInt(formData.get('pronouns'))],
-      description: formData.get('description')
+      description: formData.get('description'),
+      corporation: {
+        name: formData.get('corporationName'),
+        description: formData.get('corporationDescription')
+      }
     };
 
     // Send player data to main process

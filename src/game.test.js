@@ -2,6 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const { Game, Player, NPC } = require('./game');
 
+// Helper function to create complete player data for tests
+function createTestPlayerData(overrides = {}) {
+  return {
+    name: 'TestPlayer',
+    pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
+    description: 'Test player description',
+    corporation: {
+      name: 'Test Corp',
+      description: 'A test corporation'
+    },
+    ...overrides
+  };
+}
+
 describe('Game Module', () => {
   let mockUniverse;
   let mockSettings;
@@ -92,11 +106,7 @@ describe('Game Module', () => {
     });
 
     test('initializes game with player and NPCs', () => {
-      const playerData = {
-        name: 'TestPlayer',
-        pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
-        description: 'Test player description'
-      };
+      const playerData = createTestPlayerData();
 
       game.initializeGame(playerData);
 
@@ -104,7 +114,24 @@ describe('Game Module', () => {
       expect(game.player.name).toBe('TestPlayer');
       expect(game.player.pronouns).toEqual(playerData.pronouns);
       expect(game.player.description).toBe(playerData.description);
+      expect(game.player.corporation).toEqual(playerData.corporation);
+      expect(game.player.corporation.name).toBe('Test Corp');
       expect(game.npcs.length).toBe(2); // One for each system except starting system
+    });
+
+    test('initializes game with fallback corporation data when not provided', () => {
+      const playerData = {
+        name: 'TestPlayer',
+        pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
+        description: 'Test player description'
+        // No corporation data
+      };
+
+      game.initializeGame(playerData);
+
+      expect(game.player.corporation).toBeDefined();
+      expect(game.player.corporation.name).toBe('Unknown Corp');
+      expect(game.player.corporation.description).toBe('A trading company');
     });
 
     test('processes turn and updates game state', () => {
@@ -136,11 +163,7 @@ describe('Game Module', () => {
     });
 
     test('gets player state', () => {
-      const playerData = {
-        name: 'TestPlayer',
-        pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
-        description: 'Test player description'
-      };
+      const playerData = createTestPlayerData();
 
       game.initializeGame(playerData);
       const state = game.getPlayerState();
@@ -198,7 +221,7 @@ describe('Game Module', () => {
     describe('Docking', () => {
       test('dockAtStation returns success when docking at valid station', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0; // Set player location to system 0
 
         // Update mock data to have a station
@@ -217,7 +240,7 @@ describe('Game Module', () => {
 
       test('dockAtStation returns error when station does not exist', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.universe.stellarObjects = [];
 
         const result = game.dockAtStation(999);
@@ -228,7 +251,7 @@ describe('Game Module', () => {
 
       test('dockAtStation returns error when station is not in current system', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
 
         game.universe.stellarObjects = [
@@ -243,7 +266,7 @@ describe('Game Module', () => {
 
       test('dockAtStation returns error when trying to dock at non-station', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
 
         game.universe.stellarObjects = [
@@ -260,7 +283,7 @@ describe('Game Module', () => {
     describe('Landing', () => {
       test('landOnPlanet returns success when landing on valid planet', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
 
         game.universe.stellarObjects = [
@@ -278,7 +301,7 @@ describe('Game Module', () => {
 
       test('landOnPlanet returns success when landing on valid asteroid', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
 
         game.universe.stellarObjects = [
@@ -294,7 +317,7 @@ describe('Game Module', () => {
 
       test('landOnPlanet returns error when planet does not exist', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.universe.stellarObjects = [];
 
         const result = game.landOnPlanet(999);
@@ -305,7 +328,7 @@ describe('Game Module', () => {
 
       test('landOnPlanet returns error when planet is not in current system', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
 
         game.universe.stellarObjects = [
@@ -320,7 +343,7 @@ describe('Game Module', () => {
 
       test('landOnPlanet returns error when trying to land on non-planet/asteroid', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
 
         game.universe.stellarObjects = [
@@ -335,7 +358,7 @@ describe('Game Module', () => {
 
       test('landing clears previous docked status', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
         game.player.dockedAt = 50; // Previously docked
 
@@ -352,7 +375,7 @@ describe('Game Module', () => {
 
       test('docking clears previous landed status', () => {
         const game = new Game(mockUniverse, mockSettings);
-        game.initializeGame({ name: 'TestPlayer', pronouns: 'they/them', description: 'Test' });
+        game.initializeGame(createTestPlayerData());
         game.player.location = 0;
         game.player.landedOn = 50; // Previously landed
 
