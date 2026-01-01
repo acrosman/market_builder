@@ -1,48 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 
-// References to default images for various stellar object types.
-// This is probably the wrong place for them, but it will do for now.
-const stellarImages = {
-  starField: [
-    'images/StarField1.jpg',
-    'images/StarField2.jpg',
-    'images/StarField3.jpg',
-    'images/StarField4.jpg'
-  ],
-  planets: {
-    "Earth-like": [
-      'images/EarthLike1.jpg',
-      'images/EarthLike2.jpg',
-      'images/EarthLike3.jpg',
-      'images/EarthLike3.jpg',
-    ],
-    "Metal World": [
-      'images/MetalWorld1.jpg',
-      'images/MetalWorld2.jpg',
-      'images/MetalWorld3.jpg',
-      'images/MetalWorld3.jpg',
-    ],
-    "Farm World": [
-      'images/FarmWorld1.jpg',
-      'images/FarmWorld2.jpg',
-      'images/FarmWorld3.jpg',
-      'images/FarmWorld3.jpg',
-    ],
-  },
-  "Space Station": [
-    'images/Station1.jpg',
-    'images/Station2.jpg',
-    'images/Station3.jpg',
-    'images/Station3.jpg',
-  ],
-  Asteroid: [
-    'images/Asteroid1.jpg',
-    'images/Asteroid2.jpg',
-    'images/Asteroid3.jpg',
-    'images/Asteroid3.jpg',
-  ]
-};
+/**
+ * Get list of image files from a directory
+ * @param {string} imageDir - Directory path relative to app/
+ * @returns {string[]} Array of image paths
+ */
+function getImagesFromDirectory(imageDir) {
+  try {
+    const fullPath = path.join(__dirname, '../app', imageDir);
+    if (!fs.existsSync(fullPath)) {
+      console.warn(`Image directory not found: ${imageDir}`);
+      return [];
+    }
+    const files = fs.readdirSync(fullPath);
+    return files
+      .filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file))
+      .map(file => path.join(imageDir, file).replace(/\\/g, '/'));
+  } catch (error) {
+    console.error(`Error reading image directory ${imageDir}:`, error);
+    return [];
+  }
+}
 
 /**
  * Generic loader for JSON data files in the ../data directory.
@@ -124,6 +103,7 @@ class StellarObject {
     this.className = className; // e.g. "Earth-like", "Trading Post"
     this.location = location; // system id where the object is located
     this.name = name; // e.g. "Aurora", "Apex Station"
+    this.landedImage = ''; // Image for when player has landed/docked (surface or port)
 
     // General properties from the data file
     this.market = details.market;
@@ -148,15 +128,59 @@ class StellarObject {
 
   /**
    * Gets an image for this type of object.
-   * TODO: Move this to a more sensible location.
+   * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
    * @returns string, path to image.
    */
-  getRandomImage() {
-    let imageList;
-    if (this.type === 'Planet') {
-      imageList = stellarImages.planets[this.className];
-    } else {
-      imageList = stellarImages[this.type];
+  getRandomImage(stellarObjectsData) {
+    const typeData = stellarObjectsData[this.type];
+    if (!typeData || !typeData.classes) {
+      console.warn(`No type data found for: ${this.type}`);
+      return '';
+    }
+
+    const classData = typeData.classes[this.className];
+    if (!classData || !classData.imagePath) {
+      console.warn(`No image path found for type: ${this.type}, class: ${this.className}`);
+      return '';
+    }
+
+    const imageDir = classData.imagePath;
+    const imageList = getImagesFromDirectory(imageDir);
+    if (imageList.length === 0) {
+      console.warn(`No images found in directory: ${imageDir}`);
+      return '';
+    }
+
+    const randomIndex = Math.floor(Math.random() * imageList.length);
+    return imageList[randomIndex];
+  }
+
+  /**
+   * Gets a landed/docked image for this type of object (surface or port).
+   * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
+   * @returns string, path to landed/port image.
+   */
+  getLandedImage(stellarObjectsData) {
+    const typeData = stellarObjectsData[this.type];
+    if (!typeData || !typeData.classes) {
+      console.warn(`No type data found for: ${this.type}`);
+      return '';
+    }
+
+    const classData = typeData.classes[this.className];
+    if (!classData || !classData.imagePath) {
+      console.warn(`No image path found for type: ${this.type}, class: ${this.className}`);
+      return '';
+    }
+
+    // Determine subfolder based on type: planets use "Surface", stations and asteroids use "Port"
+    const subfolder = this.type === 'Planet' ? 'Surface' : 'Port';
+    const imageDir = path.join(classData.imagePath, subfolder).replace(/\\/g, '/');
+
+    const imageList = getImagesFromDirectory(imageDir);
+    if (imageList.length === 0) {
+      console.warn(`No landed images found in directory: ${imageDir}`);
+      return '';
     }
 
     const randomIndex = Math.floor(Math.random() * imageList.length);
@@ -275,6 +299,8 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
         typeDetails,
         name
       );
+      // Assign landed/port image
+      obj.landedImage = obj.getLandedImage(stellarObjectsData);
       universe.stellarObjects.push(obj);
     });
   }
@@ -295,27 +321,34 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
 
     const name = getUniqueName(type, typeDetails);
     const obj = new StellarObject(objectId++, type, className, location, typeDetails, name);
+
+    // Assign landed/port image
+    obj.landedImage = obj.getLandedImage(stellarObjectsData);
+
     universe.stellarObjects.push(obj);
 
     // Add an image for the system.
-    const imagePath = obj.getRandomImage();
+    const imagePath = obj.getRandomImage(stellarObjectsData);
     universe.systems.find(s => s.id === location).image = imagePath;
 
   }
 
-  // First set System 1's image (it should always have objects)
-  universe.systems.find(s => s.id === 1).image = 'images/System1.jpg';
+  // Set system 1 image
+  const system1 = universe.systems.find(s => s.id === 1);
+  if (system1) {
+    system1.image = 'images/stellar_objects/System1.jpg';
+  }
 
-  // For all other systems, if they have no objects, assign a random starfield
+  // Get starfield images for systems without objects
+  const starfieldImages = getImagesFromDirectory('images/stellar_objects/Starfields');
+
   universe.systems.forEach(system => {
-    if (system.id === 1) return; // Skip system 1
+    if (system.id === 1) return; // Skip system 1, already set
 
     const hasObjects = universe.stellarObjects.some(obj => obj.location === system.id);
-    if (hasObjects) {
-      system.stellarObjects
-    } else {
-      const randomIndex = Math.floor(Math.random() * stellarImages.starField.length);
-      system.image = stellarImages.starField[randomIndex];
+    if (!hasObjects && starfieldImages.length > 0) {
+      const randomIndex = Math.floor(Math.random() * starfieldImages.length);
+      system.image = starfieldImages[randomIndex];
     }
   });
 

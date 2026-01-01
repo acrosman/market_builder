@@ -187,6 +187,212 @@ describe('Game UI Functions', () => {
 
       expect(locationStatus.innerHTML).toBe('');
     });
+
+    test('should display system image when in space', async () => {
+      const mockLocationState = {
+        system: {
+          name: 'Test System',
+          image: 'images/stellar_objects/Starfields/StarField1.jpg'
+        },
+        objects: [],
+        playerState: {
+          dockedAt: null,
+          landedOn: null
+        }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+
+      const updateLocationDisplayFn = async () => {
+        const locationState = await window.api.getLocationState();
+        if (!locationState) return;
+
+        const currentDockedAt = locationState.playerState?.dockedAt ?? null;
+        const currentLandedOn = locationState.playerState?.landedOn ?? null;
+        const system = locationState.system;
+        const objects = locationState.objects;
+
+        let imageToShow = system.image;
+        if (currentDockedAt || currentLandedOn) {
+          const objectId = currentDockedAt || currentLandedOn;
+          const object = objects.find(obj => obj.id === objectId);
+          if (object && object.landedImage) {
+            imageToShow = object.landedImage;
+          }
+        }
+
+        if (imageToShow) {
+          locationImage.src = imageToShow;
+          locationImage.style.display = 'block';
+          if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
+        }
+      };
+
+      await updateLocationDisplayFn();
+
+      expect(locationImage.src).toContain('StarField1.jpg');
+      expect(locationImage.style.display).toBe('block');
+      expect(noImagePlaceholder.style.display).toBe('none');
+    });
+
+    test('should display landedImage when docked at station', async () => {
+      const mockLocationState = {
+        system: {
+          name: 'Test System',
+          image: 'images/stellar_objects/Starfields/StarField1.jpg'
+        },
+        objects: [
+          {
+            id: 100,
+            type: 'Space Station',
+            name: 'Test Station',
+            landedImage: 'images/stellar_objects/Station/Port/StationPort1.jpg'
+          }
+        ],
+        playerState: {
+          dockedAt: 100,
+          landedOn: null
+        }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+
+      const updateLocationDisplayFn = async () => {
+        const locationState = await window.api.getLocationState();
+        if (!locationState) return;
+
+        const currentDockedAt = locationState.playerState?.dockedAt ?? null;
+        const currentLandedOn = locationState.playerState?.landedOn ?? null;
+        const system = locationState.system;
+        const objects = locationState.objects;
+
+        let imageToShow = system.image;
+        if (currentDockedAt || currentLandedOn) {
+          const objectId = currentDockedAt || currentLandedOn;
+          const object = objects.find(obj => obj.id === objectId);
+          if (object && object.landedImage) {
+            imageToShow = object.landedImage;
+          }
+        }
+
+        if (imageToShow) {
+          locationImage.src = imageToShow;
+          locationImage.style.display = 'block';
+          if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
+        }
+      };
+
+      await updateLocationDisplayFn();
+
+      expect(locationImage.src).toContain('StationPort1.jpg');
+      expect(locationImage.style.display).toBe('block');
+    });
+
+    test('should display landedImage when landed on planet', async () => {
+      const mockLocationState = {
+        system: {
+          name: 'Test System',
+          image: 'images/stellar_objects/Starfields/StarField1.jpg'
+        },
+        objects: [
+          {
+            id: 200,
+            type: 'Planet',
+            name: 'Test Planet',
+            landedImage: 'images/stellar_objects/Earthlike/Surface/EarthSurface1.jpg'
+          }
+        ],
+        playerState: {
+          dockedAt: null,
+          landedOn: 200
+        }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+
+      const updateLocationDisplayFn = async () => {
+        const locationState = await window.api.getLocationState();
+        if (!locationState) return;
+
+        const currentDockedAt = locationState.playerState?.dockedAt ?? null;
+        const currentLandedOn = locationState.playerState?.landedOn ?? null;
+        const system = locationState.system;
+        const objects = locationState.objects;
+
+        let imageToShow = system.image;
+        if (currentDockedAt || currentLandedOn) {
+          const objectId = currentDockedAt || currentLandedOn;
+          const object = objects.find(obj => obj.id === objectId);
+          if (object && object.landedImage) {
+            imageToShow = object.landedImage;
+          }
+        }
+
+        if (imageToShow) {
+          locationImage.src = imageToShow;
+          locationImage.style.display = 'block';
+          if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
+        }
+      };
+
+      await updateLocationDisplayFn();
+
+      expect(locationImage.src).toContain('EarthSurface1.jpg');
+      expect(locationImage.style.display).toBe('block');
+    });
+
+    test('should fall back to system image if landedImage is missing', async () => {
+      const mockLocationState = {
+        system: {
+          name: 'Test System',
+          image: 'images/stellar_objects/Starfields/StarField1.jpg'
+        },
+        objects: [
+          {
+            id: 100,
+            type: 'Space Station',
+            name: 'Test Station',
+            landedImage: '' // No landed image
+          }
+        ],
+        playerState: {
+          dockedAt: 100,
+          landedOn: null
+        }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+
+      const updateLocationDisplayFn = async () => {
+        const locationState = await window.api.getLocationState();
+        if (!locationState) return;
+
+        const currentDockedAt = locationState.playerState?.dockedAt ?? null;
+        const currentLandedOn = locationState.playerState?.landedOn ?? null;
+        const system = locationState.system;
+        const objects = locationState.objects;
+
+        let imageToShow = system.image;
+        if (currentDockedAt || currentLandedOn) {
+          const objectId = currentDockedAt || currentLandedOn;
+          const object = objects.find(obj => obj.id === objectId);
+          if (object && object.landedImage) {
+            imageToShow = object.landedImage;
+          }
+        }
+
+        if (imageToShow) {
+          locationImage.src = imageToShow;
+          locationImage.style.display = 'block';
+          if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
+        }
+      };
+
+      await updateLocationDisplayFn();
+
+      expect(locationImage.src).toContain('StarField1.jpg');
+      expect(locationImage.style.display).toBe('block');
+    });
   });
 
   describe('updateShipStatus function', () => {

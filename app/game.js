@@ -53,9 +53,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // Update location image
-    if (system.image) {
-      locationImage.src = system.image;
+    // Update location image - use landedImage if docked/landed, system image otherwise
+    let imageToShow = system.image;
+    if (currentDockedAt || currentLandedOn) {
+      const objectId = currentDockedAt || currentLandedOn;
+      const object = objects.find(obj => obj.id === objectId);
+      if (object && object.landedImage) {
+        imageToShow = object.landedImage;
+      }
+    }
+
+    if (imageToShow) {
+      locationImage.src = imageToShow;
       locationImage.style.display = 'block';
       if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
     } else {
@@ -220,14 +229,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Listen for jump result from main process
-  window.api.receive('jump-result', (result) => {
+  window.api.receive('jump-result', async (result) => {
     if (result.success) {
       // Jump was successful
       addMessage(`Jump to ${result.locationState.system.name} completed successfully.`);
 
       // Update the UI with the new location information
-      updateLocationDisplay();
-      updateShipStatus();
+      await updateLocationDisplay();
+      await updateShipStatus();
 
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
@@ -243,14 +252,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Listen for dock result from main process
-  window.api.receive('dock-result', (result) => {
+  window.api.receive('dock-result', async (result) => {
     if (result.success) {
       // Dock was successful
       addMessage(`Welcome to ${result.dockedObject.name}. Docking sequence complete.`);
 
       // Update the UI with the new docked status
-      updateLocationDisplay();
-      updateShipStatus();
+      await updateLocationDisplay();
+      await updateShipStatus();
 
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
@@ -266,14 +275,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Listen for land result from main process
-  window.api.receive('land-result', (result) => {
+  window.api.receive('land-result', async (result) => {
     if (result.success) {
       // Land was successful
       addMessage(`Welcome to ${result.landedObject.name}. Landing sequence complete.`);
 
       // Update the UI with the new landed status
-      updateLocationDisplay();
-      updateShipStatus();
+      await updateLocationDisplay();
+      await updateShipStatus();
 
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
@@ -289,12 +298,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Listen for takeoff result from main process
-  window.api.receive('takeoff-result', (result) => {
+  window.api.receive('takeoff-result', async (result) => {
     if (result.success) {
       addMessage('Takeoff successful.');
       // Update the UI with the new status
-      updateLocationDisplay();
-      updateShipStatus();
+      await updateLocationDisplay();
+      await updateShipStatus();
     } else {
       addMessage(`Takeoff failed: ${result.reason}`);
     }

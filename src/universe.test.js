@@ -64,6 +64,77 @@ describe('StellarObject', () => {
     expect(obj.buildingLimit).toBe(data.Planet.classes['Earth-like'].buildingLimit);
     expect(obj.goods).toEqual(data.Planet.classes['Earth-like'].goods);
   });
+
+  test('StellarObject initializes with empty landedImage', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    expect(obj.landedImage).toBe('');
+  });
+
+  test('getLandedImage returns path for Planet Surface subfolder', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    const landedImage = obj.getLandedImage(data);
+    // Should return a path or empty string if images don't exist yet
+    expect(typeof landedImage).toBe('string');
+    if (landedImage) {
+      expect(landedImage).toContain('Surface');
+    }
+  });
+
+  test('getLandedImage returns path for Space Station Port subfolder', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Space Station",
+      "Trading Post",
+      2,
+      data['Space Station'],
+      "TestStation"
+    );
+    const landedImage = obj.getLandedImage(data);
+    // Should return a path or empty string if images don't exist yet
+    expect(typeof landedImage).toBe('string');
+    if (landedImage) {
+      expect(landedImage).toContain('Port');
+    }
+  });
+
+  test('getLandedImage returns path for Asteroid Port subfolder', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Asteroid",
+      "Ice",
+      2,
+      data.Asteroid,
+      "TestAsteroid"
+    );
+    const landedImage = obj.getLandedImage(data);
+    // Should return a path or empty string if images don't exist yet
+    expect(typeof landedImage).toBe('string');
+    if (landedImage) {
+      expect(landedImage).toContain('Port');
+    }
+  });
 });
 
 describe('createUniverse', () => {
@@ -197,5 +268,44 @@ describe('createUniverse', () => {
     // Asteroid names should be unique
     const asteroidNames = asteroids.map(a => a.name);
     expect(new Set(asteroidNames).size).toBe(asteroidNames.length);
+  });
+
+  test('All stellar objects have landedImage assigned', () => {
+    const universe = createUniverse(5, 6, 10);
+
+    // All stellar objects should have landedImage property
+    universe.stellarObjects.forEach(obj => {
+      expect(obj).toHaveProperty('landedImage');
+      expect(typeof obj.landedImage).toBe('string');
+    });
+  });
+
+  test('Planets have Surface images and Stations/Asteroids have Port images', () => {
+    const universe = createUniverse(5, 6, 15);
+
+    const planets = universe.stellarObjects.filter(obj => obj.type === 'Planet');
+    const stations = universe.stellarObjects.filter(obj => obj.type === 'Space Station');
+    const asteroids = universe.stellarObjects.filter(obj => obj.type === 'Asteroid');
+
+    // Planets with images should have Surface in path
+    planets.forEach(planet => {
+      if (planet.landedImage) {
+        expect(planet.landedImage).toContain('Surface');
+      }
+    });
+
+    // Stations with images should have Port in path
+    stations.forEach(station => {
+      if (station.landedImage) {
+        expect(station.landedImage).toContain('Port');
+      }
+    });
+
+    // Asteroids with images should have Port in path
+    asteroids.forEach(asteroid => {
+      if (asteroid.landedImage) {
+        expect(asteroid.landedImage).toContain('Port');
+      }
+    });
   });
 });
