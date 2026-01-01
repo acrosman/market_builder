@@ -171,56 +171,58 @@ class StellarObject {
  * @param {number} objectsCount - Number of objects (e.g., planets, stations).
  * @returns {Universe} The created Universe instance.
  */
+// Create a set of used names to avoid duplicates (module scope for test access)
+const usedPlanetNames = new Set();
+const usedStationNames = new Set();
+
+/**
+ * Get a random unique name for a stellar object
+ * @param {string} type - The type of object (Planet, Space Station, Asteroid)
+ * @param {object} typeDetails - The stellar object type details from stellarObjects.json
+ * @returns {string} A unique name for the object
+ */
+function getUniqueName(type, typeDetails) {
+  // These must be loaded each call to ensure fresh data for tests
+  const planetNamesData = loadDataFile('planet_names');
+  const stationNamesData = loadDataFile('station_names');
+  let nameList, usedNames;
+  // Determine which name source to use
+  const nameSource = typeDetails?.nameSource;
+
+  if (nameSource === 'planets') {
+    nameList = planetNamesData?.names;
+    usedNames = usedPlanetNames;
+  } else if (nameSource === 'stations') {
+    nameList = stationNamesData?.names;
+    usedNames = usedStationNames;
+  } else {
+    // For types without name data, generate a generic name
+    return `${type} ${Math.floor(Math.random() * 1000000)}`;
+  }
+
+  // If name data is missing, fall back to generic name
+  if (!nameList || !Array.isArray(nameList) || nameList.length === 0) {
+    return `${type} ${Math.floor(Math.random() * 1000000)}`;
+  }
+
+  // Get a random name that hasn't been used yet
+  let name;
+  let attempts = 0;
+  do {
+    name = nameList[Math.floor(Math.random() * nameList.length)];
+    attempts++;
+  } while (usedNames.has(name) && attempts < 100);
+
+  usedNames.add(name);
+  return name;
+}
+
 function createUniverse(systemCount, connectionCount, objectsCount) {
   const universe = new Universe();
   const settings = loadDataFile('game_settings');
   const stellarObjectsData = loadDataFile('stellarObjects');
   const planetNamesData = loadDataFile('planet_names');
   const stationNamesData = loadDataFile('station_names');
-
-  // Create a set of used names to avoid duplicates
-  const usedPlanetNames = new Set();
-  const usedStationNames = new Set();
-
-  /**
-   * Get a random unique name for a stellar object
-   * @param {string} type - The type of object (Planet, Space Station, Asteroid)
-   * @param {object} typeDetails - The stellar object type details from stellarObjects.json
-   * @returns {string} A unique name for the object
-   */
-  function getUniqueName(type, typeDetails) {
-    let nameList, usedNames;
-
-    // Determine which name source to use
-    const nameSource = typeDetails?.nameSource;
-
-    if (nameSource === 'planets') {
-      nameList = planetNamesData?.names;
-      usedNames = usedPlanetNames;
-    } else if (nameSource === 'stations') {
-      nameList = stationNamesData?.names;
-      usedNames = usedStationNames;
-    } else {
-      // For types without name data, generate a generic name
-      return `${type} ${Math.floor(Math.random() * 1000000)}`;
-    }
-
-    // If name data is missing, fall back to generic name
-    if (!nameList || !Array.isArray(nameList) || nameList.length === 0) {
-      return `${type} ${Math.floor(Math.random() * 1000000)}`;
-    }
-
-    // Get a random name that hasn't been used yet
-    let name;
-    let attempts = 0;
-    do {
-      name = nameList[Math.floor(Math.random() * nameList.length)];
-      attempts++;
-    } while (usedNames.has(name) && attempts < 100);
-
-    usedNames.add(name);
-    return name;
-  }
 
   // Create systems starting from 1
   for (let i = 1; i <= systemCount; i++) {
@@ -325,4 +327,5 @@ module.exports = {
   System,
   StellarObject,
   createUniverse,
+  getUniqueName
 }

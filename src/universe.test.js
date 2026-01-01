@@ -153,7 +153,8 @@ describe('createUniverse', () => {
   });
 
   test('getUniqueName works with Asteroid type using nameSource mapping', () => {
-    const getUniqueName = universeModule.__get__('getUniqueName');
+    // Use getUniqueName from module.exports if available, else use rewire fallback
+    const getUniqueName = universeModule.getUniqueName || universeModule.__get__('getUniqueName');
     const loadDataFile = universeModule.__get__('loadDataFile');
     const stellarObjectsData = loadDataFile('stellarObjects');
     const asteroidDetails = stellarObjectsData.Asteroid;
