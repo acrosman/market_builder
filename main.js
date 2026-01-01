@@ -242,9 +242,6 @@ ipcMain.handle('get-universe-summary', () => {
 });
 
 // Add this with your other IPC handlers
-ipcMain.handle('get-game-settings', () => {
-  return gameSettings;
-});
 
 ipcMain.handle('get-location-state', () => {
   if (!currentGame) return null;
@@ -310,6 +307,21 @@ ipcMain.on('land-on-surface', (event, objectId) => {
 
   // Send the result back to the renderer
   event.reply('land-result', result);
+});
+
+
+// Handle take-off request from renderer (grouped with other game actions)
+ipcMain.on('take-off', (event) => {
+  if (!currentGame) {
+    event.reply('takeoff-result', { success: false, reason: 'No active game' });
+    return;
+  }
+  const result = currentGame.takeOff();
+  event.reply('takeoff-result', result);
+});
+// Add this with your other IPC handlers
+ipcMain.handle('get-game-settings', () => {
+  return gameSettings;
 });
 
 // Handle save-game request from renderer

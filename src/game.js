@@ -51,6 +51,7 @@ class NPC {
  * Main game state manager
  */
 class Game {
+
   constructor(universe, settings) {
     this.universe = universe;
     this.settings = settings;
@@ -170,6 +171,22 @@ class Game {
     };
   }
 
+  /**
+ * Take off from a planet or station (clear docked/landed state)
+ * @returns {Object} Result of the takeoff operation
+ */
+  takeOff() {
+    if (this.player.dockedAt === null && this.player.landedOn === null) {
+      return { success: false, reason: 'Not docked or landed' };
+    }
+    this.player.dockedAt = null;
+    this.player.landedOn = null;
+    return {
+      success: true,
+      locationState: this.getCurrentLocationState(),
+      playerState: this.getPlayerState()
+    };
+  }
 
   /**
    * Check if a jump to the target system is valid
@@ -271,8 +288,13 @@ class Game {
    * @returns {Object} Result of the land operation
    */
   landOnPlanet(objectId) {
-    // Validate the object exists and is in the current system
+
+    // Debug: Log objectId, found object, and location types/values
+    console.log('[DEBUG] landOnPlanet called with objectId:', objectId);
     const object = this.universe.stellarObjects.find(obj => obj.id === objectId);
+    console.log('[DEBUG] Found object:', object);
+    console.log('[DEBUG] object.location:', object && object.location, '(', object && typeof object.location, ')');
+    console.log('[DEBUG] player.location:', this.player.location, '(', typeof this.player.location, ')');
     if (!object) {
       return { success: false, reason: "Planet does not exist" };
     }
@@ -290,6 +312,8 @@ class Game {
     this.player.landedOn = objectId;
     this.player.dockedAt = null; // Clear docked status if previously docked
     this.player.stats.trades += 1; // Increment trades stat when landing
+    // Debug: Confirm player state after landing
+    console.log('[DEBUG] After landing, player.landedOn:', this.player.landedOn, 'player.dockedAt:', this.player.dockedAt);
 
     return {
       success: true,
@@ -329,6 +353,7 @@ class Game {
         type: obj.type,
         className: obj.className,
         location: obj.location,
+        name: obj.name,
         market: obj.market,
         buildings: obj.buildings,
         shipyard: obj.shipyard,
@@ -423,6 +448,7 @@ class Game {
           }
         }
       );
+      if (objData.name) obj.name = objData.name;
       return obj;
     });
 

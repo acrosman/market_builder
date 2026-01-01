@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Store the location state
     currentLocationState = locationState;
-    currentDockedAt = locationState.playerState?.dockedAt || null;
-    currentLandedOn = locationState.playerState?.landedOn || null;
+    currentDockedAt = locationState.playerState?.dockedAt ?? null;
+    currentLandedOn = locationState.playerState?.landedOn ?? null;
 
     const system = locationState.system;
     const objects = locationState.objects;
@@ -149,37 +149,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     jumpButtons.innerHTML = '';
     localButtons.innerHTML = '';
 
-    // Add jump buttons for connected systems
+    // Always render jump buttons, but disable if docked or landed
+    const isDocked = locationState.playerState?.dockedAt != null;
+    const isLanded = locationState.playerState?.landedOn != null;
     locationState.system.connections.forEach(systemId => {
       const button = document.createElement('button');
       button.className = 'action-btn';
       button.dataset.action = 'jump';
       button.dataset.targetSystem = systemId;
       button.textContent = `Jump to System ${systemId}`;
+      button.disabled = !!(isDocked || isLanded);
       button.addEventListener('click', () => handleJump(systemId));
       jumpButtons.appendChild(button);
     });
 
-    // Add local action buttons based on available objects
-    locationState.objects.forEach(obj => {
-      if (obj.type === 'Space Station') {
-        const dockButton = document.createElement('button');
-        dockButton.className = 'action-btn';
-        dockButton.dataset.action = 'dock';
-        dockButton.dataset.objectId = obj.id;
-        dockButton.textContent = `Dock at ${obj.name}`;
-        dockButton.addEventListener('click', () => handleDock(obj.id, obj.name));
-        localButtons.appendChild(dockButton);
-      } else if (obj.type === 'Planet' || obj.type === 'Asteroid') {
-        const landButton = document.createElement('button');
-        landButton.className = 'action-btn';
-        landButton.dataset.action = 'land';
-        landButton.dataset.objectId = obj.id;
-        landButton.textContent = `Land on ${obj.name}`;
-        landButton.addEventListener('click', () => handleLand(obj.id, obj.name));
-        localButtons.appendChild(landButton);
-      }
-    });
+    // Debug: List all objects in the current system
+    console.log('[DEBUG] Objects in current system:', locationState.objects.map(obj => ({ id: obj.id, name: obj.name, type: obj.type, className: obj.className })));
+
+    if (isDocked || isLanded) {
+      const takeOffButton = document.createElement('button');
+      takeOffButton.className = 'action-btn';
+      takeOffButton.dataset.action = 'takeoff';
+      takeOffButton.textContent = 'Take Off';
+      takeOffButton.addEventListener('click', handleTakeOff);
+      localButtons.appendChild(takeOffButton);
+    } else {
+      // Add local action buttons based on available objects
+      locationState.objects.forEach(obj => {
+        if (obj.type === 'Space Station') {
+          const dockButton = document.createElement('button');
+          dockButton.className = 'action-btn';
+          dockButton.dataset.action = 'dock';
+          dockButton.dataset.objectId = obj.id;
+          dockButton.textContent = `Dock at ${obj.name}`;
+          dockButton.addEventListener('click', () => handleDock(obj.id, obj.name));
+          localButtons.appendChild(dockButton);
+        } else if (obj.type === 'Planet' || obj.type === 'Asteroid') {
+          // Debug: Log when creating a land button
+          console.log('[DEBUG] Creating land button for:', { id: obj.id, name: obj.name, type: obj.type, className: obj.className });
+          const landButton = document.createElement('button');
+          landButton.className = 'action-btn';
+          landButton.dataset.action = 'land';
+          landButton.dataset.objectId = obj.id;
+          landButton.textContent = `Land on ${obj.name}`;
+          landButton.addEventListener('click', () => handleLand(obj.id, obj.name));
+          localButtons.appendChild(landButton);
+        }
+      });
+    }
+    // Handle take off action
+    function handleTakeOff() {
+      addMessage('Taking off...');
+      // Disable all action buttons during takeoff
+      const buttons = document.querySelectorAll('.action-btn');
+      buttons.forEach(btn => btn.disabled = true);
+      // Send takeoff request to main process
+      window.api.send('take-off');
+    }
   }
 
   function handleJump(targetSystemId) {
@@ -262,6 +288,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Listen for takeoff result from main process
+  window.api.receive('takeoff-result', (result) => {
+    if (result.success) {
+      addMessage('Takeoff successful.');
+      // Update the UI with the new status
+      updateLocationDisplay();
+      updateShipStatus();
+    } else {
+      addMessage(`Takeoff failed: ${result.reason}`);
+    }
+    // Re-enable buttons
+    const buttons = document.querySelectorAll('.action-btn');
+    buttons.forEach(btn => btn.disabled = false);
+  });
 
   function handleDock(objectId, objectName) {
     addMessage(`Requesting docking permission at ${objectName}...`);
@@ -269,6 +309,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Disable all action buttons during the docking process
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
+
+    // Additionally, disable navigation (jump) buttons immediately
+    const jumpButtons = document.querySelectorAll('#jump-buttons .action-btn');
+    jumpButtons.forEach(btn => btn.disabled = true);
 
     // Send dock request to main process
     window.api.send('dock-at-station', objectId);
@@ -281,8 +325,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
 
-    // Send land request to main process
-    window.api.send('land-on-surface', objectId);
+    // Additionally, disable navigation (jump) buttons immediately
+    const jumpButtons = document.querySelectorAll('#jump-buttons .action-btn');
+    jumpButtons.forEach(btn => btn.disabled = true);
+
+    // Ensure objectId is a number before sending
+    const numericObjectId = typeof objectId === 'string' ? parseInt(objectId, 10) : objectId;
+    window.api.send('land-on-surface', numericObjectId);
   }
 
 
