@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { Corporation } = require('./corporation');
 
 /**
  * Represents a player in the game
@@ -57,6 +58,7 @@ class Game {
     this.settings = settings;
     this.player = null;
     this.npcs = [];
+    this.corporations = []; // List of all corporations in the game
     this.turn = 0;
     this.gameOver = false;
     this.exploredSystems = []; // List of system ids the player has explored
@@ -72,7 +74,18 @@ class Game {
     this.player.location = 1;  // System 1 is home
     this.player.pronouns = playerData.pronouns;
     this.player.description = playerData.description;
-    this.player.corporation = playerData.corporation || { name: 'Unknown Corp', description: 'A trading company' };
+
+    // Create player's corporation
+    const playerCorp = new Corporation(
+      playerData.corporation?.name || 'Unknown Corp',
+      playerData.corporation?.description || 'A trading company',
+      true  // isPlayerOwned
+    );
+    this.corporations.push(playerCorp);
+    this.player.corporation = playerCorp;
+
+    // Initialize stellar object values and ownership
+    this.initializeStellarObjects();
 
     // Create NPCs (one trader per system for now)
     this.universe.systems.forEach((system) => {
@@ -95,6 +108,31 @@ class Game {
   initializeMarkets() {
     // TODO: Set up initial market conditions
     // This will be implemented when we add the economic system
+  }
+
+  /**
+   * Initialize stellar object values and ownership
+   */
+  initializeStellarObjects() {
+    // Base values for calculating stellar object worth
+    const baseValues = {
+      populationValue: 100,      // Value per population unit
+      marketValue: 10000,        // Base value for having a market
+      shipyardValue: 15000,      // Base value for having a shipyard
+      buildingValue: 5000,       // Base value for having buildings
+      defenseValue: 1000,        // Value per defense unit (shields, cannons)
+      buildingLimitValue: 500    // Value per building slot
+    };
+
+    // Calculate value for each stellar object
+    this.universe.stellarObjects.forEach(obj => {
+      // Calculate the object's value
+      obj.value = obj.calculateValue(baseValues);
+
+      // Set initial ownership - all objects start as Independent
+      // Players can acquire them through gameplay
+      obj.setOwner('Independent');
+    });
   }
 
   /**

@@ -104,6 +104,8 @@ class StellarObject {
     this.location = location; // system id where the object is located
     this.name = name; // e.g. "Aurora", "Apex Station"
     this.landedImage = ''; // Image for when player has landed/docked (surface or port)
+    this.owner = 'Independent'; // Name of owning corporation or "Independent"
+    this.value = 0; // Current calculated value of the stellar object
 
     // General properties from the data file
     this.market = details.market;
@@ -185,6 +187,57 @@ class StellarObject {
 
     const randomIndex = Math.floor(Math.random() * imageList.length);
     return imageList[randomIndex];
+  }
+
+  /**
+   * Calculates the value of this stellar object based on its properties
+   * @param {Object} baseValues - Object containing base values for different property types
+   * @returns {number} The calculated value
+   */
+  calculateValue(baseValues = {}) {
+    let value = 0;
+
+    // Base value from building credits
+    value += this.buildingCredits || 0;
+
+    // Add value from population capacity
+    const populationValue = baseValues.populationValue || 100;
+    value += (this.populationLimit || 0) * populationValue;
+
+    // Add value from market capability
+    if (this.market) {
+      value += baseValues.marketValue || 10000;
+    }
+
+    // Add value from shipyard capability
+    if (this.shipyard) {
+      value += baseValues.shipyardValue || 15000;
+    }
+
+    // Add value from buildings
+    if (this.buildings) {
+      value += baseValues.buildingValue || 5000;
+    }
+
+    // Add value from defenses
+    const defenseValue = baseValues.defenseValue || 1000;
+    value += (this.shields || 0) * defenseValue;
+    value += (this.cannons || 0) * defenseValue;
+    value += (this.fighters || 0) * defenseValue * 0.5;
+
+    // Add value from building limit
+    const buildingLimitValue = baseValues.buildingLimitValue || 500;
+    value += (this.buildingLimit || 0) * buildingLimitValue;
+
+    return Math.round(value);
+  }
+
+  /**
+   * Sets the owner of this stellar object
+   * @param {string} ownerName - The name of the owning corporation or "Independent"
+   */
+  setOwner(ownerName) {
+    this.owner = ownerName || 'Independent';
   }
 }
 

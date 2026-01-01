@@ -135,6 +135,132 @@ describe('StellarObject', () => {
       expect(landedImage).toContain('Port');
     }
   });
+
+  test('StellarObject initializes with Independent owner', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    expect(obj.owner).toBe('Independent');
+  });
+
+  test('StellarObject initializes with value of 0', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    expect(obj.value).toBe(0);
+  });
+
+  test('setOwner changes the owner', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    obj.setOwner('Test Corporation');
+    expect(obj.owner).toBe('Test Corporation');
+  });
+
+  test('setOwner defaults to Independent for null/undefined', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    obj.setOwner('Test Corp');
+    obj.setOwner(null);
+    expect(obj.owner).toBe('Independent');
+  });
+
+  test('calculateValue returns positive number for objects with properties', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+    const value = obj.calculateValue();
+    expect(value).toBeGreaterThan(0);
+    expect(typeof value).toBe('number');
+  });
+
+  test('calculateValue uses baseValues for calculation', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+    const obj = new StellarObject(
+      0,
+      "Planet",
+      "Earth-like",
+      2,
+      data.Planet,
+      "TestPlanet"
+    );
+
+    const baseValues = {
+      populationValue: 100,
+      marketValue: 10000,
+      shipyardValue: 15000,
+      buildingValue: 5000,
+      defenseValue: 1000,
+      buildingLimitValue: 500
+    };
+
+    const value = obj.calculateValue(baseValues);
+
+    // Earth-like planets have market, buildings, populationLimit, buildingLimit
+    // Value should reflect those properties
+    expect(value).toBeGreaterThan(0);
+
+    // With high population limit and building credits, should be substantial
+    if (obj.populationLimit > 0) {
+      expect(value).toBeGreaterThan(10000);
+    }
+  });
+
+  test('calculateValue accounts for market presence', () => {
+    const loadDataFile = universeModule.__get__('loadDataFile');
+    const data = loadDataFile('stellarObjects');
+
+    // Create two objects: one with market, one without
+    const withMarket = new StellarObject(0, "Planet", "Earth-like", 2, data.Planet, "MarketPlanet");
+    const withoutMarket = new StellarObject(0, "Asteroid", "Ice", 2, data.Asteroid, "IceAsteroid");
+
+    const baseValues = { marketValue: 10000 };
+
+    const valueWith = withMarket.calculateValue(baseValues);
+    const valueWithout = withoutMarket.calculateValue(baseValues);
+
+    if (withMarket.market && !withoutMarket.market) {
+      expect(valueWith).toBeGreaterThan(valueWithout);
+    }
+  });
 });
 
 describe('createUniverse', () => {

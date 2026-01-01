@@ -30,8 +30,34 @@ describe('Game Module', () => {
         { id: 2, name: 'Gamma' }
       ],
       stellarObjects: [
-        { id: 0, type: 'Planet', location: 0 },
-        { id: 1, type: 'Station', location: 1 }
+        {
+          id: 0,
+          type: 'Planet',
+          location: 0,
+          value: 0,
+          owner: 'Independent',
+          calculateValue: function (baseValues) {
+            this.value = 10000;
+            return this.value;
+          },
+          setOwner: function (ownerName) {
+            this.owner = ownerName || 'Independent';
+          }
+        },
+        {
+          id: 1,
+          type: 'Station',
+          location: 1,
+          value: 0,
+          owner: 'Independent',
+          calculateValue: function (baseValues) {
+            this.value = 5000;
+            return this.value;
+          },
+          setOwner: function (ownerName) {
+            this.owner = ownerName || 'Independent';
+          }
+        }
       ]
     };
 
@@ -114,8 +140,10 @@ describe('Game Module', () => {
       expect(game.player.name).toBe('TestPlayer');
       expect(game.player.pronouns).toEqual(playerData.pronouns);
       expect(game.player.description).toBe(playerData.description);
-      expect(game.player.corporation).toEqual(playerData.corporation);
+      expect(game.player.corporation).toBeTruthy();
       expect(game.player.corporation.name).toBe('Test Corp');
+      expect(game.player.corporation.description).toBe('A test corporation');
+      expect(game.player.corporation.isPlayerOwned).toBe(true);
       expect(game.npcs.length).toBe(2); // One for each system except starting system
     });
 
@@ -206,7 +234,8 @@ describe('Game Module', () => {
         const loadedSystems = loadedGame.universe.systems.map(s => ({ id: s.id, name: s.name }));
         expect(loadedSystems).toEqual(mockUniverse.systems);
         const loadedObjects = loadedGame.universe.stellarObjects.map(o => ({ id: o.id, type: o.type, location: o.location }));
-        expect(loadedObjects).toEqual(mockUniverse.stellarObjects);
+        const expectedObjects = mockUniverse.stellarObjects.map(o => ({ id: o.id, type: o.type, location: o.location }));
+        expect(loadedObjects).toEqual(expectedObjects);
         expect(loadedGame.turn).toBe(game.turn);
         expect(loadedGame.npcs.length).toBe(game.npcs.length);
       });
