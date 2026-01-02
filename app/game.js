@@ -101,10 +101,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Determine ship status (in space, docked, or landed)
     let statusText = 'Status: In Space';
-    if (playerState.dockedAt) {
+    if (playerState.dockedAt !== null) {
       const dockedObject = locationState.objects.find(obj => obj.id === playerState.dockedAt);
       statusText = `Status: Docked at ${dockedObject?.name || 'Station'}`;
-    } else if (playerState.landedOn) {
+    } else if (playerState.landedOn != null) {
       const landedObject = locationState.objects.find(obj => obj.id === playerState.landedOn);
       statusText = `Status: Landed on ${landedObject?.name || 'Planet'}`;
     }
