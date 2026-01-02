@@ -1,0 +1,225 @@
+{
+  "wheat": {
+    "value": 8,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "water": {
+    "value": 5,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "yeast": {
+    "value": 20,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 10
+    }
+  },
+  "flour": {
+    "value": 15,
+    "type": "intermediate",
+    "inputs": {
+      "wheat": 1
+    },
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 0.8
+    }
+  },
+  "bread": {
+    "value": 35,
+    "type": "finished",
+    "inputs": {
+      "flour": 1,
+      "water": 0.5,
+      "yeast": 0.1
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 500
+    }
+  },
+  "metalOre": {
+    "value": 25,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "refinedMetal": {
+    "value": 60,
+    "type": "intermediate",
+    "inputs": {
+      "metalOre": 2
+    },
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "metalComponents": {
+    "value": 120,
+    "type": "intermediate",
+    "inputs": {
+      "refinedMetal": 1
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 800
+    }
+  },
+  "electronics": {
+    "value": 250,
+    "type": "finished",
+    "inputs": {
+      "metalComponents": 2,
+      "plastics": 1
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 100
+    }
+  },
+  "wood": {
+    "value": 15,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "lumber": {
+    "value": 30,
+    "type": "intermediate",
+    "inputs": {
+      "wood": 1
+    },
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 0.9
+    }
+  },
+  "furniture": {
+    "value": 120,
+    "type": "finished",
+    "inputs": {
+      "lumber": 2,
+      "refinedMetal": 0.5
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 500
+    }
+  },
+  "crudeOil": {
+    "value": 40,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "plastics": {
+    "value": 80,
+    "type": "intermediate",
+    "inputs": {
+      "crudeOil": 1
+    },
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 0.7
+    }
+  },
+  "consumerGoods": {
+    "value": 180,
+    "type": "finished",
+    "inputs": {
+      "plastics": 2,
+      "electronics": 1
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 200
+    }
+  },
+  "cotton": {
+    "value": 12,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "fabric": {
+    "value": 35,
+    "type": "intermediate",
+    "inputs": {
+      "cotton": 1
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 800
+    }
+  },
+  "clothing": {
+    "value": 90,
+    "type": "finished",
+    "inputs": {
+      "fabric": 2
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 100
+    }
+  },
+  "chemicals": {
+    "value": 75,
+    "type": "raw",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  },
+  "ballbarrings": {
+    "value": 150,
+    "type": "finished",
+    "inputs": {
+      "refinedMetal": 2,
+      "chemicals": 1
+    },
+    "finishedMass": {
+      "units": "kilograms",
+      "mass": 500
+    }
+  },
+  "smallFighters": {
+    "value": 35000,
+    "type": "finished",
+    "inputs": {
+      "refinedMetal": 10,
+      "electronics": 5,
+      "ballbarrings": 2
+    },
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 5
+    }
+  }
+}
