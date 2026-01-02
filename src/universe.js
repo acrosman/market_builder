@@ -24,12 +24,13 @@ function getImagesFromDirectory(imageDir) {
 }
 
 /**
- * Generic loader for JSON data files in the ../data directory.
+ * Generic loader for JSON data files in the configured data directory.
  * @param {string} fileName - The name of the JSON file to load (without extension).
+ * @param {string} dataDirectory - Optional data directory path (defaults to data/default/en-us).
  * @returns {Object} The parsed JSON data.
  */
-function loadDataFile(fileName) {
-  const dataFile = path.join(__dirname, '../data', `${fileName}.json`);
+function loadDataFile(fileName, dataDirectory = 'data/default/en-us') {
+  const dataFile = path.join(__dirname, '..', dataDirectory, `${fileName}.json`);
   return JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
 }
 
@@ -297,9 +298,10 @@ function getUniqueName(type, typeDetails) {
 function createUniverse(systemCount, connectionCount, objectsCount) {
   const universe = new Universe();
   const settings = loadDataFile('game_settings');
-  const stellarObjectsData = loadDataFile('stellarObjects');
-  const planetNamesData = loadDataFile('planet_names');
-  const stationNamesData = loadDataFile('station_names');
+  const dataDir = settings.data_directory || 'data/default/en-us';
+  const stellarObjectsData = loadDataFile('stellarObjects', dataDir);
+  const planetNamesData = loadDataFile('planet_names', dataDir);
+  const stationNamesData = loadDataFile('station_names', dataDir);
 
   // Create systems starting from 1
   for (let i = 1; i <= systemCount; i++) {

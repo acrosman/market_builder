@@ -1,4 +1,5 @@
 {
+    "data_directory": "data/default/en-us",
     "initial_ship": "Shuttle",
     "food_per_person": 1,
     "game_turn_limit": -1,

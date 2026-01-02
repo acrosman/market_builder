@@ -10,7 +10,7 @@ const { Game } = require('./src/game');  // Add this line
 const isDev = !app.isPackaged;
 
 // Load game settings
-const gameSettingsPath = path.join(__dirname, 'data', 'game_settings.json');
+const gameSettingsPath = path.join(__dirname, 'data', 'default', 'en-us', 'game_settings.json');
 let gameSettings = {};
 try {
   gameSettings = JSON.parse(fs.readFileSync(gameSettingsPath, 'utf-8'));
@@ -255,7 +255,8 @@ ipcMain.handle('get-location-state', () => {
 });
 
 ipcMain.handle('get-ship-data', () => {
-  const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'ships.json'), 'utf-8'));
+  const dataDir = gameSettings.data_directory || 'data/default/en-us';
+  const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, dataDir, 'ships.json'), 'utf-8'));
   return shipsData;
 });
 

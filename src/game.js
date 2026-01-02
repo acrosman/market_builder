@@ -15,7 +15,8 @@ class Player {
     this.landedOn = null;  // ID of stellar object if landed
 
     // Load ship data to initialize ship-specific properties
-    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/ships.json'), 'utf-8'));
+    const dataDir = settings.data_directory || 'data/default/en-us';
+    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
     const shipData = shipsData[settings.initial_ship];
 
     // Track ship's current energy level
