@@ -320,6 +320,21 @@ describe('createUniverse', () => {
     expect(station).toBeTruthy();
   });
 
+  test('System 1 objects use specific System1Surface.jpg image', () => {
+    const universe = createUniverse(5, 6, 3);
+
+    // Get all system one objects
+    const systemOneObjects = universe.stellarObjects.filter(obj => obj.location === 1);
+
+    // All System 1 objects should have the specific surface image
+    systemOneObjects.forEach(obj => {
+      expect(obj.landedImage).toBe('images/stellar_objects/System1Surface.jpg');
+    });
+
+    // Verify at least 2 objects exist in System 1
+    expect(systemOneObjects.length).toBeGreaterThanOrEqual(2);
+  });
+
   test('Systems are numbered starting from 1', () => {
     const universe = createUniverse(5, 6, 3);
     const systemIds = universe.systems.map(sys => sys.id);
@@ -420,17 +435,25 @@ describe('createUniverse', () => {
       }
     });
 
-    // Stations with images should have Port in path
+    // Stations with images should have Port in path (except System 1 which uses System1Surface.jpg)
     stations.forEach(station => {
       if (station.landedImage) {
-        expect(station.landedImage).toContain('Port');
+        if (station.location === 1) {
+          expect(station.landedImage).toBe('images/stellar_objects/System1Surface.jpg');
+        } else {
+          expect(station.landedImage).toContain('Port');
+        }
       }
     });
 
-    // Asteroids with images should have Port in path
+    // Asteroids with images should have Port in path (except System 1 which uses System1Surface.jpg)
     asteroids.forEach(asteroid => {
       if (asteroid.landedImage) {
-        expect(asteroid.landedImage).toContain('Port');
+        if (asteroid.location === 1) {
+          expect(asteroid.landedImage).toBe('images/stellar_objects/System1Surface.jpg');
+        } else {
+          expect(asteroid.landedImage).toContain('Port');
+        }
       }
     });
   });

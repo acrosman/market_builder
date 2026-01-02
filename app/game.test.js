@@ -782,6 +782,11 @@ describe('Game UI Functions', () => {
             jumps: 10,
             trades: 5,
             profit: 2000
+          },
+          corporation: {
+            name: 'Stellar Enterprises',
+            description: 'A trading corporation',
+            value: 150000
           }
         }
       };
@@ -798,6 +803,9 @@ describe('Game UI Functions', () => {
         <div id="stat-jumps"></div>
         <div id="stat-trades"></div>
         <div id="stat-profit"></div>
+        <div id="stat-corporation-name"></div>
+        <div id="stat-corporation-description"></div>
+        <div id="stat-corporation-value"></div>
       `;
 
       const openPlayerStatusModalFn = async () => {
@@ -820,6 +828,9 @@ describe('Game UI Functions', () => {
         document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
         document.getElementById('stat-trades').textContent = playerState.stats.trades;
         document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
+        document.getElementById('stat-corporation-name').textContent = playerState.corporation.name;
+        document.getElementById('stat-corporation-description').textContent = playerState.corporation.description;
+        document.getElementById('stat-corporation-value').textContent = playerState.corporation.value.toLocaleString();
       };
 
       await openPlayerStatusModalFn();
@@ -832,6 +843,9 @@ describe('Game UI Functions', () => {
       expect(document.getElementById('stat-jumps').textContent).toBe('10');
       expect(document.getElementById('stat-trades').textContent).toBe('5');
       expect(document.getElementById('stat-profit').textContent).toBe('2,000');
+      expect(document.getElementById('stat-corporation-name').textContent).toBe('Stellar Enterprises');
+      expect(document.getElementById('stat-corporation-description').textContent).toBe('A trading corporation');
+      expect(document.getElementById('stat-corporation-value').textContent).toBe('150,000');
     });
 
     test('should display empty cargo correctly', async () => {

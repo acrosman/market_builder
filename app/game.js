@@ -471,6 +471,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
       document.getElementById('stat-trades').textContent = playerState.stats.trades;
       document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
+      document.getElementById('stat-corporation-name').textContent = playerState.corporation.name;
+      document.getElementById('stat-corporation-description').textContent = playerState.corporation.description;
+      document.getElementById('stat-corporation-value').textContent = playerState.corporation.value.toLocaleString();
     });
   }
 

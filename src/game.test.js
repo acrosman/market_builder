@@ -201,6 +201,11 @@ describe('Game Module', () => {
       expect(state.ship).toBe(mockSettings.initial_ship);
       expect(state.cargo).toEqual({});
       expect(state.stats).toBeTruthy();
+      expect(state.corporation).toBeTruthy();
+      expect(state.corporation.name).toBe('Test Corp');
+      expect(state.corporation.description).toBe('A test corporation');
+      expect(typeof state.corporation.value).toBe('number');
+      expect(state.corporation.value).toBeGreaterThanOrEqual(0);
     });
 
     describe('Save and Load', () => {

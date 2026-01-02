@@ -352,8 +352,8 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
         typeDetails,
         name
       );
-      // Assign landed/port image
-      obj.landedImage = obj.getLandedImage(stellarObjectsData);
+      // System 1 objects use a specific surface image
+      obj.landedImage = 'images/stellar_objects/System1Surface.jpg';
       universe.stellarObjects.push(obj);
     });
   }

@@ -197,6 +197,13 @@ class Game {
    * @returns {Object} Player state information
    */
   getPlayerState() {
+    // Calculate corporation value if player has a corporation
+    let corporationValue = 0;
+    if (this.player.corporation && typeof this.player.corporation.calculateTotalValue === 'function') {
+      // TODO: Add ship values and good prices when available
+      corporationValue = this.player.corporation.calculateTotalValue(this.universe, {}, {});
+    }
+
     return {
       name: this.player.name,
       credits: this.player.credits,
@@ -206,7 +213,12 @@ class Game {
       cargo: this.player.cargo,
       stats: this.player.stats,
       dockedAt: this.player.dockedAt,
-      landedOn: this.player.landedOn
+      landedOn: this.player.landedOn,
+      corporation: {
+        name: this.player.corporation?.name || 'None',
+        description: this.player.corporation?.description || '',
+        value: corporationValue
+      }
     };
   }
 
