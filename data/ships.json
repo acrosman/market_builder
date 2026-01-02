@@ -1,11 +1,13 @@
 {
     "Shuttle": {
+        "value": 5000,
+        "image": "images/ships/shuttle.jpg",
         "price": 10,
         "hitPoints": 10,
         "cargoCapacity": 0,
         "crew": 3,
         "shields": 10,
-        "energy": 10,
+        "energy": 1000,
         "energyPerJump": 5,
         "energyRecharge": 1,
         "shieldRecharge": 1,
@@ -18,6 +20,8 @@
         }
     },
     "Cargo Hauler": {
+        "value": 50000,
+        "image": "images/ships/cargo_hauler.jpg",
         "price": 1000,
         "hitPoints": 10,
         "cargoCapacity": 1000,
@@ -35,22 +39,44 @@
             "maxFighters": 10
         }
     },
-    "Small Fighter": {
-        "price": 1000,
-        "hitPoints": 10,
-        "cargoCapacity": 10,
-        "crew": 5,
-        "shields": 300,
-        "energy": 100,
-        "energyPerJump": 5,
-        "energyRecharge": 3,
-        "shieldRecharge": 30,
+    "Corvette": {
+        "value": 75000,
+        "image": "images/ships/corvette.jpg",
+        "price": 5000,
+        "hitPoints": 50,
+        "cargoCapacity": 400,
+        "crew": 25,
+        "shields": 500,
+        "energy": 2000,
+        "energyPerJump": 10,
+        "energyRecharge": 5,
+        "shieldRecharge": 20,
         "escapePod": "Yes",
         "weapons": {
-            "guns": 5,
-            "missiles": 5,
-            "beams": 1,
-            "maxFighters": 10
+            "guns": 12,
+            "missiles": 8,
+            "beams": 2,
+            "maxFighters": 15
+        }
+    },
+    "Titan": {
+        "value": 350000,
+        "image": "images/ships/titan.jpg",
+        "price": 50000,
+        "hitPoints": 200,
+        "cargoCapacity": 600,
+        "crew": 150,
+        "shields": 2500,
+        "energy": 5000,
+        "energyPerJump": 25,
+        "energyRecharge": 15,
+        "shieldRecharge": 50,
+        "escapePod": "Yes",
+        "weapons": {
+            "guns": 30,
+            "missiles": 20,
+            "beams": 8,
+            "maxFighters": 50
         }
     }
 }
