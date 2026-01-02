@@ -36,3 +36,7 @@ Always follow Electron best practices for security, performance, and compatibili
 - Use early returns for error conditions
 - Add meaningful variable names
 - Include at least one example usage in comments
+
+### General JS Style
+
+- Always use strict equality (`===` and `!==`).
