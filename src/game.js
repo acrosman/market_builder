@@ -188,7 +188,8 @@ class Game {
     return {
       system: system,
       objects: objects,
-      npcs: this.npcs.filter(npc => npc.currentSystem === system.id)
+      npcs: this.npcs.filter(npc => npc.currentSystem === system.id),
+      playerState: this.getPlayerState()
     };
   }
 
@@ -234,8 +235,7 @@ class Game {
     this.player.landedOn = null;
     return {
       success: true,
-      locationState: this.getCurrentLocationState(),
-      playerState: this.getPlayerState()
+      locationState: this.getCurrentLocationState()
     };
   }
 
@@ -294,8 +294,7 @@ class Game {
     // Return the new location state
     return {
       success: true,
-      locationState: this.getCurrentLocationState(),
-      playerState: this.getPlayerState()
+      locationState: this.getCurrentLocationState()
     };
   }
 
@@ -328,7 +327,6 @@ class Game {
     return {
       success: true,
       locationState: this.getCurrentLocationState(),
-      playerState: this.getPlayerState(),
       dockedObject: object
     };
   }
@@ -369,7 +367,6 @@ class Game {
     return {
       success: true,
       locationState: this.getCurrentLocationState(),
-      playerState: this.getPlayerState(),
       landedObject: object
     };
   }
@@ -405,6 +402,7 @@ class Game {
         className: obj.className,
         location: obj.location,
         name: obj.name,
+        landedImage: obj.landedImage,
         market: obj.market,
         buildings: obj.buildings,
         shipyard: obj.shipyard,

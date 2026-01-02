@@ -25,6 +25,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentDockedAt = locationState.playerState?.dockedAt ?? null;
     currentLandedOn = locationState.playerState?.landedOn ?? null;
 
+    console.log('[DEBUG updateLocationDisplay] currentDockedAt:', currentDockedAt);
+    console.log('[DEBUG updateLocationDisplay] currentLandedOn:', currentLandedOn);
+    console.log('[DEBUG updateLocationDisplay] locationState.playerState:', locationState.playerState);
+
     const system = locationState.system;
     const objects = locationState.objects;
 
@@ -44,24 +48,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     // If docked or landed, show the location information
-    if (currentDockedAt || currentLandedOn) {
-      const objectId = currentDockedAt || currentLandedOn;
+    if (currentDockedAt !== null || currentLandedOn !== null) {
+      const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
       const object = objects.find(obj => obj.id === objectId);
       if (object) {
-        const status = currentDockedAt ? 'Docked at' : 'Landed on';
+        const status = currentDockedAt !== null ? 'Docked at' : 'Landed on';
         locationStatus.innerHTML += `<p><strong>${status}: ${object.name}</strong></p>`;
       }
     }
 
     // Update location image - use landedImage if docked/landed, system image otherwise
     let imageToShow = system.image;
-    if (currentDockedAt || currentLandedOn) {
-      const objectId = currentDockedAt || currentLandedOn;
+    if (currentDockedAt !== null || currentLandedOn !== null) {
+      const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
       const object = objects.find(obj => obj.id === objectId);
+      console.log('[DEBUG updateLocationDisplay] Landed/Docked object:', object);
+      console.log('[DEBUG updateLocationDisplay] Object landedImage:', object?.landedImage);
       if (object && object.landedImage) {
         imageToShow = object.landedImage;
       }
     }
+    console.log('[DEBUG updateLocationDisplay] Final imageToShow:', imageToShow);
 
     if (imageToShow) {
       locationImage.src = imageToShow;
