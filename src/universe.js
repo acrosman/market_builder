@@ -352,8 +352,12 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
         typeDetails,
         name
       );
-      // System 1 objects use a specific surface image
-      obj.landedImage = 'images/stellar_objects/System1Surface.jpg';
+      // System 1 objects use specific images based on type
+      if (obj.type === 'Planet') {
+        obj.landedImage = 'images/stellar_objects/System1Surface.jpg';
+      } else if (obj.type === 'Space Station' || obj.type === 'Asteroid') {
+        obj.landedImage = 'images/stellar_objects/System1Port.jpg';
+      }
       universe.stellarObjects.push(obj);
     });
   }
