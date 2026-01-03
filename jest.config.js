@@ -3,7 +3,7 @@ module.exports = {
     {
       displayName: 'node',
       testEnvironment: 'node',
-      testMatch: ['<rootDir>/src/**/*.test.js']
+      testMatch: ['<rootDir>/src/**/*.test.js', '<rootDir>/main.test.js']
     },
     {
       displayName: 'jsdom',

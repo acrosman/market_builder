@@ -1,0 +1,48 @@
+{
+  "game_start": {
+    "title": "Welcome to Universe Market Builder",
+    "greeting": "Greetings, Captain {playerName}!",
+    "intro": "In the vast expanse of space, opportunity awaits those bold enough to seize it.",
+    "backstory": "You are a merchant captain, inheriting a modest trading corporation and a small ship.",
+    "goal": "Your goal: build an empire across the stars through trade, exploration, and strategic expansion.",
+    "closing": "The universe is yours to explore. Chart your own course to success."
+  },
+  "tutorial": {
+    "title": "Getting Started",
+    "navigation": "Use the Navigation buttons to jump between connected systems.",
+    "docking": "Dock at stations or land on planets to access local markets.",
+    "energy": "Monitor your ship's energy - each jump consumes fuel.",
+    "corporation": "Build your corporation's value by acquiring assets and trading goods."
+  },
+  "ui": {
+    "welcome": "Welcome to Universe Market Builder!",
+    "help_prompt": "Type a command and press Enter to interact with the game."
+  },
+  "navigation": {
+    "taking_off": "Taking off...",
+    "jumping": "Jumping to System {systemId}...",
+    "jump_success": "Jump to {systemName} completed successfully.",
+    "takeoff_success": "Takeoff successful.",
+    "docking_request": "Requesting docking permission at {objectName}...",
+    "landing_request": "Preparing for landing on {objectName}...",
+    "dock_success": "Welcome to {objectName}. Docking sequence complete.",
+    "land_success": "Welcome to {objectName}. Landing sequence complete."
+  },
+  "save_load": {
+    "saving": "Saving game...",
+    "save_success": "Game saved successfully. Save file: {savePath}",
+    "loading": "Loading game...",
+    "load_recent": "Loading most recent save: {savePath}",
+    "load_success": "Game loaded successfully."
+  },
+  "jump_planner": {
+    "sequence_start": "Starting jump sequence to System {destinationId}...",
+    "route_display": "Route: {route}",
+    "jump_progress": "Jumping to System {systemId} ({current}/{total})...",
+    "arrived": "Arrived at System {systemId}",
+    "sequence_complete": "Jump sequence complete. Arrived at destination: System {destinationId}"
+  },
+  "settings": {
+    "not_implemented": "Game Settings feature is not yet implemented."
+  }
+}

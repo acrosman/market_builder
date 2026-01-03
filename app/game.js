@@ -123,6 +123,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
+  // Display game start messages
+  addMessage('messages:game_start');
+
   // Initial updates
   await updateLocationDisplay();
   await updateShipStatus();
@@ -140,16 +143,91 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Example: Add a welcome message
-  function addMessage(msg) {
+  // Add a message to the game console
+  // Supports plain text or message template keys (e.g., 'messages:game_start', 'messages:tutorial')
+  /**
+   * Adds a message to the game console
+   * @param {string} msg - The message to display. Can be:
+   *   - Plain text: displays immediately
+   *   - Template key: "messages:key.subkey" loads from game_messages.json and displays asynchronously
+   *   - Message key: "message:key.subkey" loads a single message with variable substitution
+   * @param {Object} [vars={}] - Optional variables for template substitution (e.g., {systemId: 5, objectName: "Station Alpha"})
+   */
+  function addMessage(msg, vars = {}) {
+    // Check if msg is a message template key (loads entire message group)
+    if (typeof msg === 'string' && msg.startsWith('messages:')) {
+      const messageKey = msg.replace('messages:', '');
+      // Load and display messages asynchronously
+      (async () => {
+        try {
+          const locationState = await window.api.getLocationState();
+          const playerName = locationState?.playerState?.name || 'Captain';
+
+          const messages = await window.api.invoke('get-game-messages', messageKey);
+          if (messages) {
+            // Display title if present
+            if (messages.title) {
+              addMessage(`=== ${messages.title} ===`);
+            }
+
+            // Process each message property (excluding 'title')
+            for (const [key, message] of Object.entries(messages).filter(([k]) => k !== 'title')) {
+              // Replace template variables
+              const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+                if (variable === 'playerName') return playerName;
+                // Add more variable replacements as needed
+                return match; // Return original if no match
+              });
+              addMessage(processedMessage);
+            }
+
+            addMessage(''); // Empty line for spacing
+          }
+        } catch (error) {
+          console.error('Error loading messages:', error);
+          addMessage('Error: Unable to load game messages.');
+        }
+      })();
+      return;
+    }
+
+    // Check if msg is a single message key (loads one message with variables)
+    if (typeof msg === 'string' && msg.startsWith('message:')) {
+      const messageKey = msg.replace('message:', '');
+      // Load and display single message asynchronously
+      (async () => {
+        try {
+          const locationState = await window.api.getLocationState();
+          const playerName = locationState?.playerState?.name || 'Captain';
+
+          const message = await window.api.invoke('get-game-messages', messageKey);
+          if (message && typeof message === 'string') {
+            // Combine default variables with passed variables
+            const allVars = { playerName, ...vars };
+
+            // Replace template variables
+            const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+              return allVars[variable] !== undefined ? allVars[variable] : match;
+            });
+            addMessage(processedMessage);
+          }
+        } catch (error) {
+          console.error('Error loading message:', error);
+          addMessage('Error: Unable to load message.');
+        }
+      })();
+      return;
+    }
+
+    // Regular message display
     const p = document.createElement('p');
     p.textContent = msg;
     consoleDiv.appendChild(p);
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
   }
 
-  addMessage("Welcome to Universe Market Builder!");
-  addMessage("Type a command and press Enter to interact with the game.");
+  addMessage('message:ui.welcome');
+  addMessage('message:ui.help_prompt');
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && input.value.trim()) {
@@ -218,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // Handle take off action
     function handleTakeOff() {
-      addMessage('Taking off...');
+      addMessage('message:navigation.taking_off');
       // Disable all action buttons during takeoff
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = true);
@@ -228,7 +306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleJump(targetSystemId) {
-    addMessage(`Jumping to System ${targetSystemId}...`);
+    addMessage('message:navigation.jumping', { systemId: targetSystemId });
 
     // Disable all jump buttons during the jump process
     const buttons = document.querySelectorAll('.action-btn');
@@ -242,7 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.api.receive('jump-result', async (result) => {
     if (result.success) {
       // Jump was successful
-      addMessage(`Jump to ${result.locationState.system.name} completed successfully.`);
+      addMessage('message:navigation.jump_success', { systemName: result.locationState.system.name });
 
       // Update the UI with the new location information
       await updateLocationDisplay();
@@ -265,7 +343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.api.receive('dock-result', async (result) => {
     if (result.success) {
       // Dock was successful
-      addMessage(`Welcome to ${result.dockedObject.name}. Docking sequence complete.`);
+      addMessage('message:navigation.dock_success', { objectName: result.dockedObject.name });
       if (result.dockedObject.description) {
         addMessage(result.dockedObject.description);
       }
@@ -291,7 +369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.api.receive('land-result', async (result) => {
     if (result.success) {
       // Land was successful
-      addMessage(`Welcome to ${result.landedObject.name}. Landing sequence complete.`);
+      addMessage('message:navigation.land_success', { objectName: result.landedObject.name });
       if (result.landedObject.description) {
         addMessage(result.landedObject.description);
       }
@@ -316,7 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Listen for takeoff result from main process
   window.api.receive('takeoff-result', async (result) => {
     if (result.success) {
-      addMessage('Takeoff successful.');
+      addMessage('message:navigation.takeoff_success');
       // Update the UI with the new status
       await updateLocationDisplay();
       await updateShipStatus();
@@ -329,7 +407,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   function handleDock(objectId, objectName) {
-    addMessage(`Requesting docking permission at ${objectName}...`);
+    addMessage('message:navigation.docking_request', { objectName });
 
     // Disable all action buttons during the docking process
     const buttons = document.querySelectorAll('.action-btn');
@@ -344,7 +422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function handleLand(objectId, objectName) {
-    addMessage(`Preparing for landing on ${objectName}...`);
+    addMessage('message:navigation.landing_request', { objectName });
 
     // Disable all action buttons during the landing process
     const buttons = document.querySelectorAll('.action-btn');
@@ -362,14 +440,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Handle save game action
   saveGameBtn.addEventListener('click', () => {
-    addMessage('Saving game...');
+    addMessage('message:save_load.saving');
     window.api.send('save-game');
   });
 
   // Listen for save game result from main process
   window.api.receive('save-game-result', (result) => {
     if (result.success) {
-      addMessage(`Game saved successfully. Save file: ${result.savePath}`);
+      addMessage('message:save_load.save_success', { savePath: result.savePath });
     } else {
       addMessage(`Failed to save game: ${result.reason}`);
     }
@@ -380,7 +458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const result = await window.api.invoke('open-load-game-dialog');
       if (result.success && result.filePath) {
-        addMessage('Loading game...');
+        addMessage('message:save_load.loading');
         // Load the game with the selected file
         window.api.send('load-game', result.filePath);
       }
@@ -400,14 +478,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // For simplicity, we'll just load the most recent save file
     // In a full implementation, you'd want to show a list to the user
     const mostRecentSave = saveFiles[saveFiles.length - 1];
-    addMessage(`Loading most recent save: ${mostRecentSave}`);
+    addMessage('message:save_load.load_recent', { savePath: mostRecentSave });
     window.api.send('load-game', mostRecentSave);
   });
 
   // Listen for load game result from main process
   window.api.receive('load-game-result', (result) => {
     if (result.success) {
-      addMessage('Game loaded successfully.');
+      addMessage('message:save_load.load_success');
       // Update the game state here
       updateLocationDisplay();
       updateShipStatus();
@@ -513,7 +591,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   gameSettingsBtn.addEventListener('click', () => {
-    addMessage('Game Settings feature is not yet implemented.');
+    addMessage('message:settings.not_implemented');
   });
 
   // Jump Planner functionality
@@ -614,8 +692,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function executeJumpSequence(route) {
-    addMessage(`Starting jump sequence to System ${route[route.length - 1]}...`);
-    addMessage(`Route: ${route.join(' → ')}`);
+    addMessage('message:jump_planner.sequence_start', { destinationId: route[route.length - 1] });
+    addMessage('message:jump_planner.route_display', { route: route.join(' → ') });
 
     // Disable all action buttons during the sequence
     const buttons = document.querySelectorAll('.action-btn');
@@ -624,7 +702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Execute jumps one at a time, skipping the first (current location)
     for (let i = 1; i < route.length; i++) {
       const targetSystemId = route[i];
-      addMessage(`Jumping to System ${targetSystemId} (${i}/${route.length - 1})...`);
+      addMessage('message:jump_planner.jump_progress', { systemId: targetSystemId, current: i, total: route.length - 1 });
 
       // Wait for the jump to complete
       const result = await new Promise((resolve) => {
@@ -641,7 +719,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      addMessage(`Arrived at System ${targetSystemId}`);
+      addMessage('message:jump_planner.arrived', { systemId: targetSystemId });
       await updateLocationDisplay();
       await updateShipStatus();
 
@@ -651,7 +729,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    addMessage(`Jump sequence complete. Arrived at destination: System ${route[route.length - 1]}`);
+    addMessage('message:jump_planner.sequence_complete', { destinationId: route[route.length - 1] });
     buttons.forEach(btn => btn.disabled = false);
   }
 });

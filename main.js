@@ -260,6 +260,37 @@ ipcMain.handle('get-ship-data', () => {
   return shipsData;
 });
 
+// Handle get-game-messages request from renderer
+ipcMain.handle('get-game-messages', (event, messageKey) => {
+  try {
+    const dataDir = gameSettings.data_directory || 'data/default/en-us';
+    const messagesPath = path.join(__dirname, dataDir, 'game_messages.json');
+    const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+
+    if (messageKey) {
+      // Support dot notation for nested keys (e.g., "navigation.jumping")
+      const keys = messageKey.split('.');
+      let result = messagesData;
+
+      for (const key of keys) {
+        if (result && typeof result === 'object' && key in result) {
+          result = result[key];
+        } else {
+          return null; // Key path doesn't exist
+        }
+      }
+
+      return result;
+    }
+
+    // Return all messages if no key specified
+    return messagesData;
+  } catch (error) {
+    console.error('Error loading game messages:', error);
+    return null;
+  }
+});
+
 // Handle get-all-systems request from renderer
 ipcMain.handle('get-all-systems', () => {
   if (!currentGame) {

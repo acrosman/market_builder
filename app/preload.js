@@ -36,7 +36,8 @@ contextBridge.exposeInMainWorld('api', {
       'get-universe-summary',
       'open-load-game-dialog',
       'get-all-systems',
-      'calculate-jump-route'
+      'calculate-jump-route',
+      'get-game-messages'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

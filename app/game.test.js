@@ -737,6 +737,265 @@ describe('Game UI Functions', () => {
       expect(consoleDiv.children[0].textContent).toBe('Preparing for landing...');
       expect(window.api.send).toHaveBeenCalledWith('land-on-surface');
     });
+
+    test('addMessage with template key should load messages asynchronously', async () => {
+      const mockMessages = {
+        title: 'Test Title',
+        message1: 'Test message 1',
+        message2: 'Test message 2'
+      };
+
+      window.api.invoke.mockResolvedValue(mockMessages);
+      window.api.getLocationState.mockResolvedValue({
+        playerState: { name: 'TestPlayer' }
+      });
+
+      const addMessageFn = (msg) => {
+        if (typeof msg === 'string' && msg.startsWith('messages:')) {
+          const messageKey = msg.replace('messages:', '');
+          (async () => {
+            const messages = await window.api.invoke('get-game-messages', messageKey);
+            if (messages) {
+              if (messages.title) {
+                addMessageFn(`=== ${messages.title} ===`);
+              }
+              for (const [key, message] of Object.entries(messages).filter(([k]) => k !== 'title')) {
+                addMessageFn(message);
+              }
+            }
+          })();
+          return;
+        }
+        const p = document.createElement('p');
+        p.textContent = msg;
+        consoleDiv.appendChild(p);
+      };
+
+      addMessageFn('messages:test');
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(window.api.invoke).toHaveBeenCalledWith('get-game-messages', 'test');
+    });
+
+    test('addMessage with message key should display navigation message with variables', async () => {
+      // Mock the IPC call to return a navigation message string
+      window.api.invoke.mockResolvedValue('Jumping to System {systemId}...');
+      window.api.getLocationState.mockResolvedValue({
+        playerState: { name: 'TestPlayer' }
+      });
+
+      // Recreate the addMessage function with message: support
+      const addMessageFn = (msg, vars = {}) => {
+        if (typeof msg === 'string' && msg.startsWith('message:')) {
+          const messageKey = msg.replace('message:', '');
+          (async () => {
+            try {
+              const locationState = await window.api.getLocationState();
+              const playerName = locationState?.playerState?.name || 'Captain';
+
+              const message = await window.api.invoke('get-game-messages', messageKey);
+              if (message && typeof message === 'string') {
+                const allVars = { playerName, ...vars };
+                const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+                  return allVars[variable] !== undefined ? allVars[variable] : match;
+                });
+                addMessageFn(processedMessage);
+              }
+            } catch (error) {
+              console.error('Error loading message:', error);
+              addMessageFn('Error: Unable to load message.');
+            }
+          })();
+          return;
+        }
+        const p = document.createElement('p');
+        p.textContent = msg;
+        consoleDiv.appendChild(p);
+      };
+
+      addMessageFn('message:navigation.jumping', { systemId: 5 });
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(window.api.invoke).toHaveBeenCalledWith('get-game-messages', 'navigation.jumping');
+      expect(consoleDiv.textContent).toContain('Jumping to System 5');
+    });
+
+    test('addMessage with message key should handle save_load messages', async () => {
+      window.api.invoke.mockResolvedValue('Saving game...');
+      window.api.getLocationState.mockResolvedValue({
+        playerState: { name: 'TestPlayer' }
+      });
+
+      const addMessageFn = (msg, vars = {}) => {
+        if (typeof msg === 'string' && msg.startsWith('message:')) {
+          const messageKey = msg.replace('message:', '');
+          (async () => {
+            try {
+              const locationState = await window.api.getLocationState();
+              const playerName = locationState?.playerState?.name || 'Captain';
+
+              const message = await window.api.invoke('get-game-messages', messageKey);
+              if (message && typeof message === 'string') {
+                const allVars = { playerName, ...vars };
+                const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+                  return allVars[variable] !== undefined ? allVars[variable] : match;
+                });
+                addMessageFn(processedMessage);
+              }
+            } catch (error) {
+              console.error('Error loading message:', error);
+              addMessageFn('Error: Unable to load message.');
+            }
+          })();
+          return;
+        }
+        const p = document.createElement('p');
+        p.textContent = msg;
+        consoleDiv.appendChild(p);
+      };
+
+      addMessageFn('message:save_load.saving');
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(window.api.invoke).toHaveBeenCalledWith('get-game-messages', 'save_load.saving');
+      expect(consoleDiv.textContent).toContain('Saving game');
+    });
+
+    test('addMessage with message key should handle multiple variables', async () => {
+      window.api.invoke.mockResolvedValue('Jumping to System {systemId} ({current}/{total})...');
+      window.api.getLocationState.mockResolvedValue({
+        playerState: { name: 'TestPlayer' }
+      });
+
+      const addMessageFn = (msg, vars = {}) => {
+        if (typeof msg === 'string' && msg.startsWith('message:')) {
+          const messageKey = msg.replace('message:', '');
+          (async () => {
+            try {
+              const locationState = await window.api.getLocationState();
+              const playerName = locationState?.playerState?.name || 'Captain';
+
+              const message = await window.api.invoke('get-game-messages', messageKey);
+              if (message && typeof message === 'string') {
+                const allVars = { playerName, ...vars };
+                const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+                  return allVars[variable] !== undefined ? allVars[variable] : match;
+                });
+                addMessageFn(processedMessage);
+              }
+            } catch (error) {
+              console.error('Error loading message:', error);
+              addMessageFn('Error: Unable to load message.');
+            }
+          })();
+          return;
+        }
+        const p = document.createElement('p');
+        p.textContent = msg;
+        consoleDiv.appendChild(p);
+      };
+
+      addMessageFn('message:jump_planner.jump_progress', { systemId: 3, current: 2, total: 5 });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(consoleDiv.textContent).toContain('Jumping to System 3 (2/5)');
+    });
+
+    test('addMessage should handle when IPC returns null', async () => {
+      window.api.invoke.mockResolvedValue(null);
+      window.api.getLocationState.mockResolvedValue({
+        playerState: { name: 'TestPlayer' }
+      });
+
+      const addMessageFn = (msg, vars = {}) => {
+        if (typeof msg === 'string' && msg.startsWith('message:')) {
+          const messageKey = msg.replace('message:', '');
+          (async () => {
+            try {
+              const locationState = await window.api.getLocationState();
+              const playerName = locationState?.playerState?.name || 'Captain';
+
+              const message = await window.api.invoke('get-game-messages', messageKey);
+              if (message && typeof message === 'string') {
+                const allVars = { playerName, ...vars };
+                const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+                  return allVars[variable] !== undefined ? allVars[variable] : match;
+                });
+                addMessageFn(processedMessage);
+              }
+            } catch (error) {
+              console.error('Error loading message:', error);
+              addMessageFn('Error: Unable to load message.');
+            }
+          })();
+          return;
+        }
+        const p = document.createElement('p');
+        p.textContent = msg;
+        consoleDiv.appendChild(p);
+      };
+
+      addMessageFn('message:navigation.nonexistent', { systemId: 5 });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Message should not display because IPC returned null
+      expect(consoleDiv.textContent).not.toContain('Jumping');
+      expect(consoleDiv.textContent).not.toContain('System 5');
+    });
+
+    test('addMessage should handle when IPC returns object instead of string', async () => {
+      // This simulates getting the parent object instead of the leaf value
+      window.api.invoke.mockResolvedValue({
+        jumping: 'Jumping to System {systemId}...',
+        jump_success: 'Jump completed'
+      });
+      window.api.getLocationState.mockResolvedValue({
+        playerState: { name: 'TestPlayer' }
+      });
+
+      const addMessageFn = (msg, vars = {}) => {
+        if (typeof msg === 'string' && msg.startsWith('message:')) {
+          const messageKey = msg.replace('message:', '');
+          (async () => {
+            try {
+              const locationState = await window.api.getLocationState();
+              const playerName = locationState?.playerState?.name || 'Captain';
+
+              const message = await window.api.invoke('get-game-messages', messageKey);
+              if (message && typeof message === 'string') {
+                const allVars = { playerName, ...vars };
+                const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
+                  return allVars[variable] !== undefined ? allVars[variable] : match;
+                });
+                addMessageFn(processedMessage);
+              }
+            } catch (error) {
+              console.error('Error loading message:', error);
+              addMessageFn('Error: Unable to load message.');
+            }
+          })();
+          return;
+        }
+        const p = document.createElement('p');
+        p.textContent = msg;
+        consoleDiv.appendChild(p);
+      };
+
+      addMessageFn('message:navigation', { systemId: 5 });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Message won't display because it's not a string
+      expect(consoleDiv.textContent).not.toContain('Jumping');
+      expect(consoleDiv.textContent).not.toContain('System 5');
+    });
   });
 
   describe('Modal System (already covered but additional edge cases)', () => {
