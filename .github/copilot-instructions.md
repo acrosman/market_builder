@@ -46,3 +46,10 @@ Clean up code around the work you are doing. If there are any violations of best
 - Use `const` for variables that do not change and `let` for those that do.
 - Use arrow functions for callbacks and anonymous functions.
 - Use template literals for string interpolation.
+
+### General HTML/CSS Style
+
+- Use semantic HTML5 elements where appropriate.
+- Use CSS classes for styling; avoid inline styles.
+- Ensure accessibility best practices (e.g., ARIA roles, alt attributes).
+- Keep CSS organized and modular; use separate files for large stylesheets.
