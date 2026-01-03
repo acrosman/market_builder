@@ -466,4 +466,27 @@ describe('createUniverse', () => {
       }
     });
   });
+
+  test('All systems have images with correct data directory prefix', () => {
+    const universe = createUniverse(10, 2, 15);
+    universe.systems.forEach(system => {
+      if (system.image) {
+        expect(system.image).toMatch(/^data\/default\/en-us\/images\//);
+      }
+    });
+  });
+
+  test('Systems without objects get starfield images', () => {
+    const universe = createUniverse(20, 2, 5); // More systems than objects
+    const systemsWithoutObjects = universe.systems.filter(system => {
+      const hasObjects = universe.stellarObjects.some(obj => obj.location === system.id);
+      return !hasObjects && system.id !== 1; // Exclude System 1
+    });
+
+    systemsWithoutObjects.forEach(system => {
+      expect(system.image).toBeDefined();
+      expect(system.image).toContain('Starfields');
+      expect(system.image).toMatch(/^data\/default\/en-us\//);
+    });
+  });
 });

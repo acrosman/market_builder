@@ -131,11 +131,12 @@ class StellarObject {
   }
 
   /**
-   * Gets an image for this type of object.
+   * Gets a random image for this type of object.
    * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
+   * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
    * @returns string, path to image.
    */
-  getRandomImage(stellarObjectsData) {
+  getRandomImage(stellarObjectsData, dataDir = 'data/default/en-us') {
     const typeData = stellarObjectsData[this.type];
     if (!typeData || !typeData.classes) {
       console.warn(`No type data found for: ${this.type}`);
@@ -149,14 +150,14 @@ class StellarObject {
     }
 
     const imageDir = classData.imagePath;
-    const imageList = getImagesFromDirectory(imageDir);
+    const imageList = getImagesFromDirectory(imageDir, dataDir);
     if (imageList.length === 0) {
       console.warn(`No images found in directory: ${imageDir}`);
       return '';
     }
 
     const randomIndex = Math.floor(Math.random() * imageList.length);
-    return imageList[randomIndex];
+    return path.join(dataDir, imageList[randomIndex]).replace(/\\/g, '/');
   }
 
   /**
@@ -409,7 +410,7 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     const hasObjects = universe.stellarObjects.some(obj => obj.location === system.id);
     if (!hasObjects && starfieldImages.length > 0) {
       const randomIndex = Math.floor(Math.random() * starfieldImages.length);
-      system.image = starfieldImages[randomIndex];
+      system.image = path.join(dataDir, starfieldImages[randomIndex]).replace(/\\/g, '/');
     }
   });
 

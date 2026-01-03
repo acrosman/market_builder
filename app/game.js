@@ -71,7 +71,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('[DEBUG updateLocationDisplay] Final imageToShow:', imageToShow);
 
     if (imageToShow) {
-      locationImage.src = imageToShow;
+      // Adjust path to be relative to app directory (images are in ../data/)
+      const adjustedPath = imageToShow.startsWith('data/') ? `../${imageToShow}` : imageToShow;
+      locationImage.src = adjustedPath;
       locationImage.style.display = 'block';
       if (noImagePlaceholder) noImagePlaceholder.style.display = 'none';
     } else {
