@@ -1,9 +1,9 @@
 <div class="jump-planner">
   <p>Current location: <span id="current-system-display"></span></p>
-  <p>Select destination system:</p>
-  <select id="destination-system" class="destination-select">
-    <option value="">-- Select System --</option>
-  </select>
+  <p>
+    <label for="destination-system">Enter destination system ID:</label>
+    <input type="number" id="destination-system" class="destination-input" min="1" placeholder="System ID">
+  </p>
   <button id="calculate-route-btn" class="action-btn">Calculate Route</button>
-  <div id="route-display" style="margin-top: 20px;"></div>
+  <div id="route-display"></div>
 </div>

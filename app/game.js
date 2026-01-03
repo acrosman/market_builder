@@ -535,25 +535,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadModal('Jump Planner', './modals/jump-planner.html', async () => {
-      // Populate current system
+      // Display current system
       document.getElementById('current-system-display').textContent = `System ${currentSystemId}`;
-
-      // Populate system selection dropdown
-      const destinationSelect = document.getElementById('destination-system');
-      allSystems
-        .filter(sys => sys.id !== currentSystemId)
-        .forEach(sys => {
-          const option = document.createElement('option');
-          option.value = sys.id;
-          option.textContent = `System ${sys.id}`;
-          destinationSelect.appendChild(option);
-        });
 
       document.getElementById('calculate-route-btn').addEventListener('click', async () => {
         const destinationId = parseInt(document.getElementById('destination-system').value);
         console.log('[DEBUG calculate-route] destinationId:', destinationId, 'currentSystemId:', currentSystemId);
-        if (!destinationId && destinationId !== 0) {
-          document.getElementById('route-display').innerHTML = '<p class="error-message">Please select a destination system.</p>';
+
+        // Validate destination ID
+        if (isNaN(destinationId) || destinationId < 1) {
+          document.getElementById('route-display').innerHTML = '<p class="error-message">Please enter a valid system ID.</p>';
+          return;
+        }
+
+        if (destinationId === currentSystemId) {
+          document.getElementById('route-display').innerHTML = '<p class="error-message">You are already at this system.</p>';
+          return;
+        }
+
+        // Check if system exists
+        const systemExists = allSystems.some(sys => sys.id === destinationId);
+        if (!systemExists) {
+          document.getElementById('route-display').innerHTML = '<p class="error-message">System ID does not exist.</p>';
           return;
         }
 
