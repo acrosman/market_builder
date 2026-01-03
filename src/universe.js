@@ -81,6 +81,43 @@ class Universe {
     });
     return totals;
   }
+
+  /**
+   * Finds the shortest path between two systems using BFS
+   * @param {number} startSystemId - The starting system ID
+   * @param {number} targetSystemId - The target system ID
+   * @returns {number[]|null} Array of system IDs representing the path, or null if no path exists
+   */
+  findShortestPath(startSystemId, targetSystemId) {
+    if (startSystemId === targetSystemId) {
+      return [startSystemId];
+    }
+
+    const visited = new Set();
+    const queue = [[startSystemId]];
+    visited.add(startSystemId);
+
+    while (queue.length > 0) {
+      const path = queue.shift();
+      const currentSystemId = path[path.length - 1];
+      const currentSystem = this.systems.find(s => s.id === currentSystemId);
+
+      if (!currentSystem) continue;
+
+      for (const neighborId of currentSystem.connections) {
+        if (neighborId === targetSystemId) {
+          return [...path, neighborId];
+        }
+
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          queue.push([...path, neighborId]);
+        }
+      }
+    }
+
+    return null; // No path found
+  }
 }
 
 /**

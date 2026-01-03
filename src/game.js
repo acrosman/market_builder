@@ -209,6 +209,7 @@ class Game {
     return {
       name: this.player.name,
       credits: this.player.credits,
+      location: this.player.location,
       ship: this.player.ship,
       shipEnergy: this.player.shipEnergy,
       shipMaxEnergy: this.player.shipMaxEnergy,

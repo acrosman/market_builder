@@ -260,6 +260,52 @@ ipcMain.handle('get-ship-data', () => {
   return shipsData;
 });
 
+// Handle get-all-systems request from renderer
+ipcMain.handle('get-all-systems', () => {
+  if (!currentGame) {
+    console.error('[DEBUG get-all-systems] currentGame is not initialized');
+    return [];
+  }
+  if (!currentGame.universe) {
+    console.error('[DEBUG get-all-systems] currentGame.universe is not initialized');
+    return [];
+  }
+  if (!currentGame.universe.systems) {
+    console.error('[DEBUG get-all-systems] currentGame.universe.systems is not initialized');
+    return [];
+  }
+  console.log('[DEBUG get-all-systems] Returning', currentGame.universe.systems.length, 'systems');
+  return currentGame.universe.systems.map(sys => ({ id: sys.id, name: sys.name }));
+});
+
+// Handle calculate-jump-route request from renderer
+ipcMain.handle('calculate-jump-route', (event, { start, destination }) => {
+  console.log('[DEBUG calculate-jump-route] start:', start, 'destination:', destination);
+  if (!currentGame) {
+    return { success: false, reason: 'No active game' };
+  }
+
+  const route = currentGame.universe.findShortestPath(start, destination);
+  console.log('[DEBUG calculate-jump-route] route result:', route);
+
+  if (!route) {
+    return { success: false, reason: 'No route found between systems' };
+  }
+
+  // Calculate energy requirements
+  const playerState = currentGame.getPlayerState();
+  const energyPerJump = playerState.shipEnergy / (playerState.shipMaxEnergy || 1) > 0 ?
+    currentGame.player.energyPerJump : 0;
+  const energyRequired = (route.length - 1) * energyPerJump;
+
+  return {
+    success: true,
+    route: route,
+    energyRequired: energyRequired,
+    currentEnergy: playerState.shipEnergy
+  };
+});
+
 // Handle jump-to-system request from renderer
 ipcMain.on('jump-to-system', (event, targetSystemId) => {
   if (!currentGame) {

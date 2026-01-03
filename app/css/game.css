@@ -282,3 +282,50 @@
 .player-stat-value {
   color: #4ade80;
 }
+
+/* Jump Planner Styles */
+.jump-planner {
+  max-width: 500px;
+}
+
+.jump-planner p {
+  margin: 10px 0;
+}
+
+.destination-select {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  background: #2d3748;
+  color: #cbd5e0;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  font-size: 1em;
+}
+
+.destination-select:focus {
+  outline: none;
+  border-color: #4ade80;
+}
+
+.route-info {
+  background: #2d3748;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.route-info p {
+  margin: 8px 0;
+}
+
+.route-info button {
+  margin-top: 15px;
+  margin-right: 10px;
+}
+/* Error message styling */
+.error-message {
+  color: #f56565;
+  font-weight: 500;
+  margin: 10px 0;
+}

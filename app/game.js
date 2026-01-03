@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const shipStatus = document.getElementById('ship-status');
   const locationImage = document.getElementById('location-image');
   const noImagePlaceholder = document.getElementById('no-image-placeholder');
+  const jumpPlannerBtn = document.getElementById('jump-planner-btn');
   const saveGameBtn = document.getElementById('save-game-btn');
   const loadGameBtn = document.getElementById('load-game-btn');
   const playerStatusBtn = document.getElementById('player-status-btn');
@@ -508,4 +509,140 @@ document.addEventListener('DOMContentLoaded', async () => {
   gameSettingsBtn.addEventListener('click', () => {
     addMessage('Game Settings feature is not yet implemented.');
   });
+
+  // Jump Planner functionality
+  jumpPlannerBtn.addEventListener('click', openJumpPlanner);
+
+  async function openJumpPlanner() {
+    const locationState = await window.api.getLocationState();
+    if (!locationState) return;
+
+    // Check if player is docked or landed
+    if (locationState.playerState?.dockedAt != null || locationState.playerState?.landedOn != null) {
+      addMessage('Cannot plan jumps while docked or landed. Take off first.');
+      return;
+    }
+
+    // Get all systems for the selection list
+    const allSystems = await window.api.invoke('get-all-systems');
+    const currentSystemId = locationState.playerState.location;
+
+    // Validate we received systems data
+    if (!allSystems || !Array.isArray(allSystems) || allSystems.length === 0) {
+      addMessage('Error: Unable to load system data for jump planner.');
+      console.error('[DEBUG openJumpPlanner] allSystems:', allSystems);
+      return;
+    }
+
+    await loadModal('Jump Planner', './modals/jump-planner.html', async () => {
+      // Populate current system
+      document.getElementById('current-system-display').textContent = `System ${currentSystemId}`;
+
+      // Populate system selection dropdown
+      const destinationSelect = document.getElementById('destination-system');
+      allSystems
+        .filter(sys => sys.id !== currentSystemId)
+        .forEach(sys => {
+          const option = document.createElement('option');
+          option.value = sys.id;
+          option.textContent = `System ${sys.id}`;
+          destinationSelect.appendChild(option);
+        });
+
+      document.getElementById('calculate-route-btn').addEventListener('click', async () => {
+        const destinationId = parseInt(document.getElementById('destination-system').value);
+        console.log('[DEBUG calculate-route] destinationId:', destinationId, 'currentSystemId:', currentSystemId);
+        if (!destinationId && destinationId !== 0) {
+          document.getElementById('route-display').innerHTML = '<p class="error-message">Please select a destination system.</p>';
+          return;
+        }
+
+        const result = await window.api.invoke('calculate-jump-route', {
+          start: currentSystemId,
+          destination: destinationId
+        });
+        console.log('[DEBUG calculate-route] result:', result);
+
+        if (!result.success) {
+          document.getElementById('route-display').innerHTML = `<p class="error-message">${result.reason}</p>`;
+          return;
+        }
+
+        // Load the route display template
+        const response = await fetch('./modals/jump-route-display.html');
+        const template = await response.text();
+        document.getElementById('route-display').innerHTML = template;
+
+        // Populate the route display with data
+        const route = result.route;
+        const routeText = route.map((id, idx) => {
+          if (idx === 0) return `System ${id} (current)`;
+          if (idx === route.length - 1) return `System ${id} (destination)`;
+          return `System ${id}`;
+        }).join(' → ');
+
+        document.getElementById('route-path').textContent = routeText;
+        document.getElementById('route-jumps').textContent = route.length - 1;
+        document.getElementById('route-energy-required').textContent = result.energyRequired;
+        document.getElementById('route-energy-available').textContent = result.currentEnergy;
+
+        // Show warning if insufficient energy
+        if (result.energyRequired > result.currentEnergy) {
+          document.getElementById('route-energy-warning').hidden = false;
+          document.getElementById('confirm-jump-route-btn').disabled = true;
+        }
+
+        document.getElementById('confirm-jump-route-btn')?.addEventListener('click', () => {
+          closeModal();
+          executeJumpSequence(route);
+        });
+
+        document.getElementById('cancel-jump-route-btn')?.addEventListener('click', () => {
+          closeModal();
+        });
+      });
+    });
+  }
+
+  async function executeJumpSequence(route) {
+    addMessage(`Starting jump sequence to System ${route[route.length - 1]}...`);
+    addMessage(`Route: ${route.join(' → ')}`);
+
+    // Disable all action buttons during the sequence
+    const buttons = document.querySelectorAll('.action-btn');
+    buttons.forEach(btn => btn.disabled = true);
+
+    // Execute jumps one at a time, skipping the first (current location)
+    for (let i = 1; i < route.length; i++) {
+      const targetSystemId = route[i];
+      addMessage(`Jumping to System ${targetSystemId} (${i}/${route.length - 1})...`);
+
+      // Wait for the jump to complete
+      const result = await new Promise((resolve) => {
+        const handler = (result) => {
+          resolve(result);
+        };
+        window.api.receive('jump-result', handler);
+        window.api.send('jump-to-system', targetSystemId);
+      });
+
+      if (!result.success) {
+        addMessage(`Jump sequence failed at System ${targetSystemId}: ${result.reason}`);
+        buttons.forEach(btn => btn.disabled = false);
+        return;
+      }
+
+      addMessage(`Arrived at System ${targetSystemId}`);
+      await updateLocationDisplay();
+      await updateShipStatus();
+
+      // Small delay for visual feedback
+      if (i < route.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    addMessage(`Jump sequence complete. Arrived at destination: System ${route[route.length - 1]}`);
+    buttons.forEach(btn => btn.disabled = false);
+  }
 });

@@ -490,3 +490,169 @@ describe('createUniverse', () => {
     });
   });
 });
+
+describe('Universe pathfinding', () => {
+  test('findShortestPath returns path from start to target', () => {
+    const universe = createUniverse(10, 2, 15);
+
+    // Find two systems that are connected
+    const startSystem = universe.systems[0];
+    const targetSystem = universe.systems.find(s =>
+      startSystem.connections.includes(s.id)
+    );
+
+    expect(targetSystem).toBeDefined();
+    const path = universe.findShortestPath(startSystem.id, targetSystem.id);
+
+    expect(path).toBeDefined();
+    expect(Array.isArray(path)).toBe(true);
+    expect(path[0]).toBe(startSystem.id);
+    expect(path[path.length - 1]).toBe(targetSystem.id);
+  });
+
+  test('findShortestPath returns single element array for same start and target', () => {
+    const universe = createUniverse(5, 2, 10);
+    const systemId = universe.systems[0].id;
+
+    const path = universe.findShortestPath(systemId, systemId);
+
+    expect(path).toEqual([systemId]);
+  });
+
+  test('findShortestPath returns null when no path exists', () => {
+    const universe = new Universe();
+
+    // Create two disconnected systems
+    const system1 = new System(1, 'Alpha');
+    const system2 = new System(2, 'Beta');
+
+    universe.systems.push(system1, system2);
+
+    const path = universe.findShortestPath(1, 2);
+
+    expect(path).toBeNull();
+  });
+
+  test('findShortestPath finds path through multiple hops', () => {
+    const universe = new Universe();
+
+    // Create a chain: 1 -> 2 -> 3 -> 4
+    const system1 = new System(1, 'Alpha');
+    const system2 = new System(2, 'Beta');
+    const system3 = new System(3, 'Gamma');
+    const system4 = new System(4, 'Delta');
+
+    system1.connections.push(2);
+    system2.connections.push(1, 3);
+    system3.connections.push(2, 4);
+    system4.connections.push(3);
+
+    universe.systems.push(system1, system2, system3, system4);
+
+    const path = universe.findShortestPath(1, 4);
+
+    expect(path).toEqual([1, 2, 3, 4]);
+  });
+
+  test('findShortestPath finds shortest path when multiple routes exist', () => {
+    const universe = new Universe();
+
+    // Create a graph with multiple paths:
+    //   1 -> 2 -> 4
+    //   1 -> 3 -> 4
+    //   (direct path 1->2->4 is shorter than 1->3->5->4)
+    const system1 = new System(1, 'Alpha');
+    const system2 = new System(2, 'Beta');
+    const system3 = new System(3, 'Gamma');
+    const system4 = new System(4, 'Delta');
+    const system5 = new System(5, 'Epsilon');
+
+    system1.connections.push(2, 3);
+    system2.connections.push(1, 4);
+    system3.connections.push(1, 5);
+    system4.connections.push(2, 5);
+    system5.connections.push(3, 4);
+
+    universe.systems.push(system1, system2, system3, system4, system5);
+
+    const path = universe.findShortestPath(1, 4);
+
+    // Should find the shortest path: 1 -> 2 -> 4
+    expect(path).toEqual([1, 2, 4]);
+    expect(path.length).toBe(3);
+  });
+
+  test('findShortestPath handles non-existent start system', () => {
+    const universe = createUniverse(5, 2, 10);
+
+    const path = universe.findShortestPath(9999, universe.systems[0].id);
+
+    expect(path).toBeNull();
+  });
+
+  test('findShortestPath handles non-existent target system', () => {
+    const universe = createUniverse(5, 2, 10);
+
+    const path = universe.findShortestPath(universe.systems[0].id, 9999);
+
+    expect(path).toBeNull();
+  });
+
+  test('findShortestPath works in generated universe', () => {
+    const universe = createUniverse(15, 2, 20);
+
+    // Test paths between random systems
+    const system1 = universe.systems[0];
+    const system2 = universe.systems[universe.systems.length - 1];
+
+    const path = universe.findShortestPath(system1.id, system2.id);
+
+    // Path should exist in a well-connected universe
+    expect(path).toBeDefined();
+    if (path !== null) {
+      expect(path[0]).toBe(system1.id);
+      expect(path[path.length - 1]).toBe(system2.id);
+
+      // Verify each step in the path is connected to the next
+      for (let i = 0; i < path.length - 1; i++) {
+        const currentSystem = universe.systems.find(s => s.id === path[i]);
+        expect(currentSystem.connections).toContain(path[i + 1]);
+      }
+    }
+  });
+
+  test('findShortestPath returns optimal path length', () => {
+    const universe = new Universe();
+
+    // Create a more complex graph to test BFS optimality
+    //   1 --- 2 --- 4
+    //   |     |     |
+    //   3 --- 5 --- 6
+    const systems = [
+      new System(1, 'S1'),
+      new System(2, 'S2'),
+      new System(3, 'S3'),
+      new System(4, 'S4'),
+      new System(5, 'S5'),
+      new System(6, 'S6')
+    ];
+
+    // Add connections (undirected graph)
+    systems[0].connections.push(2, 3); // 1 connects to 2, 3
+    systems[1].connections.push(1, 4, 5); // 2 connects to 1, 4, 5
+    systems[2].connections.push(1, 5); // 3 connects to 1, 5
+    systems[3].connections.push(2, 6); // 4 connects to 2, 6
+    systems[4].connections.push(2, 3, 6); // 5 connects to 2, 3, 6
+    systems[5].connections.push(4, 5); // 6 connects to 4, 5
+
+    universe.systems.push(...systems);
+
+    const path = universe.findShortestPath(1, 6);
+
+    // Shortest path should be 1 -> 2 -> 4 -> 6 or 1 -> 3 -> 5 -> 6 (both length 4)
+    expect(path).toBeDefined();
+    expect(path.length).toBe(4);
+    expect(path[0]).toBe(1);
+    expect(path[path.length - 1]).toBe(6);
+  });
+});

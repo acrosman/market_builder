@@ -28,7 +28,16 @@ contextBridge.exposeInMainWorld('api', {
   },
   invoke: (channel, data) => {
     // List channels to allow.
-    const validChannels = ['get-location-state', 'get-game-settings', 'get-ship-data', 'get-universe-graph', 'get-universe-summary', 'open-load-game-dialog'];
+    const validChannels = [
+      'get-location-state',
+      'get-game-settings',
+      'get-ship-data',
+      'get-universe-graph',
+      'get-universe-summary',
+      'open-load-game-dialog',
+      'get-all-systems',
+      'calculate-jump-route'
+    ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);
     }
