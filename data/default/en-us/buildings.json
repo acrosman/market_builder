@@ -1,0 +1,279 @@
+{
+   "Warehouse": {
+      "value": 5000,
+      "image": "images/buildings/warehouse.jpg",
+      "storage": 10000,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 5,
+         "credits": 500,
+         "goods": {
+            "metal": 100
+         }
+      },
+      "operationCosts": {
+         "staff": 10,
+         "energy": 1,
+         "pollution": {
+            "water": 1,
+            "air": 0
+         },
+         "goods": {}
+      }
+   },
+   "Shield Generator": {
+      "value": 15000,
+      "image": "images/buildings/shield_generator.jpg",
+      "storage": 0,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 1000,
+      "shieldsChargeRate": 10,
+      "shieldsChargeEnergy": 10,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 50,
+         "credits": 1000,
+         "goods": {
+            "metal": 500
+         }
+      },
+      "operationCosts": {
+         "staff": 10,
+         "energy": 10,
+         "pollution": {
+            "water": 1,
+            "air": 0
+         },
+         "goods": {}
+      }
+   },
+   "Mine": {
+      "value": 8000,
+      "image": "images/buildings/mine.jpg",
+      "storage": 0,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 5,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 10,
+         "credits": 500,
+         "goods": {
+            "metal": 10
+         }
+      },
+      "operationCosts": {
+         "staff": 100,
+         "energy": 50,
+         "pollution": {
+            "water": 1,
+            "air": 0
+         },
+         "goods": {
+            "food": 50
+         }
+      }
+   },
+   "Bank": {
+      "value": 25000,
+      "image": "images/buildings/bank.jpg",
+      "storage": 0,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 3,
+      "bankLoans": 6,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 15,
+         "credits": 5000,
+         "goods": {
+            "metal": 100
+         }
+      },
+      "operationCosts": {
+         "staff": 5,
+         "energy": 10,
+         "pollution": {
+            "water": 0,
+            "air": 0
+         },
+         "goods": {}
+      }
+   },
+   "Factory": {
+      "value": 12000,
+      "image": "images/buildings/factory.jpg",
+      "storage": 50,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 5,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 25,
+         "credits": 2000,
+         "goods": {
+            "metal": 100
+         }
+      },
+      "operationCosts": {
+         "staff": 5,
+         "energy": 100,
+         "pollution": {
+            "water": 5,
+            "air": 10
+         },
+         "goods": {}
+      }
+   },
+   "Farm": {
+      "value": 6000,
+      "image": "images/buildings/farm.jpg",
+      "storage": 0,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 10,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 2,
+         "credits": 500,
+         "goods": {
+            "metal": 100
+         }
+      },
+      "operationCosts": {
+         "staff": 500,
+         "energy": 10,
+         "pollution": {
+            "water": 2,
+            "air": 0
+         },
+         "goods": {
+            "chemicals": 5
+         }
+      }
+   },
+   "Cannon": {
+      "value": 20000,
+      "image": "images/buildings/cannon.jpg",
+      "storage": 0,
+      "energyStorage": 10000,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         1000,
+         10000
+      ],
+      "cannonBurstEnergy": 10000,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 0,
+      "buildCost": {
+         "turns": 75,
+         "credits": 1000,
+         "goods": {
+            "metal": 500
+         }
+      },
+      "operationCosts": {
+         "staff": 10,
+         "energy": 100,
+         "pollution": {
+            "water": 1,
+            "air": 0
+         },
+         "goods": {}
+      }
+   }
+}
