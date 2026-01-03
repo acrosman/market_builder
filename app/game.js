@@ -247,9 +247,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Regular message display
-    const p = document.createElement('p');
-    p.textContent = msg;
-    consoleDiv.appendChild(p);
+    // Handle newlines by creating separate paragraphs
+    const lines = msg.split('\n');
+    lines.forEach(line => {
+      const p = document.createElement('p');
+      p.textContent = line || '\u00A0'; // Use non-breaking space for empty lines to preserve spacing
+      consoleDiv.appendChild(p);
+    });
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
   }
 
