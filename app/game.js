@@ -187,6 +187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
           const locationState = await window.api.getLocationState();
           const playerName = locationState?.playerState?.name || 'Captain';
+          const corporationName = locationState?.playerState?.corporation?.name || 'Your Corporation';
 
           const messages = await window.api.invoke('get-game-messages', messageKey);
           if (messages) {
@@ -200,6 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               // Replace template variables
               const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
                 if (variable === 'playerName') return playerName;
+                if (variable === 'corporationName') return corporationName;
                 // Add more variable replacements as needed
                 return match; // Return original if no match
               });
