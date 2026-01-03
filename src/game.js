@@ -339,6 +339,9 @@ class Game {
     this.player.landedOn = null; // Clear landed status if previously landed
     this.player.stats.trades += 1; // Increment trades stat when docking
 
+    // Fully recharge ship energy when docking
+    this.player.shipEnergy = this.player.shipMaxEnergy;
+
     return {
       success: true,
       locationState: this.getCurrentLocationState(),
@@ -376,6 +379,10 @@ class Game {
     this.player.landedOn = objectId;
     this.player.dockedAt = null; // Clear docked status if previously docked
     this.player.stats.trades += 1; // Increment trades stat when landing
+
+    // Fully recharge ship energy when landing
+    this.player.shipEnergy = this.player.shipMaxEnergy;
+
     // Debug: Confirm player state after landing
     console.log('[DEBUG] After landing, player.landedOn:', this.player.landedOn, 'player.dockedAt:', this.player.dockedAt);
 

@@ -489,6 +489,66 @@ describe('Game Module', () => {
         expect(game.player.dockedAt).toBe(100);
         expect(game.player.landedOn).toBeNull();
       });
+
+      test('docking at station fully recharges ship energy', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        // Deplete ship energy to simulate having traveled
+        const maxEnergy = game.player.shipMaxEnergy;
+        game.player.shipEnergy = maxEnergy * 0.3; // 30% energy remaining
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Space Station', name: 'Station', location: 0 }
+        ];
+
+        const result = game.dockAtStation(100);
+
+        expect(result.success).toBe(true);
+        expect(game.player.shipEnergy).toBe(maxEnergy);
+        expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+      });
+
+      test('landing on planet fully recharges ship energy', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        // Deplete ship energy to simulate having traveled
+        const maxEnergy = game.player.shipMaxEnergy;
+        game.player.shipEnergy = maxEnergy * 0.5; // 50% energy remaining
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(true);
+        expect(game.player.shipEnergy).toBe(maxEnergy);
+        expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+      });
+
+      test('landing on asteroid fully recharges ship energy', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        // Deplete ship energy significantly
+        const maxEnergy = game.player.shipMaxEnergy;
+        game.player.shipEnergy = 100; // Very low energy
+
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Asteroid', name: 'Mining Base', location: 0, className: 'Metal' }
+        ];
+
+        const result = game.landOnPlanet(100);
+
+        expect(result.success).toBe(true);
+        expect(game.player.shipEnergy).toBe(maxEnergy);
+        expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+      });
     });
   });
 });
