@@ -332,7 +332,7 @@ describe('createUniverse', () => {
     // System 1 planets should have System1Surface.jpg
     const planets = systemOneObjects.filter(obj => obj.type === 'Planet');
     planets.forEach(planet => {
-      expect(planet.landedImage).toBe('images/stellar_objects/System1Surface.jpg');
+      expect(planet.landedImage).toBe('data/default/en-us/images/stellar_objects/System1Surface.jpg');
     });
 
     // System 1 stations and asteroids should have System1Port.jpg
@@ -340,7 +340,7 @@ describe('createUniverse', () => {
       obj.type === 'Space Station' || obj.type === 'Asteroid'
     );
     stationsAndAsteroids.forEach(obj => {
-      expect(obj.landedImage).toBe('images/stellar_objects/System1Port.jpg');
+      expect(obj.landedImage).toBe('data/default/en-us/images/stellar_objects/System1Port.jpg');
     });
   });
 
@@ -448,7 +448,7 @@ describe('createUniverse', () => {
     stations.forEach(station => {
       if (station.landedImage) {
         if (station.location === 1) {
-          expect(station.landedImage).toBe('images/stellar_objects/System1Port.jpg');
+          expect(station.landedImage).toBe('data/default/en-us/images/stellar_objects/System1Port.jpg');
         } else {
           expect(station.landedImage).toContain('Port');
         }
@@ -459,7 +459,7 @@ describe('createUniverse', () => {
     asteroids.forEach(asteroid => {
       if (asteroid.landedImage) {
         if (asteroid.location === 1) {
-          expect(asteroid.landedImage).toBe('images/stellar_objects/System1Port.jpg');
+          expect(asteroid.landedImage).toBe('data/default/en-us/images/stellar_objects/System1Port.jpg');
         } else {
           expect(asteroid.landedImage).toContain('Port');
         }

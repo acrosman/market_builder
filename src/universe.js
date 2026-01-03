@@ -3,12 +3,13 @@ const path = require('path');
 
 /**
  * Get list of image files from a directory
- * @param {string} imageDir - Directory path relative to app/
+ * @param {string} imageDir - Directory path relative to data directory
+ * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
  * @returns {string[]} Array of image paths
  */
-function getImagesFromDirectory(imageDir) {
+function getImagesFromDirectory(imageDir, dataDir = 'data/default/en-us') {
   try {
-    const fullPath = path.join(__dirname, '../app', imageDir);
+    const fullPath = path.join(__dirname, '..', dataDir, imageDir);
     if (!fs.existsSync(fullPath)) {
       console.warn(`Image directory not found: ${imageDir}`);
       return [];
@@ -161,9 +162,10 @@ class StellarObject {
   /**
    * Gets a landed/docked image for this type of object (surface or port).
    * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
+   * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
    * @returns string, path to landed/port image.
    */
-  getLandedImage(stellarObjectsData) {
+  getLandedImage(stellarObjectsData, dataDir = 'data/default/en-us') {
     const typeData = stellarObjectsData[this.type];
     if (!typeData || !typeData.classes) {
       console.warn(`No type data found for: ${this.type}`);
@@ -180,14 +182,14 @@ class StellarObject {
     const subfolder = this.type === 'Planet' ? 'Surface' : 'Port';
     const imageDir = path.join(classData.imagePath, subfolder).replace(/\\/g, '/');
 
-    const imageList = getImagesFromDirectory(imageDir);
+    const imageList = getImagesFromDirectory(imageDir, dataDir);
     if (imageList.length === 0) {
       console.warn(`No landed images found in directory: ${imageDir}`);
       return '';
     }
 
     const randomIndex = Math.floor(Math.random() * imageList.length);
-    return imageList[randomIndex];
+    return path.join(dataDir, imageList[randomIndex]).replace(/\\/g, '/');
   }
 
   /**
@@ -356,9 +358,9 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
       );
       // System 1 objects use specific images based on type
       if (obj.type === 'Planet') {
-        obj.landedImage = 'images/stellar_objects/System1Surface.jpg';
+        obj.landedImage = path.join(dataDir, 'images/stellar_objects/System1Surface.jpg').replace(/\\/g, '/');
       } else if (obj.type === 'Space Station' || obj.type === 'Asteroid') {
-        obj.landedImage = 'images/stellar_objects/System1Port.jpg';
+        obj.landedImage = path.join(dataDir, 'images/stellar_objects/System1Port.jpg').replace(/\\/g, '/');
       }
       universe.stellarObjects.push(obj);
     });
@@ -382,12 +384,12 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     const obj = new StellarObject(objectId++, type, className, location, typeDetails, name);
 
     // Assign landed/port image
-    obj.landedImage = obj.getLandedImage(stellarObjectsData);
+    obj.landedImage = obj.getLandedImage(stellarObjectsData, dataDir);
 
     universe.stellarObjects.push(obj);
 
     // Add an image for the system.
-    const imagePath = obj.getRandomImage(stellarObjectsData);
+    const imagePath = obj.getRandomImage(stellarObjectsData, dataDir);
     universe.systems.find(s => s.id === location).image = imagePath;
 
   }
@@ -395,11 +397,11 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   // Set system 1 image
   const system1 = universe.systems.find(s => s.id === 1);
   if (system1) {
-    system1.image = 'images/stellar_objects/System1.jpg';
+    system1.image = path.join(dataDir, 'images/stellar_objects/System1.jpg').replace(/\\/g, '/');
   }
 
   // Get starfield images for systems without objects
-  const starfieldImages = getImagesFromDirectory('images/stellar_objects/Starfields');
+  const starfieldImages = getImagesFromDirectory('images/stellar_objects/Starfields', dataDir);
 
   universe.systems.forEach(system => {
     if (system.id === 1) return; // Skip system 1, already set
