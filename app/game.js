@@ -266,6 +266,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (result.success) {
       // Dock was successful
       addMessage(`Welcome to ${result.dockedObject.name}. Docking sequence complete.`);
+      if (result.dockedObject.description) {
+        addMessage(result.dockedObject.description);
+      }
 
       // Update the UI with the new docked status
       await updateLocationDisplay();
@@ -289,6 +292,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (result.success) {
       // Land was successful
       addMessage(`Welcome to ${result.landedObject.name}. Landing sequence complete.`);
+      if (result.landedObject.description) {
+        addMessage(result.landedObject.description);
+      }
 
       // Update the UI with the new landed status
       await updateLocationDisplay();
