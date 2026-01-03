@@ -2,34 +2,26 @@
   width: 100vw;
   height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   background: #181f2a;
 }
 
-.game-main {
-  flex-direction: row;
-}
-
-.game-controls {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  border-top: 1px solid #2d3748;
-}
-
 .game-left {
-  width: 33%;
-  max-width: 300px;
+  width: 280px;
+  min-width: 280px;
   padding: 24px;
   background: #232b3a;
   border-right: 1px solid #2d3748;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.game-right {
+.game-main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .action-group {
@@ -92,14 +84,16 @@
 }
 
 .game-top {
+  flex: 1;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  padding: 15px;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .game-status-left, .game-status-right {
-  min-width: 180px;
+  min-width: 200px;
   max-width: 300px;
   padding: 15px;
   overflow-y: auto;
@@ -146,24 +140,21 @@
 }
 
 .game-bottom {
-  width: 100%;
-  height: 50%;
+  flex: 1;
   background: #232b3a;
-  border-radius: 16px 16px 0 0;
+  border-top: 1px solid #2d3748;
   box-sizing: border-box;
-  padding: 24px 18px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
+  overflow: hidden;
 }
 
 .game-console {
+  flex: 1;
   background: #181f2a;
   color: #f4f4f4;
   border-radius: 8px;
-  min-height: 180px;
-  max-height: 300px;
   overflow-y: auto;
   padding: 12px;
   margin-bottom: 12px;
@@ -186,13 +177,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.game-console-section {
-  flex: 1;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
 }
 /* Modal Styles */
 .modal {

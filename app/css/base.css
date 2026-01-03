@@ -53,3 +53,7 @@ button {
 button:hover {
     background: #2b6cb0;
 }
+
+.hidden {
+    display: none;
+}

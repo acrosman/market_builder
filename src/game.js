@@ -425,6 +425,8 @@ class Game {
         location: obj.location,
         name: obj.name,
         landedImage: obj.landedImage,
+        owner: obj.owner,
+        value: obj.value,
         market: obj.market,
         buildings: obj.buildings,
         shipyard: obj.shipyard,
@@ -520,6 +522,9 @@ class Game {
         }
       );
       if (objData.name) obj.name = objData.name;
+      if (objData.landedImage) obj.landedImage = objData.landedImage;
+      if (objData.owner) obj.owner = objData.owner;
+      if (objData.value !== undefined) obj.value = objData.value;
       return obj;
     });
 

@@ -53,16 +53,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('total-population').textContent = totalPopulation.toLocaleString();
 
       // If docked or landed, show the location information
+      const statusEl = document.getElementById('current-location-status');
       if (currentDockedAt !== null || currentLandedOn !== null) {
         const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
         const object = objects.find(obj => obj.id === objectId);
         if (object) {
           const status = currentDockedAt !== null ? 'Docked at' : 'Landed on';
-          const statusEl = document.getElementById('current-location-status');
           statusEl.classList.remove('hidden');
           document.getElementById('location-type').textContent = status;
           document.getElementById('location-name').textContent = object.name;
+          document.getElementById('location-owner').textContent = object.owner || 'Independent';
         }
+      } else {
+        // Hide the status element when in space
+        statusEl.classList.add('hidden');
       }
     } catch (error) {
       console.error('Error loading location status template:', error);

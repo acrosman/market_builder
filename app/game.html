@@ -12,6 +12,31 @@
 
 <body>
   <div class="game-layout">
+    <div class="game-left">
+      <h2>Available Actions</h2>
+      <div class="action-group">
+        <h3>Navigation</h3>
+        <button id="jump-planner-btn" class="action-btn">Jump to...</button>
+        <div id="jump-buttons">
+          <!-- Jump buttons will be inserted here dynamically -->
+        </div>
+      </div>
+      <div class="action-group">
+        <h3>Local Actions</h3>
+        <div id="local-buttons">
+          <!-- Local action buttons will be inserted here dynamically -->
+        </div>
+      </div>
+      <div class="action-group">
+        <h3>Game Actions</h3>
+        <div id="game-action-buttons">
+          <button id="save-game-btn" class="action-btn">Save Game</button>
+          <button id="load-game-btn" class="action-btn">Load Game</button>
+          <button id="player-status-btn" class="action-btn">Player Status</button>
+          <button id="game-settings-btn" class="action-btn" disabled>Game Settings</button>
+        </div>
+      </div>
+    </div>
     <div class="game-main">
       <div class="game-top">
         <div class="game-status-left">
@@ -31,34 +56,7 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="game-controls">
-      <div class="game-left">
-        <h2>Available Actions</h2>
-        <div class="action-group">
-          <h3>Navigation</h3>
-          <button id="jump-planner-btn" class="action-btn">Jump to...</button>
-          <div id="jump-buttons">
-            <!-- Jump buttons will be inserted here dynamically -->
-          </div>
-        </div>
-        <div class="action-group">
-          <h3>Local Actions</h3>
-          <div id="local-buttons">
-            <!-- Local action buttons will be inserted here dynamically -->
-          </div>
-        </div>
-        <div class="action-group">
-          <h3>Game Actions</h3>
-          <div id="game-action-buttons">
-            <button id="save-game-btn" class="action-btn">Save Game</button>
-            <button id="load-game-btn" class="action-btn">Load Game</button>
-            <button id="player-status-btn" class="action-btn">Player Status</button>
-            <button id="game-settings-btn" class="action-btn" disabled>Game Settings</button>
-          </div>
-        </div>
-      </div>
-      <div class="game-console-section">
+      <div class="game-bottom">
         <h2>Game Console</h2>
         <div id="game-console" class="game-console"></div>
         <input id="game-input" type="text" placeholder="Type your command here..." autocomplete="off">
