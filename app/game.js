@@ -41,21 +41,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map(obj => `${obj.type} (${obj.className})`)
       .join(', ');
 
-    // Update location status
-    locationStatus.innerHTML = `
-      <p>System: ${system.name}</p>
-      <p>Objects: ${objectsList || 'None'}</p>
-      <p>Total Population: ${totalPopulation.toLocaleString()}</p>
-    `;
+    // Load and populate location status template
+    try {
+      const response = await fetch('./templates/location-status.html');
+      const template = await response.text();
+      locationStatus.innerHTML = template;
 
-    // If docked or landed, show the location information
-    if (currentDockedAt !== null || currentLandedOn !== null) {
-      const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
-      const object = objects.find(obj => obj.id === objectId);
-      if (object) {
-        const status = currentDockedAt !== null ? 'Docked at' : 'Landed on';
-        locationStatus.innerHTML += `<p><strong>${status}: ${object.name}</strong></p>`;
+      // Populate template with data
+      document.getElementById('system-name').textContent = system.name;
+      document.getElementById('objects-list').textContent = objectsList || 'None';
+      document.getElementById('total-population').textContent = totalPopulation.toLocaleString();
+
+      // If docked or landed, show the location information
+      if (currentDockedAt !== null || currentLandedOn !== null) {
+        const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
+        const object = objects.find(obj => obj.id === objectId);
+        if (object) {
+          const status = currentDockedAt !== null ? 'Docked at' : 'Landed on';
+          const statusEl = document.getElementById('current-location-status');
+          statusEl.classList.remove('hidden');
+          document.getElementById('location-type').textContent = status;
+          document.getElementById('location-name').textContent = object.name;
+        }
       }
+    } catch (error) {
+      console.error('Error loading location status template:', error);
+      // Fallback to basic display
+      locationStatus.textContent = `System: ${system.name}`;
     }
 
     // Update location image - use landedImage if docked/landed, system image otherwise
@@ -112,14 +124,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusText = `Status: Landed on ${landedObject?.name || 'Planet'}`;
     }
 
-    shipStatus.innerHTML = `
-      <p>Ship: ${shipType}</p>
-      <p>${statusText}</p>
-      <p>HP: ${shipData.hitPoints}/${shipData.hitPoints}</p>
-      <p>Cargo: 0/${shipData.cargoCapacity}</p>
-      <p>Shields: ${shipData.shields}/${shipData.shields}</p>
-      <p>Energy: ${playerState.shipEnergy}/${playerState.shipMaxEnergy}</p>
-    `;
+    // Load and populate ship status template
+    try {
+      const response = await fetch('./templates/ship-status.html');
+      const template = await response.text();
+      shipStatus.innerHTML = template;
+
+      // Populate template with data
+      document.getElementById('ship-type').textContent = shipType;
+      document.getElementById('ship-status-text').textContent = statusText;
+      document.getElementById('ship-hp').textContent = shipData.hitPoints;
+      document.getElementById('ship-max-hp').textContent = shipData.hitPoints;
+      document.getElementById('ship-cargo').textContent = '0';
+      document.getElementById('ship-max-cargo').textContent = shipData.cargoCapacity;
+      document.getElementById('ship-shields').textContent = shipData.shields;
+      document.getElementById('ship-max-shields').textContent = shipData.shields;
+      document.getElementById('ship-energy').textContent = playerState.shipEnergy;
+      document.getElementById('ship-max-energy').textContent = playerState.shipMaxEnergy;
+    } catch (error) {
+      console.error('Error loading ship status template:', error);
+      // Fallback to basic display
+      shipStatus.textContent = `Ship: ${shipType}`;
+    }
   }
 
 
@@ -149,7 +175,6 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Adds a message to the game console
    * @param {string} msg - The message to display. Can be:
    *   - Plain text: displays immediately
-   *   - Template key: "messages:key.subkey" loads from game_messages.json and displays asynchronously
    *   - Message key: "message:key.subkey" loads a single message with variable substitution
    * @param {Object} [vars={}] - Optional variables for template substitution (e.g., {systemId: 5, objectName: "Station Alpha"})
    */
@@ -597,6 +622,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Jump Planner functionality
   jumpPlannerBtn.addEventListener('click', openJumpPlanner);
 
+  /**
+   * Load and display an error message using the error template
+   * @param {HTMLElement} container - The container element to display the error in
+   * @param {string} message - The error message text
+   */
+  async function displayErrorMessage(container, message) {
+    try {
+      const response = await fetch('./templates/error-message.html');
+      const template = await response.text();
+      container.innerHTML = template;
+      document.getElementById('error-message-text').textContent = message;
+    } catch (error) {
+      console.error('Error loading error message template:', error);
+      // Fallback to simple error display
+      container.innerHTML = `<p class="error-message">${message}</p>`;
+    }
+  }
+
   async function openJumpPlanner() {
     const locationState = await window.api.getLocationState();
     if (!locationState) return;
@@ -626,21 +669,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         const destinationId = parseInt(document.getElementById('destination-system').value);
         console.log('[DEBUG calculate-route] destinationId:', destinationId, 'currentSystemId:', currentSystemId);
 
+        const routeDisplay = document.getElementById('route-display');
+
         // Validate destination ID
         if (isNaN(destinationId) || destinationId < 1) {
-          document.getElementById('route-display').innerHTML = '<p class="error-message">Please enter a valid system ID.</p>';
+          await displayErrorMessage(routeDisplay, 'Please enter a valid system ID.');
           return;
         }
 
         if (destinationId === currentSystemId) {
-          document.getElementById('route-display').innerHTML = '<p class="error-message">You are already at this system.</p>';
+          await displayErrorMessage(routeDisplay, 'You are already at this system.');
           return;
         }
 
         // Check if system exists
         const systemExists = allSystems.some(sys => sys.id === destinationId);
         if (!systemExists) {
-          document.getElementById('route-display').innerHTML = '<p class="error-message">System ID does not exist.</p>';
+          await displayErrorMessage(routeDisplay, 'System ID does not exist.');
           return;
         }
 
@@ -651,7 +696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('[DEBUG calculate-route] result:', result);
 
         if (!result.success) {
-          document.getElementById('route-display').innerHTML = `<p class="error-message">${result.reason}</p>`;
+          await displayErrorMessage(routeDisplay, result.reason);
           return;
         }
 
