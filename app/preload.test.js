@@ -111,6 +111,7 @@ describe('Preload Script', () => {
       'get-ship-data',
       'get-universe-graph',
       'get-universe-summary',
+      'get-universe-state',
       'open-load-game-dialog',
       'get-all-systems',
       'calculate-jump-route',
@@ -264,6 +265,53 @@ describe('Preload Script', () => {
       expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('get-ship-data');
       expect(result).resolves.toEqual({ ship: 'Shuttle' });
     });
+
+    test('getUniverseState should invoke get-universe-state', () => {
+      mockIpcRenderer.invoke.mockResolvedValue({
+        systems: [{ id: 1, name: 'Alpha' }],
+        stellarObjects: [{ id: 1, name: 'Earth' }]
+      });
+
+      const getUniverseState = () => mockIpcRenderer.invoke('get-universe-state');
+
+      const result = getUniverseState();
+
+      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('get-universe-state');
+      expect(result).resolves.toEqual({
+        systems: [{ id: 1, name: 'Alpha' }],
+        stellarObjects: [{ id: 1, name: 'Earth' }]
+      });
+    });
+
+    test('getGameData should invoke get-ship-data for ships dataType', () => {
+      mockIpcRenderer.invoke.mockResolvedValue({ 'Shuttle': { value: 5000 } });
+
+      const getGameData = (dataType) => {
+        if (dataType === 'ships') {
+          return mockIpcRenderer.invoke('get-ship-data');
+        }
+        return null;
+      };
+
+      const result = getGameData('ships');
+
+      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('get-ship-data');
+      expect(result).resolves.toEqual({ 'Shuttle': { value: 5000 } });
+    });
+
+    test('getGameData should return null for unsupported dataType', () => {
+      const getGameData = (dataType) => {
+        if (dataType === 'ships') {
+          return mockIpcRenderer.invoke('get-ship-data');
+        }
+        return null;
+      };
+
+      const result = getGameData('unsupported');
+
+      expect(result).toBeNull();
+      expect(mockIpcRenderer.invoke).not.toHaveBeenCalled();
+    });
   });
 
   describe('Security', () => {
@@ -274,7 +322,9 @@ describe('Preload Script', () => {
         receive: jest.fn(),
         getLocationState: jest.fn(),
         getGameSettings: jest.fn(),
-        getShipData: jest.fn()
+        getShipData: jest.fn(),
+        getUniverseState: jest.fn(),
+        getGameData: jest.fn()
       };
 
       mockContextBridge.exposeInMainWorld('api', api);

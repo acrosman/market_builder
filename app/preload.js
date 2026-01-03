@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('api', {
       'get-ship-data',
       'get-universe-graph',
       'get-universe-summary',
+      'get-universe-state',
       'open-load-game-dialog',
       'get-all-systems',
       'calculate-jump-route',
@@ -64,6 +65,14 @@ contextBridge.exposeInMainWorld('api', {
     }
   },
   getLocationState: () => ipcRenderer.invoke('get-location-state'),  // Add this
+  getUniverseState: () => ipcRenderer.invoke('get-universe-state'),
   getGameSettings: () => ipcRenderer.invoke('get-game-settings'), // Add this line
   getShipData: () => ipcRenderer.invoke('get-ship-data'),
+  getGameData: (dataType) => {
+    if (dataType === 'ships') {
+      return ipcRenderer.invoke('get-ship-data');
+    }
+    // Add more data types as needed
+    return null;
+  }
 });

@@ -158,3 +158,70 @@ describe('get-game-messages IPC handler', () => {
     });
   });
 });
+
+describe('get-universe-state IPC handler', () => {
+  test('should return null when no current game exists', () => {
+    const currentGame = null;
+
+    const getUniverseState = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects
+      };
+    };
+
+    const result = getUniverseState();
+    expect(result).toBeNull();
+  });
+
+  test('should return universe state with systems and stellarObjects', () => {
+    const currentGame = {
+      universe: {
+        systems: [
+          { id: 1, name: 'Alpha' },
+          { id: 2, name: 'Beta' }
+        ],
+        stellarObjects: [
+          { id: 1, name: 'Earth', type: 'Planet', location: 1 },
+          { id: 2, name: 'Mars', type: 'Planet', location: 1 },
+          { id: 3, name: 'Station One', type: 'Station', location: 2 }
+        ]
+      }
+    };
+
+    const getUniverseState = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects
+      };
+    };
+
+    const result = getUniverseState();
+
+    expect(result).not.toBeNull();
+    expect(result.systems).toHaveLength(2);
+    expect(result.stellarObjects).toHaveLength(3);
+    expect(result.systems[0].name).toBe('Alpha');
+    expect(result.stellarObjects[0].name).toBe('Earth');
+  });
+
+  test('should return null when universe is missing', () => {
+    const currentGame = {
+      player: { name: 'Test' }
+      // universe is missing
+    };
+
+    const getUniverseState = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects
+      };
+    };
+
+    const result = getUniverseState();
+    expect(result).toBeNull();
+  });
+});

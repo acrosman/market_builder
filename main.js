@@ -254,6 +254,14 @@ ipcMain.handle('get-location-state', () => {
   return locationState;
 });
 
+ipcMain.handle('get-universe-state', () => {
+  if (!currentGame || !currentGame.universe) return null;
+  return {
+    systems: currentGame.universe.systems,
+    stellarObjects: currentGame.universe.stellarObjects
+  };
+});
+
 ipcMain.handle('get-ship-data', () => {
   const dataDir = gameSettings.data_directory || 'data/default/en-us';
   const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, dataDir, 'ships.json'), 'utf-8'));

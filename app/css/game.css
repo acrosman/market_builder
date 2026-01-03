@@ -329,3 +329,48 @@
   font-weight: 500;
   margin: 10px 0;
 }
+
+/* Corporation Status Styles */
+.corporation-header {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #4ade80;
+}
+
+.corporation-header h3 {
+  margin: 0 0 10px 0;
+  color: #4ade80;
+}
+
+.corporation-header p {
+  margin: 5px 0;
+  color: #a0aec0;
+}
+
+.corporation-section {
+  margin: 20px 0;
+}
+
+.corporation-section h4 {
+  color: #4ade80;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #2d3748;
+}
+
+.asset-item {
+  background: #2d3748;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 6px;
+  border-left: 3px solid #4ade80;
+}
+
+.asset-item strong {
+  color: #cbd5e0;
+  font-size: 1.1em;
+}
+
+.asset-item br {
+  line-height: 1.6;
+}

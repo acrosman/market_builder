@@ -577,4 +577,317 @@ describe('Game UI End-to-End Smoke Tests', () => {
       expect(consoleDiv.textContent).toContain('Error: Unable to load message');
     });
   });
+
+  describe('Corporation Status Modal', () => {
+    let modalTitle;
+    let modalBody;
+    let gameModal;
+
+    beforeEach(() => {
+      // Add modal elements to DOM
+      document.body.innerHTML += `
+        <div id="game-modal" class="modal">
+          <div class="modal-content">
+            <span class="close-btn" id="modal-close-btn">&times;</span>
+            <h2 id="modal-title"></h2>
+            <div id="modal-body"></div>
+          </div>
+        </div>
+        <button id="player-status-btn">Player Status</button>
+      `;
+
+      modalTitle = document.getElementById('modal-title');
+      modalBody = document.getElementById('modal-body');
+      gameModal = document.getElementById('game-modal');
+
+      // Add API methods for corporation status
+      window.api.getUniverseState = jest.fn();
+      window.api.getGameData = jest.fn();
+
+      // Mock fetch for loading HTML templates
+      global.fetch = jest.fn();
+    });
+
+    test('complete workflow: open player status -> corporation status -> back to player status', async () => {
+      // Mock location state with player and corporation data
+      const mockLocationState = {
+        playerState: {
+          name: 'Commander Drake',
+          credits: 50000,
+          ship: 'Cargo Hauler',
+          system: 2,
+          shipEnergy: 950,
+          shipMaxEnergy: 1000,
+          cargo: { 'Food': 100, 'Minerals': 50 },
+          stats: {
+            jumps: 25,
+            trades: 10,
+            profit: 15000
+          },
+          corporation: {
+            name: 'Drake Interstellar',
+            description: 'A growing trading empire',
+            value: 250000,
+            stellarObjects: [5, 10]
+          }
+        },
+        system: { id: 2, name: 'Beta System' },
+        objects: []
+      };
+
+      const mockUniverseState = {
+        systems: [
+          { id: 1, name: 'Alpha System' },
+          { id: 2, name: 'Beta System' },
+          { id: 3, name: 'Gamma System' }
+        ],
+        stellarObjects: [
+          { id: 5, name: 'Farm World Alpha', className: 'Farm World', location: 2, value: 125000 },
+          { id: 10, name: 'Mining Outpost Beta', className: 'Mining Base', location: 3, value: 75000 }
+        ]
+      };
+
+      const mockShipData = {
+        'Cargo Hauler': { value: 50000 }
+      };
+
+      const playerStatusHTML = `
+        <div id="stat-name"></div>
+        <div id="stat-credits"></div>
+        <div id="stat-ship"></div>
+        <div id="stat-energy"></div>
+        <div id="stat-cargo"></div>
+        <div id="stat-jumps"></div>
+        <div id="stat-trades"></div>
+        <div id="stat-profit"></div>
+        <div id="stat-corporation-name"></div>
+        <div id="stat-corporation-description"></div>
+        <div id="stat-corporation-value"></div>
+        <button id="btn-corporation-status">Corporation Status</button>
+      `;
+
+      const corporationStatusHTML = `
+        <div id="corp-name"></div>
+        <div id="corp-description"></div>
+        <div id="corp-value"></div>
+        <div id="corp-planets-list"></div>
+        <div id="corp-ships-list"></div>
+        <button id="btn-player-status">Back to Player Status</button>
+      `;
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+      window.api.getUniverseState.mockResolvedValue(mockUniverseState);
+      window.api.getGameData.mockResolvedValue(mockShipData);
+
+      // Simulate loadModal function
+      const loadModal = async (title, contentFile, onLoad) => {
+        modalTitle.textContent = title;
+
+        // Mock fetch to return appropriate HTML based on contentFile
+        if (contentFile.includes('player-status.html')) {
+          modalBody.innerHTML = playerStatusHTML;
+        } else if (contentFile.includes('corporation-status.html')) {
+          modalBody.innerHTML = corporationStatusHTML;
+        }
+
+        gameModal.classList.add('visible');
+
+        if (onLoad && typeof onLoad === 'function') {
+          await onLoad();
+        }
+      };
+
+      // Step 1: Open player status modal
+      await loadModal('Player Status', './modals/player-status.html', async () => {
+        const locationState = await window.api.getLocationState();
+        const playerState = locationState.playerState;
+
+        document.getElementById('stat-name').textContent = playerState.name;
+        document.getElementById('stat-credits').textContent = playerState.credits.toLocaleString();
+        document.getElementById('stat-ship').textContent = playerState.ship;
+        document.getElementById('stat-energy').textContent = `${playerState.shipEnergy}/${playerState.shipMaxEnergy}`;
+        document.getElementById('stat-cargo').textContent = Object.entries(playerState.cargo)
+          .map(([good, quantity]) => `${good}: ${quantity}`)
+          .join(', ');
+        document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
+        document.getElementById('stat-trades').textContent = playerState.stats.trades;
+        document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
+        document.getElementById('stat-corporation-name').textContent = playerState.corporation.name;
+        document.getElementById('stat-corporation-description').textContent = playerState.corporation.description;
+        document.getElementById('stat-corporation-value').textContent = playerState.corporation.value.toLocaleString();
+      });
+
+      // Verify player status modal is displayed correctly
+      expect(modalTitle.textContent).toBe('Player Status');
+      expect(gameModal.classList.contains('visible')).toBe(true);
+      expect(document.getElementById('stat-name').textContent).toBe('Commander Drake');
+      expect(document.getElementById('stat-credits').textContent).toBe('50,000');
+      expect(document.getElementById('stat-corporation-name').textContent).toBe('Drake Interstellar');
+      expect(document.getElementById('btn-corporation-status')).toBeTruthy();
+
+      // Step 2: Click corporation status button
+      const corpStatusBtn = document.getElementById('btn-corporation-status');
+      await corpStatusBtn.dispatchEvent(new MouseEvent('click'));
+
+      // Simulate opening corporation status modal
+      await loadModal('Corporation Status', './modals/corporation-status.html', async () => {
+        const locationState = await window.api.getLocationState();
+        const playerState = locationState.playerState;
+        const corporation = playerState.corporation;
+
+        document.getElementById('corp-name').textContent = corporation.name;
+        document.getElementById('corp-description').textContent = corporation.description;
+        document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+
+        const universeState = await window.api.getUniverseState();
+
+        const planetsList = document.getElementById('corp-planets-list');
+        const planetsHTML = corporation.stellarObjects
+          .map(objId => {
+            const stellarObj = universeState.stellarObjects.find(obj => obj.id === objId);
+            if (!stellarObj) return '';
+            return `
+              <div class="asset-item">
+                <strong>${stellarObj.name}</strong> (${stellarObj.className})
+                <br>System: ${stellarObj.location}
+                <br>Value: ${stellarObj.value.toLocaleString()} credits
+              </div>
+            `;
+          })
+          .filter(html => html !== '')
+          .join('');
+        planetsList.innerHTML = planetsHTML;
+
+        const ships = await window.api.getGameData('ships');
+        const shipValue = ships[playerState.ship]?.value || 0;
+
+        const shipsList = document.getElementById('corp-ships-list');
+        shipsList.innerHTML = `
+          <div class="asset-item">
+            <strong>${playerState.ship}</strong>
+            <br>Location: System ${playerState.system}
+            <br>Value: ${shipValue.toLocaleString()} credits
+          </div>
+        `;
+      });
+
+      // Verify corporation status modal is displayed correctly
+      expect(modalTitle.textContent).toBe('Corporation Status');
+      expect(document.getElementById('corp-name').textContent).toBe('Drake Interstellar');
+      expect(document.getElementById('corp-description').textContent).toBe('A growing trading empire');
+      expect(document.getElementById('corp-value').textContent).toBe('250,000');
+
+      // Verify planets list
+      const planetsList = document.getElementById('corp-planets-list').innerHTML;
+      expect(planetsList).toContain('Farm World Alpha');
+      expect(planetsList).toContain('Farm World');
+      expect(planetsList).toContain('System: 2');
+      expect(planetsList).toContain('125,000');
+      expect(planetsList).toContain('Mining Outpost Beta');
+      expect(planetsList).toContain('Mining Base');
+      expect(planetsList).toContain('System: 3');
+      expect(planetsList).toContain('75,000');
+
+      // Verify ships list
+      const shipsList = document.getElementById('corp-ships-list').innerHTML;
+      expect(shipsList).toContain('Cargo Hauler');
+      expect(shipsList).toContain('System 2');
+      expect(shipsList).toContain('50,000');
+
+      // Verify API calls
+      expect(window.api.getLocationState).toHaveBeenCalled();
+      expect(window.api.getUniverseState).toHaveBeenCalled();
+      expect(window.api.getGameData).toHaveBeenCalledWith('ships');
+
+      // Step 3: Click back button to return to player status
+      const backBtn = document.getElementById('btn-player-status');
+      expect(backBtn).toBeTruthy();
+
+      await backBtn.dispatchEvent(new MouseEvent('click'));
+
+      // Re-open player status (simulating the back button behavior)
+      await loadModal('Player Status', './modals/player-status.html', async () => {
+        const locationState = await window.api.getLocationState();
+        const playerState = locationState.playerState;
+        document.getElementById('stat-name').textContent = playerState.name;
+        document.getElementById('stat-corporation-name').textContent = playerState.corporation.name;
+      });
+
+      // Verify we're back to player status
+      expect(modalTitle.textContent).toBe('Player Status');
+      expect(document.getElementById('stat-name').textContent).toBe('Commander Drake');
+    });
+
+    test('corporation status handles no planets owned scenario', async () => {
+      const mockLocationState = {
+        playerState: {
+          name: 'NewCaptain',
+          ship: 'Shuttle',
+          system: 1,
+          corporation: {
+            name: 'Startup Corp',
+            description: 'Just getting started',
+            value: 10000,
+            stellarObjects: []
+          }
+        }
+      };
+
+      const mockUniverseState = {
+        stellarObjects: []
+      };
+
+      const mockShipData = {
+        'Shuttle': { value: 5000 }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+      window.api.getUniverseState.mockResolvedValue(mockUniverseState);
+      window.api.getGameData.mockResolvedValue(mockShipData);
+
+      const corporationStatusHTML = `
+        <div id="corp-name"></div>
+        <div id="corp-description"></div>
+        <div id="corp-value"></div>
+        <div id="corp-planets-list"></div>
+        <div id="corp-ships-list"></div>
+      `;
+
+      modalBody.innerHTML = corporationStatusHTML;
+      modalTitle.textContent = 'Corporation Status';
+      gameModal.classList.add('visible');
+
+      const locationState = await window.api.getLocationState();
+      const playerState = locationState.playerState;
+      const corporation = playerState.corporation;
+
+      document.getElementById('corp-name').textContent = corporation.name;
+      document.getElementById('corp-description').textContent = corporation.description;
+      document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+
+      const planetsList = document.getElementById('corp-planets-list');
+      if (!corporation.stellarObjects || corporation.stellarObjects.length === 0) {
+        planetsList.innerHTML = '<p>No planets owned</p>';
+      }
+
+      const ships = await window.api.getGameData('ships');
+      const shipValue = ships[playerState.ship]?.value || 0;
+
+      const shipsList = document.getElementById('corp-ships-list');
+      shipsList.innerHTML = `
+        <div class="asset-item">
+          <strong>${playerState.ship}</strong>
+          <br>Location: System ${playerState.system}
+          <br>Value: ${shipValue.toLocaleString()} credits
+        </div>
+      `;
+
+      // Verify empty planets message
+      expect(document.getElementById('corp-planets-list').innerHTML).toContain('No planets owned');
+
+      // Verify ship is still displayed
+      expect(document.getElementById('corp-ships-list').innerHTML).toContain('Shuttle');
+      expect(document.getElementById('corp-ships-list').innerHTML).toContain('5,000');
+    });
+  });
 });

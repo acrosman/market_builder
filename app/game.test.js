@@ -56,7 +56,9 @@ describe('Game UI Functions', () => {
       receive: jest.fn(),
       getLocationState: jest.fn(),
       getGameSettings: jest.fn(),
-      getShipData: jest.fn()
+      getShipData: jest.fn(),
+      getUniverseState: jest.fn(),
+      getGameData: jest.fn()
     };
   });
 
@@ -405,11 +407,11 @@ describe('Game UI Functions', () => {
       };
 
       const mockSettings = {
-        initial_ship: 'Shuttle'
+        initial_ship: 'Cargo Hauler'
       };
 
       const mockShips = {
-        Shuttle: {
+        'Cargo Hauler': {
           energy: 100,
           hitPoints: 50,
           cargoCapacity: 100,
@@ -446,7 +448,7 @@ describe('Game UI Functions', () => {
 
       await updateShipStatusFn();
 
-      expect(shipStatus.innerHTML).toContain('Ship: Shuttle');
+      expect(shipStatus.innerHTML).toContain('Ship: Cargo Hauler');
       expect(shipStatus.innerHTML).toContain('HP: 50/50');
       expect(shipStatus.innerHTML).toContain('Cargo: 0/100');
       expect(shipStatus.innerHTML).toContain('Shields: 25/25');
@@ -1146,6 +1148,185 @@ describe('Game UI Functions', () => {
       await openPlayerStatusModalFn();
 
       expect(document.getElementById('stat-cargo').textContent).toBe('Empty');
+    });
+  });
+
+  describe('openCorporationStatusModal function', () => {
+    test('should populate corporation status correctly with stellar objects', async () => {
+      const mockLocationState = {
+        playerState: {
+          name: 'Commander',
+          credits: 5000,
+          ship: 'Cargo Hauler',
+          system: 2,
+          corporation: {
+            name: 'Stellar Enterprises',
+            description: 'A trading corporation',
+            value: 150000,
+            stellarObjects: [5, 10]
+          }
+        }
+      };
+
+      const mockUniverseState = {
+        stellarObjects: [
+          { id: 5, name: 'Farm World Alpha', className: 'Farm World', location: 2, value: 75000 },
+          { id: 10, name: 'Mining Station Beta', className: 'Mining Base', location: 3, value: 50000 }
+        ]
+      };
+
+      const mockShipData = {
+        'Cargo Hauler': { value: 50000 }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+      window.api.getUniverseState.mockResolvedValue(mockUniverseState);
+      window.api.getGameData.mockResolvedValue(mockShipData);
+
+      // Setup corporation status HTML structure
+      modalBody.innerHTML = `
+        <div id="corp-name"></div>
+        <div id="corp-description"></div>
+        <div id="corp-value"></div>
+        <div id="corp-planets-list"></div>
+        <div id="corp-ships-list"></div>
+      `;
+
+      const openCorporationStatusModalFn = async () => {
+        const locationState = await window.api.getLocationState();
+        if (!locationState) return;
+
+        const playerState = locationState.playerState;
+        const corporation = playerState.corporation;
+
+        document.getElementById('corp-name').textContent = corporation.name;
+        document.getElementById('corp-description').textContent = corporation.description;
+        document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+
+        const universeState = await window.api.getUniverseState();
+
+        const planetsList = document.getElementById('corp-planets-list');
+        if (corporation.stellarObjects && corporation.stellarObjects.length > 0) {
+          const planetsHTML = corporation.stellarObjects
+            .map(objId => {
+              const stellarObj = universeState.stellarObjects.find(obj => obj.id === objId);
+              if (!stellarObj) return '';
+              return `
+                <div class="asset-item">
+                  <strong>${stellarObj.name}</strong> (${stellarObj.className})
+                  <br>System: ${stellarObj.location}
+                  <br>Value: ${stellarObj.value.toLocaleString()} credits
+                </div>
+              `;
+            })
+            .filter(html => html !== '')
+            .join('');
+          planetsList.innerHTML = planetsHTML || '<p>No planets owned</p>';
+        } else {
+          planetsList.innerHTML = '<p>No planets owned</p>';
+        }
+
+        const ships = await window.api.getGameData('ships');
+        const shipValue = ships[playerState.ship]?.value || 0;
+
+        const shipsList = document.getElementById('corp-ships-list');
+        const shipHTML = `
+          <div class="asset-item">
+            <strong>${playerState.ship}</strong>
+            <br>Location: System ${playerState.system}
+            <br>Value: ${shipValue.toLocaleString()} credits
+          </div>
+        `;
+        shipsList.innerHTML = shipHTML;
+      };
+
+      await openCorporationStatusModalFn();
+
+      expect(document.getElementById('corp-name').textContent).toBe('Stellar Enterprises');
+      expect(document.getElementById('corp-description').textContent).toBe('A trading corporation');
+      expect(document.getElementById('corp-value').textContent).toBe('150,000');
+
+      const planetsList = document.getElementById('corp-planets-list').innerHTML;
+      expect(planetsList).toContain('Farm World Alpha');
+      expect(planetsList).toContain('Farm World');
+      expect(planetsList).toContain('System: 2');
+      expect(planetsList).toContain('75,000');
+      expect(planetsList).toContain('Mining Station Beta');
+      expect(planetsList).toContain('Mining Base');
+      expect(planetsList).toContain('System: 3');
+      expect(planetsList).toContain('50,000');
+
+      const shipsList = document.getElementById('corp-ships-list').innerHTML;
+      expect(shipsList).toContain('Cargo Hauler');
+      expect(shipsList).toContain('System 2');
+      expect(shipsList).toContain('50,000');
+    });
+
+    test('should display no planets message when corporation has no stellar objects', async () => {
+      const mockLocationState = {
+        playerState: {
+          name: 'Commander',
+          ship: 'Shuttle',
+          system: 1,
+          corporation: {
+            name: 'New Corp',
+            description: 'Just starting',
+            value: 5000,
+            stellarObjects: []
+          }
+        }
+      };
+
+      const mockUniverseState = {
+        stellarObjects: []
+      };
+
+      const mockShipData = {
+        'Shuttle': { value: 5000 }
+      };
+
+      window.api.getLocationState.mockResolvedValue(mockLocationState);
+      window.api.getUniverseState.mockResolvedValue(mockUniverseState);
+      window.api.getGameData.mockResolvedValue(mockShipData);
+
+      modalBody.innerHTML = `
+        <div id="corp-name"></div>
+        <div id="corp-description"></div>
+        <div id="corp-value"></div>
+        <div id="corp-planets-list"></div>
+        <div id="corp-ships-list"></div>
+      `;
+
+      const openCorporationStatusModalFn = async () => {
+        const locationState = await window.api.getLocationState();
+        const playerState = locationState.playerState;
+        const corporation = playerState.corporation;
+
+        document.getElementById('corp-name').textContent = corporation.name;
+        document.getElementById('corp-description').textContent = corporation.description;
+        document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+
+        const planetsList = document.getElementById('corp-planets-list');
+        if (!corporation.stellarObjects || corporation.stellarObjects.length === 0) {
+          planetsList.innerHTML = '<p>No planets owned</p>';
+        }
+
+        const ships = await window.api.getGameData('ships');
+        const shipValue = ships[playerState.ship]?.value || 0;
+
+        const shipsList = document.getElementById('corp-ships-list');
+        shipsList.innerHTML = `
+          <div class="asset-item">
+            <strong>${playerState.ship}</strong>
+            <br>Location: System ${playerState.system}
+            <br>Value: ${shipValue.toLocaleString()} credits
+          </div>
+        `;
+      };
+
+      await openCorporationStatusModalFn();
+
+      expect(document.getElementById('corp-planets-list').innerHTML).toContain('No planets owned');
     });
   });
 });

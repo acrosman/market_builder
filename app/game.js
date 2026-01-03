@@ -599,7 +599,91 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('stat-corporation-name').textContent = playerState.corporation.name;
       document.getElementById('stat-corporation-description').textContent = playerState.corporation.description;
       document.getElementById('stat-corporation-value').textContent = playerState.corporation.value.toLocaleString();
+
+      // Add event listener for corporation status button
+      const corpStatusBtn = document.getElementById('btn-corporation-status');
+      if (corpStatusBtn) {
+        corpStatusBtn.addEventListener('click', openCorporationStatusModal);
+      }
     });
+  }
+
+  /**
+   * Open the corporation status modal and populate it with corporation assets
+   */
+  async function openCorporationStatusModal() {
+    await loadModal('Corporation Status', './modals/corporation-status.html', async () => {
+      const locationState = await window.api.getLocationState();
+      if (!locationState) return;
+
+      const playerState = locationState.playerState;
+      const corporation = playerState.corporation;
+
+      // Update corporation header
+      document.getElementById('corp-name').textContent = corporation.name;
+      document.getElementById('corp-description').textContent = corporation.description;
+      document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+
+      // Get full universe state to access stellar object details
+      const universeState = await window.api.getUniverseState();
+
+      // Populate planets list
+      const planetsList = document.getElementById('corp-planets-list');
+      if (corporation.stellarObjects && corporation.stellarObjects.length > 0) {
+        const planetsHTML = corporation.stellarObjects
+          .map(objId => {
+            const stellarObj = universeState.stellarObjects.find(obj => obj.id === objId);
+            if (!stellarObj) return '';
+            return `
+              <div class="asset-item">
+                <strong>${stellarObj.name}</strong> (${stellarObj.className})
+                <br>System: ${stellarObj.location}
+                <br>Value: ${stellarObj.value.toLocaleString()} credits
+              </div>
+            `;
+          })
+          .filter(html => html !== '')
+          .join('');
+        planetsList.innerHTML = planetsHTML || '<p>No planets owned</p>';
+      } else {
+        planetsList.innerHTML = '<p>No planets owned</p>';
+      }
+
+      // Populate ships list (currently only player ship)
+      const shipsList = document.getElementById('corp-ships-list');
+      const shipHTML = `
+        <div class="asset-item">
+          <strong>${playerState.ship}</strong>
+          <br>Location: System ${playerState.system}
+          <br>Value: ${await getShipValue(playerState.ship)} credits
+        </div>
+      `;
+      shipsList.innerHTML = shipHTML;
+
+      // Add event listener for back button
+      const backBtn = document.getElementById('btn-player-status');
+      if (backBtn) {
+        backBtn.addEventListener('click', openPlayerStatusModal);
+      }
+    });
+  }
+
+  /**
+   * Get the value of a ship by its type
+   * Ships are valued at 10% below their listed value (depreciation)
+   * @param {string} shipType - The type of ship
+   * @returns {number} The value of the ship
+   */
+  async function getShipValue(shipType) {
+    try {
+      const ships = await window.api.getGameData('ships');
+      const baseValue = ships[shipType]?.value || 0;
+      // Apply 10% depreciation
+      return Math.floor(baseValue * 0.9);
+    } catch (error) {
+      console.error('Error getting ship value:', error);
+      return 0;
+    }
   }
 
   playerStatusBtn.addEventListener('click', openPlayerStatusModal);

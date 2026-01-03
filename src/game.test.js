@@ -33,6 +33,7 @@ describe('Game Module', () => {
         {
           id: 0,
           type: 'Planet',
+          className: 'Earth-like',
           location: 0,
           value: 0,
           owner: 'Independent',
@@ -47,11 +48,27 @@ describe('Game Module', () => {
         {
           id: 1,
           type: 'Station',
+          className: 'Trading Post',
           location: 1,
           value: 0,
           owner: 'Independent',
           calculateValue: function (baseValues) {
             this.value = 5000;
+            return this.value;
+          },
+          setOwner: function (ownerName) {
+            this.owner = ownerName || 'Independent';
+          }
+        },
+        {
+          id: 2,
+          type: 'Planet',
+          className: 'Farm World',
+          location: 2,
+          value: 0,
+          owner: 'Independent',
+          calculateValue: function (baseValues) {
+            this.value = 15000;
             return this.value;
           },
           setOwner: function (ownerName) {
@@ -63,10 +80,11 @@ describe('Game Module', () => {
 
     // Setup mock settings
     mockSettings = {
-      initial_ship: 'Shuttle',
+      initial_ship: 'Cargo Hauler',
       food_per_person: 1,
       game_turn_limit: 100,
-      starting_credits: 1000
+      starting_credits: 1000,
+      data_directory: 'data/default/en-us'
     };
 
     // Create saves directory if it doesn't exist
@@ -109,7 +127,7 @@ describe('Game Module', () => {
       expect(npc.type).toBe('trader');
       expect(npc.homeSystem).toBe(2);
       expect(npc.currentSystem).toBe(2);
-      expect(npc.credits).toBe(mockSettings.starting_credits);
+      expect(npc.credits).toBe(1000);
       expect(npc.ship).toBe('Shuttle');
       expect(npc.cargo).toEqual({});
     });
@@ -162,8 +180,56 @@ describe('Game Module', () => {
       expect(game.player.corporation.description).toBe('A trading company');
     });
 
+    test('assigns a Farm World planet to player corporation during initialization', () => {
+      const playerData = createTestPlayerData();
+
+      game.initializeGame(playerData);
+
+      // Check that a Farm World planet was found and assigned
+      const farmPlanet = mockUniverse.stellarObjects.find(obj =>
+        obj.type === 'Planet' &&
+        obj.className === 'Farm World'
+      );
+
+      expect(farmPlanet).toBeDefined();
+      expect(farmPlanet.owner).toBe(game.player.corporation.name);
+      expect(game.player.corporation.stellarObjects).toContain(farmPlanet.id);
+    });
+
+    test('does not assign Farm World if none exists outside system 1', () => {
+      // Create a universe with no Farm World outside system 1
+      const limitedUniverse = {
+        systems: mockUniverse.systems,
+        stellarObjects: [
+          {
+            id: 0,
+            type: 'Planet',
+            className: 'Earth-like',
+            location: 1,
+            value: 0,
+            owner: 'Independent',
+            calculateValue: function (baseValues) {
+              this.value = 10000;
+              return this.value;
+            },
+            setOwner: function (ownerName) {
+              this.owner = ownerName || 'Independent';
+            }
+          }
+        ]
+      };
+
+      const limitedGame = new Game(limitedUniverse, mockSettings);
+      const playerData = createTestPlayerData();
+
+      limitedGame.initializeGame(playerData);
+
+      // Corporation should exist but have no stellar objects
+      expect(limitedGame.player.corporation.stellarObjects.length).toBe(0);
+    });
+
     test('processes turn and updates game state', () => {
-      game.initializeGame('TestPlayer');
+      game.initializeGame(createTestPlayerData());
       game.processTurn();
 
       expect(game.turn).toBe(1);
@@ -172,7 +238,7 @@ describe('Game Module', () => {
 
     test('ends game when turn limit reached', () => {
       game.settings.game_turn_limit = 2;
-      game.initializeGame('TestPlayer');
+      game.initializeGame(createTestPlayerData());
 
       game.processTurn();
       expect(game.gameOver).toBe(false);

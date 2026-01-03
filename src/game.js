@@ -88,6 +88,17 @@ class Game {
     // Initialize stellar object values and ownership
     this.initializeStellarObjects();
 
+    // Find a Farm World planet (not in system 1) and assign it to the player's corporation
+    const farmPlanet = this.universe.stellarObjects.find(obj =>
+      obj.type === 'Planet' &&
+      obj.className === 'Farm World' &&
+      obj.location !== 1
+    );
+    if (farmPlanet) {
+      farmPlanet.setOwner(playerCorp.name);
+      playerCorp.addStellarObject(farmPlanet.id);
+    }
+
     // Create NPCs (one trader per system for now)
     this.universe.systems.forEach((system) => {
       if (system.id === 1) return; // Skip player's starting system
@@ -217,18 +228,20 @@ class Game {
       stats: this.player.stats,
       dockedAt: this.player.dockedAt,
       landedOn: this.player.landedOn,
+      system: this.player.location,
       corporation: {
         name: this.player.corporation?.name || 'None',
         description: this.player.corporation?.description || '',
-        value: corporationValue
+        value: corporationValue,
+        stellarObjects: this.player.corporation?.stellarObjects || []
       }
     };
   }
 
   /**
- * Take off from a planet or station (clear docked/landed state)
- * @returns {Object} Result of the takeoff operation
- */
+  * Take off from a planet or station (clear docked/landed state)
+  * @returns {Object} Result of the takeoff operation
+  */
   takeOff() {
     if (this.player.dockedAt === null && this.player.landedOn === null) {
       return { success: false, reason: 'Not docked or landed' };
