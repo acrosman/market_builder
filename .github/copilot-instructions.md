@@ -29,6 +29,8 @@ Tests are in the same directory as the code they test, with `.test.js` suffixes.
 
 Always follow Electron best practices for security, performance, and compatibility. The application has both main process and renderer process code; ensure you understand the context before making changes. Preload scripts should be used to expose safe APIs to the renderer.
 
+Clean up code around the work you are doing. If there are any violations of best practices or style inconsistencies, fix them as part of your changes.
+
 ### When writing functions, always:
 
 - Add descriptive JSDoc comments
@@ -40,3 +42,7 @@ Always follow Electron best practices for security, performance, and compatibili
 ### General JS Style
 
 - Always use strict equality (`===` and `!==`).
+- There should never be HTML embedded in JS files. It should always be pulled from separate HTML files.
+- Use `const` for variables that do not change and `let` for those that do.
+- Use arrow functions for callbacks and anonymous functions.
+- Use template literals for string interpolation.
