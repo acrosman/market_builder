@@ -28,10 +28,34 @@ The backend game logic runs in Electron's main process. Core modules include:
   - Asset valuation methods for calculating corporate worth
   - Player-owned and NPC corporation support
 
+- **eventBus.js** - Event system for game-wide notifications:
+  - `EventBus` class - Publish/subscribe pattern for game events
+  - Methods: `on()`, `once()`, `emit()`, `clear()`, `listenerCount()`
+  - Used for tick events and other game state changes
+  - Listeners can subscribe to events and unsubscribe when done
+
 - **actor.js** - Base class for economic actors (players, NPCs, corporations)
 - **producer.js** - Production and manufacturing logic
 - **consumer.js** - Consumption and market demand
 - **economy.js** - Economic simulation and market pricing
+
+### Time System
+
+The game uses a tick-based time system to track the passage of time:
+
+- **Ticks** - The fundamental unit of game time
+- **advanceTicks()** - Advances game time by a specified number of ticks
+- Actions consume ticks:
+  - Jumping between systems: 1-20 ticks (varies by connection)
+  - Docking at stations: 1 tick
+  - Landing on planets: 1 tick
+  - Taking off: 1 tick
+- The tick count is displayed in the ship's clock interface
+- Each tick advances emits a `tick` event on the EventBus with data:
+  - `ticks` - Current total tick count
+  - `action` - The action that triggered the tick (e.g., 'jump', 'dock', 'land', 'takeoff')
+
+The EventBus allows game systems to react to the passage of time by subscribing to tick events.
 
 ### Application Directory (`app/`)
 
@@ -63,6 +87,55 @@ The renderer process handles the UI and user interaction:
 
 - **css/** - Stylesheets for all game screens
 - **modals/** - Reusable modal templates (player status, etc.)
+- **templates/** - Reusable HTML fragments (error messages, status displays)
+
+### Message Template System
+
+The game uses a message template system for displaying text to players with dynamic content:
+
+**Template Loading:**
+
+- Messages are stored in `data/default/en-us/game_messages.json`
+- Templates can be loaded as message groups (`messages:group_name`) or individual messages (`message:category.key`)
+- Message groups display a title and multiple related messages
+- Individual messages are processed with variable substitution
+
+**Replacement Tokens:**
+All tokens use the format `{tokenName}` and are replaced at runtime:
+
+- `{playerName}` - Player's character name
+- `{corporationName}` - Player's corporation name
+- `{systemId}` - System ID number
+- `{systemName}` - System name
+- `{objectName}` - Stellar object name (planet, station, asteroid)
+- `{savePath}` - File path for saved games
+- `{destinationId}` - Destination system ID for jump sequences
+- `{route}` - Formatted route display (e.g., "System 1 → System 31 → System 38")
+- `{current}` - Current step number in a sequence
+- `{total}` - Total steps in a sequence
+
+**Usage Examples:**
+
+```javascript
+// Load a message group (displays title + all messages)
+addMessage('messages:game_start');
+
+// Load a single message with variable substitution
+addMessage('message:navigation.jump_success', { systemName: 'Alpha Centauri' });
+
+// Direct text (no template processing)
+addMessage('Custom message text');
+```
+
+**Message Categories:**
+
+- `game_start` - Welcome messages and backstory
+- `tutorial` - Getting started instructions
+- `ui` - User interface messages
+- `navigation` - Jump, dock, land, takeoff messages
+- `save_load` - Save and load operation feedback
+- `jump_planner` - Multi-jump route planning messages
+- `settings` - Game settings interface messages
 
 ### Main Entry Point
 
