@@ -39,24 +39,6 @@ The backend game logic runs in Electron's main process. Core modules include:
 - **consumer.js** - Consumption and market demand
 - **economy.js** - Economic simulation and market pricing
 
-### Time System
-
-The game uses a tick-based time system to track the passage of time:
-
-- **Ticks** - The fundamental unit of game time
-- **advanceTicks()** - Advances game time by a specified number of ticks
-- Actions consume ticks:
-  - Jumping between systems: 1-20 ticks (varies by connection)
-  - Docking at stations: 1 tick
-  - Landing on planets: 1 tick
-  - Taking off: 1 tick
-- The tick count is displayed in the ship's clock interface
-- Each tick advances emits a `tick` event on the EventBus with data:
-  - `ticks` - Current total tick count
-  - `action` - The action that triggered the tick (e.g., 'jump', 'dock', 'land', 'takeoff')
-
-The EventBus allows game systems to react to the passage of time by subscribing to tick events.
-
 ### Application Directory (`app/`)
 
 The renderer process handles the UI and user interaction:
@@ -88,6 +70,24 @@ The renderer process handles the UI and user interaction:
 - **css/** - Stylesheets for all game screens
 - **modals/** - Reusable modal templates (player status, etc.)
 - **templates/** - Reusable HTML fragments (error messages, status displays)
+
+### Time System
+
+The game uses a tick-based time system to track the passage of time:
+
+- **Ticks** - The fundamental unit of game time
+- **advanceTicks()** - Advances game time by a specified number of ticks
+- Actions consume ticks:
+  - Jumping between systems: 1-20 ticks (varies by connection)
+  - Docking at stations: 1 tick
+  - Landing on planets: 1 tick
+  - Taking off: 1 tick
+- The tick count is displayed in the ship's clock interface
+- Each tick advances emits a `tick` event on the EventBus with data:
+  - `ticks` - Current total tick count
+  - `action` - The action that triggered the tick (e.g., 'jump', 'dock', 'land', 'takeoff')
+
+The EventBus allows game systems to react to the passage of time by subscribing to tick events.
 
 ### Message Template System
 
