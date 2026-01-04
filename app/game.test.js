@@ -510,7 +510,7 @@ describe('Game UI Functions', () => {
     test('should create jump buttons for connected systems', async () => {
       const mockLocationState = {
         system: {
-          connections: [1, 2, 3]
+          connections: { 1: 5, 2: 10, 3: 3 }
         },
         objects: []
       };
@@ -522,12 +522,13 @@ describe('Game UI Functions', () => {
         jumpButtons.innerHTML = '';
         localButtons.innerHTML = '';
 
-        locationState.system.connections.forEach(systemId => {
+        Object.keys(locationState.system.connections).forEach(systemId => {
+          const numSystemId = Number(systemId);
           const button = document.createElement('button');
           button.className = 'action-btn';
           button.dataset.action = 'jump';
-          button.dataset.targetSystem = systemId;
-          button.textContent = `Jump to System ${systemId}`;
+          button.dataset.targetSystem = numSystemId;
+          button.textContent = `Jump to System ${numSystemId}`;
           jumpButtons.appendChild(button);
         });
 

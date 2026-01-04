@@ -335,11 +335,12 @@ ipcMain.handle('calculate-jump-route', (event, { start, destination }) => {
   const playerState = currentGame.getPlayerState();
   const energyPerJump = playerState.shipEnergy / (playerState.shipMaxEnergy || 1) > 0 ?
     currentGame.player.energyPerJump : 0;
-  const energyRequired = (route.length - 1) * energyPerJump;
+  const energyRequired = (route.path.length - 1) * energyPerJump;
 
   return {
     success: true,
-    route: route,
+    route: route.path,
+    cost: route.cost,
     energyRequired: energyRequired,
     currentEnergy: playerState.shipEnergy
   };

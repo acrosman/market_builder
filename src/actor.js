@@ -13,13 +13,6 @@ class actor {
     this.peopleLimit = people;
     this.age = 0;
   }
-
-  /**
-   * Called on each cycle of the clock to update the current stocks.
-   */
-  tick() {
-    this.age += 1;
-  }
 }
 
 module.exports = actor;

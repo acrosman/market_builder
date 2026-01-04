@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Corporation } = require('./corporation');
+const { EventBus } = require('./eventBus');
 
 /**
  * Represents a player in the game
@@ -61,8 +62,10 @@ class Game {
     this.npcs = [];
     this.corporations = []; // List of all corporations in the game
     this.turn = 0;
+    this.ticks = 0; // Track game time in ticks
     this.gameOver = false;
     this.exploredSystems = []; // List of system ids the player has explored
+    this.eventBus = new EventBus(); // Event system for tick events
   }
 
   /**
@@ -89,14 +92,25 @@ class Game {
     this.initializeStellarObjects();
 
     // Find a Farm World planet (not in system 1) and assign it to the player's corporation
+    console.log('[DEBUG initializeGame] Looking for Farm World...');
+    console.log('[DEBUG initializeGame] Total stellar objects:', this.universe.stellarObjects.length);
+    const planets = this.universe.stellarObjects.filter(obj => obj.type === 'Planet');
+    console.log('[DEBUG initializeGame] Planets:', planets.map(p => ({ id: p.id, className: p.className, location: p.location })));
+
     const farmPlanet = this.universe.stellarObjects.find(obj =>
       obj.type === 'Planet' &&
       obj.className === 'Farm World' &&
       obj.location !== 1
     );
+    console.log('[DEBUG initializeGame] Farm World found:', farmPlanet ? { id: farmPlanet.id, location: farmPlanet.location } : 'NONE');
+
     if (farmPlanet) {
       farmPlanet.setOwner(playerCorp.name);
       playerCorp.addStellarObject(farmPlanet.id);
+      console.log('[DEBUG initializeGame] Assigned Farm World to corporation');
+      console.log('[DEBUG initializeGame] Corporation stellar objects:', playerCorp.stellarObjects);
+    } else {
+      console.log('[DEBUG initializeGame] WARNING: No Farm World found outside system 1!');
     }
 
     // Create NPCs (one trader per system for now)
@@ -172,6 +186,32 @@ class Game {
   }
 
   /**
+   * Advance game time by the specified number of ticks
+   * Events are emitted one at a time to allow subscribers to react to each tick
+   * @param {number} numTicks - Number of ticks to advance (default: 1)
+   * @param {string} action - The action that triggered this tick
+   * @returns {Object} Final tick event data
+   */
+  advanceTicks(numTicks = 1, action = 'unknown') {
+    let lastTickData;
+
+    // Emit events one at a time so subscribers can count/react to each tick
+    for (let i = 0; i < numTicks; i++) {
+      this.ticks += 1;
+
+      lastTickData = {
+        ticks: this.ticks,
+        action
+      };
+
+      // Emit tick event so other systems can react
+      this.eventBus.emit('tick', lastTickData);
+    }
+
+    return lastTickData;
+  }
+
+  /**
    * Process all NPC actions for the current turn
    */
   processNPCActions() {
@@ -229,6 +269,7 @@ class Game {
       dockedAt: this.player.dockedAt,
       landedOn: this.player.landedOn,
       system: this.player.location,
+      ticks: this.ticks,
       corporation: {
         name: this.player.corporation?.name || 'None',
         description: this.player.corporation?.description || '',
@@ -248,6 +289,10 @@ class Game {
     }
     this.player.dockedAt = null;
     this.player.landedOn = null;
+
+    // Advance game time by 1 tick
+    this.advanceTicks(1, 'takeoff');
+
     return {
       success: true,
       locationState: this.getCurrentLocationState()
@@ -268,7 +313,7 @@ class Game {
 
     // Check if current system has a connection to the target system
     const currentSystem = this.universe.systems.find(s => s.id === this.player.location);
-    if (!currentSystem.connections.includes(targetSystemId)) {
+    if (!currentSystem.connections[targetSystemId]) {
       return { valid: false, reason: "No direct connection to target system" };
     }
 
@@ -295,6 +340,10 @@ class Game {
     // Consume energy for the jump
     this.player.shipEnergy -= this.player.energyPerJump;
 
+    // Get the current system to find tick cost for this jump
+    const currentSystem = this.universe.systems.find(s => s.id === this.player.location);
+    const tickCost = currentSystem?.connections?.[targetSystemId] || 1;
+
     // Update player location
     this.player.location = targetSystemId;
 
@@ -305,6 +354,9 @@ class Game {
     if (!this.exploredSystems.includes(this.player.location)) {
       this.exploredSystems.push(this.player.location);
     }
+
+    // Advance game time by the connection's tick cost
+    this.advanceTicks(tickCost, 'jump');
 
     // Return the new location state
     return {
@@ -341,6 +393,9 @@ class Game {
 
     // Fully recharge ship energy when docking
     this.player.shipEnergy = this.player.shipMaxEnergy;
+
+    // Advance game time by 1 tick
+    this.advanceTicks(1, 'dock');
 
     return {
       success: true,
@@ -382,6 +437,9 @@ class Game {
 
     // Fully recharge ship energy when landing
     this.player.shipEnergy = this.player.shipMaxEnergy;
+
+    // Advance game time by 1 tick
+    this.advanceTicks(1, 'land');
 
     // Debug: Confirm player state after landing
     console.log('[DEBUG] After landing, player.landedOn:', this.player.landedOn, 'player.dockedAt:', this.player.dockedAt);
@@ -446,8 +504,10 @@ class Game {
     return {
       universe: universeData,
       player: this.player,
+      corporations: this.corporations,
       npcs: this.npcs,
       turn: this.turn,
+      ticks: this.ticks,
       settings: this.settings,
       exploredSystems: this.exploredSystems
     };
@@ -489,7 +549,7 @@ class Game {
     // Reconstruct systems
     universe.systems = (saveData.universe.systems || []).map(sysData => {
       const sys = new System(sysData.id, sysData.name);
-      sys.connections = sysData.connections || [];
+      sys.connections = sysData.connections || {};
       sys.image = sysData.image || '';
       return sys;
     });
@@ -532,7 +592,29 @@ class Game {
     game.player = saveData.player;
     game.npcs = saveData.npcs;
     game.turn = saveData.turn;
+    game.ticks = saveData.ticks || 0;
     game.exploredSystems = saveData.exploredSystems || [];
+
+    // Reconstruct corporations with proper Corporation instances
+    if (saveData.corporations && Array.isArray(saveData.corporations)) {
+      game.corporations = saveData.corporations.map(corpData => {
+        const corp = new Corporation(corpData.name, corpData.description, corpData.isPlayerOwned);
+        corp.stellarObjects = corpData.stellarObjects || [];
+        corp.ships = corpData.ships || [];
+        corp.goods = corpData.goods || {};
+        return corp;
+      });
+
+      // Restore the player's corporation reference with the proper Corporation instance
+      if (game.player.corporation) {
+        const playerCorp = game.corporations.find(c => c.name === game.player.corporation.name);
+        if (playerCorp) {
+          game.player.corporation = playerCorp;
+        }
+      }
+    }
+
+    // Note: EventBus listeners are not persisted; they must be re-registered after load
 
     return game;
   }

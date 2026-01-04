@@ -82,8 +82,9 @@ function renderUniverseDiagram(universe) {
   // Build unique links (avoid duplicates)
   const linkSet = new Set();
   universe.systems.forEach(sys => {
-    sys.connections.forEach(connId => {
-      const key = [Math.min(sys.id, connId), Math.max(sys.id, connId)].join('-');
+    Object.keys(sys.connections).forEach(connId => {
+      const numConnId = Number(connId);
+      const key = [Math.min(sys.id, numConnId), Math.max(sys.id, numConnId)].join('-');
       linkSet.add(key);
     });
   });

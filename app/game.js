@@ -137,6 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Populate template with data
       document.getElementById('ship-type').textContent = shipType;
       document.getElementById('ship-status-text').textContent = statusText;
+      document.getElementById('ship-clock').textContent = playerState.ticks || 0;
       document.getElementById('ship-hp').textContent = shipData.hitPoints;
       document.getElementById('ship-max-hp').textContent = shipData.hitPoints;
       document.getElementById('ship-cargo').textContent = '0';
@@ -284,14 +285,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Always render jump buttons, but disable if docked or landed
     const isDocked = locationState.playerState?.dockedAt != null;
     const isLanded = locationState.playerState?.landedOn != null;
-    locationState.system.connections.forEach(systemId => {
+    Object.keys(locationState.system.connections).forEach(systemId => {
+      const numSystemId = Number(systemId);
       const button = document.createElement('button');
       button.className = 'action-btn';
       button.dataset.action = 'jump';
-      button.dataset.targetSystem = systemId;
-      button.textContent = `Jump to System ${systemId}`;
+      button.dataset.targetSystem = numSystemId;
+      button.textContent = `Jump to System ${numSystemId}`;
       button.disabled = !!(isDocked || isLanded);
-      button.addEventListener('click', () => handleJump(systemId));
+      button.addEventListener('click', () => handleJump(numSystemId));
       jumpButtons.appendChild(button);
     });
 
@@ -809,6 +811,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.getElementById('route-path').textContent = routeText;
         document.getElementById('route-jumps').textContent = route.length - 1;
+        document.getElementById('route-tick-cost').textContent = result.cost;
         document.getElementById('route-energy-required').textContent = result.energyRequired;
         document.getElementById('route-energy-available').textContent = result.currentEnergy;
 

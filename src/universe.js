@@ -83,35 +83,71 @@ class Universe {
   }
 
   /**
-   * Finds the shortest path between two systems using BFS
+   * Finds the shortest path between two systems using Dijkstra's algorithm
+   * Returns the path with minimum total tick cost
    * @param {number} startSystemId - The starting system ID
    * @param {number} targetSystemId - The target system ID
-   * @returns {number[]|null} Array of system IDs representing the path, or null if no path exists
+   * @returns {Object|null} Object with {path: number[], cost: number} or null if no path exists
    */
   findShortestPath(startSystemId, targetSystemId) {
     if (startSystemId === targetSystemId) {
-      return [startSystemId];
+      return { path: [startSystemId], cost: 0 };
     }
 
-    const visited = new Set();
-    const queue = [[startSystemId]];
-    visited.add(startSystemId);
+    // Initialize distances and previous nodes
+    const distances = {};
+    const previous = {};
+    const unvisited = new Set();
 
-    while (queue.length > 0) {
-      const path = queue.shift();
-      const currentSystemId = path[path.length - 1];
-      const currentSystem = this.systems.find(s => s.id === currentSystemId);
+    // Set all distances to infinity except start
+    this.systems.forEach(system => {
+      distances[system.id] = system.id === startSystemId ? 0 : Infinity;
+      previous[system.id] = null;
+      unvisited.add(system.id);
+    });
 
+    while (unvisited.size > 0) {
+      // Find unvisited node with minimum distance
+      let currentId = null;
+      let minDistance = Infinity;
+      for (const id of unvisited) {
+        if (distances[id] < minDistance) {
+          minDistance = distances[id];
+          currentId = id;
+        }
+      }
+
+      // If no reachable unvisited nodes remain
+      if (currentId === null || minDistance === Infinity) {
+        break;
+      }
+
+      // Remove current from unvisited
+      unvisited.delete(currentId);
+
+      // If we reached the target, reconstruct path
+      if (currentId === targetSystemId) {
+        const path = [];
+        let node = targetSystemId;
+        while (node !== null) {
+          path.unshift(node);
+          node = previous[node];
+        }
+        return { path, cost: distances[targetSystemId] };
+      }
+
+      // Update distances to neighbors
+      const currentSystem = this.systems.find(s => s.id === currentId);
       if (!currentSystem) continue;
 
-      for (const neighborId of currentSystem.connections) {
-        if (neighborId === targetSystemId) {
-          return [...path, neighborId];
-        }
+      for (const [neighborIdStr, cost] of Object.entries(currentSystem.connections)) {
+        const neighborId = Number(neighborIdStr);
+        if (!unvisited.has(neighborId)) continue;
 
-        if (!visited.has(neighborId)) {
-          visited.add(neighborId);
-          queue.push([...path, neighborId]);
+        const newDistance = distances[currentId] + cost;
+        if (newDistance < distances[neighborId]) {
+          distances[neighborId] = newDistance;
+          previous[neighborId] = currentId;
         }
       }
     }
@@ -127,7 +163,7 @@ class System {
   constructor(id, name) {
     this.id = id;
     this.name = name;
-    this.connections = []; // List of connected system ids
+    this.connections = {}; // Map of systemId -> tick cost for jump to that system
     this.image = ''; // Will be set during universe creation
   }
 }
@@ -359,8 +395,13 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   for (let i = 0; i < shuffled.length - 1; i++) {
     const sysA = shuffled[i];
     const sysB = shuffled[i + 1];
-    if (!sysA.connections.includes(sysB.id)) sysA.connections.push(sysB.id);
-    if (!sysB.connections.includes(sysA.id)) sysB.connections.push(sysA.id);
+    const tickCost = Math.floor(Math.random() * 20) + 1; // Random 1-20
+    if (!sysA.connections[sysB.id]) {
+      sysA.connections[sysB.id] = tickCost;
+    }
+    if (!sysB.connections[sysA.id]) {
+      sysB.connections[sysA.id] = tickCost;
+    }
   }
 
   let remainingConnections = connectionCount - (systemCount - 1);
@@ -373,9 +414,10 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     const first = universe.systems[Math.floor(Math.random() * universe.systems.length)];
     const second = universe.systems[Math.floor(Math.random() * universe.systems.length)];
     if (first.id === second.id) continue;
-    if (first.connections.includes(second.id)) continue;
-    first.connections.push(second.id);
-    second.connections.push(first.id);
+    if (first.connections[second.id]) continue;
+    const tickCost = Math.floor(Math.random() * 20) + 1; // Random 1-20
+    first.connections[second.id] = tickCost;
+    second.connections[first.id] = tickCost;
     remainingConnections--;
   }
 
@@ -408,12 +450,27 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
   const stellarTypes = Object.keys(stellarObjectsData);
   const remainingObjects = objectsCount - objectId;
 
+  // Check if we need to ensure a Farm World exists outside system 1
+  const needsFarmWorld = systemCount > 1 && remainingObjects > 0;
+  let farmWorldCreated = false;
+
   for (let i = 0; i < remainingObjects; i++) {
     // Randomly select a type and class
-    const type = stellarTypes[Math.floor(Math.random() * stellarTypes.length)];
+    let type, className;
+
+    // On the first iteration, create a Farm World if needed
+    if (needsFarmWorld && i === 0) {
+      type = 'Planet';
+      className = 'Farm World';
+      farmWorldCreated = true;
+    } else {
+      type = stellarTypes[Math.floor(Math.random() * stellarTypes.length)];
+      const typeDetails = stellarObjectsData[type];
+      const classNames = Object.keys(typeDetails.classes);
+      className = classNames[Math.floor(Math.random() * classNames.length)];
+    }
+
     const typeDetails = stellarObjectsData[type];
-    const classNames = Object.keys(typeDetails.classes);
-    const className = classNames[Math.floor(Math.random() * classNames.length)];
 
     // Assign to random system (but not system 1)
     const location = Math.floor(Math.random() * (systemCount - 1)) + 2;

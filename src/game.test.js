@@ -183,17 +183,58 @@ describe('Game Module', () => {
     test('assigns a Farm World planet to player corporation during initialization', () => {
       const playerData = createTestPlayerData();
 
-      game.initializeGame(playerData);
+      // Ensure we have enough objects to get a Farm World
+      const testUniverse = {
+        systems: [
+          { id: 1, name: 'Alpha' },
+          { id: 2, name: 'Beta' }
+        ],
+        stellarObjects: [
+          {
+            id: 0,
+            type: 'Planet',
+            className: 'Earth-like',
+            location: 1,
+            value: 0,
+            owner: 'Independent',
+            calculateValue: function (baseValues) {
+              this.value = 10000;
+              return this.value;
+            },
+            setOwner: function (ownerName) {
+              this.owner = ownerName || 'Independent';
+            }
+          },
+          {
+            id: 1,
+            type: 'Planet',
+            className: 'Farm World',
+            location: 2,
+            value: 0,
+            owner: 'Independent',
+            calculateValue: function (baseValues) {
+              this.value = 15000;
+              return this.value;
+            },
+            setOwner: function (ownerName) {
+              this.owner = ownerName || 'Independent';
+            }
+          }
+        ]
+      };
+
+      const testGame = new Game(testUniverse, mockSettings);
+      testGame.initializeGame(playerData);
 
       // Check that a Farm World planet was found and assigned
-      const farmPlanet = mockUniverse.stellarObjects.find(obj =>
+      const farmPlanet = testUniverse.stellarObjects.find(obj =>
         obj.type === 'Planet' &&
         obj.className === 'Farm World'
       );
 
       expect(farmPlanet).toBeDefined();
-      expect(farmPlanet.owner).toBe(game.player.corporation.name);
-      expect(game.player.corporation.stellarObjects).toContain(farmPlanet.id);
+      expect(farmPlanet.owner).toBe(testGame.player.corporation.name);
+      expect(testGame.player.corporation.stellarObjects).toContain(farmPlanet.id);
     });
 
     test('does not assign Farm World if none exists outside system 1', () => {
@@ -548,6 +589,265 @@ describe('Game Module', () => {
         expect(result.success).toBe(true);
         expect(game.player.shipEnergy).toBe(maxEnergy);
         expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+      });
+    });
+  });
+
+  describe('Time Tick System', () => {
+    describe('advanceTicks', () => {
+      test('should increment ticks counter', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        expect(game.ticks).toBe(0);
+
+        game.advanceTicks(1, 'test');
+        expect(game.ticks).toBe(1);
+
+        game.advanceTicks(5, 'test');
+        expect(game.ticks).toBe(6);
+      });
+
+      test('should emit tick event with correct data', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        const result = game.advanceTicks(1, 'jump');
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        expect(listener).toHaveBeenCalledWith(
+          expect.objectContaining({
+            ticks: 1,
+            action: 'jump'
+          })
+        );
+        expect(result).toEqual({ ticks: 1, action: 'jump' });
+      });
+
+      test('should emit multiple tick events for multiple advances', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.advanceTicks(1, 'jump');
+        game.advanceTicks(1, 'dock');
+        game.advanceTicks(1, 'land');
+
+        expect(listener).toHaveBeenCalledTimes(3);
+        expect(game.ticks).toBe(3);
+      });
+
+      test('should emit one event per tick when advancing multiple ticks', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.advanceTicks(5, 'test');
+
+        // Should emit 5 separate events, one for each tick
+        expect(listener).toHaveBeenCalledTimes(5);
+        expect(game.ticks).toBe(5);
+
+        // Verify each call had incrementing tick counts
+        expect(listener).toHaveBeenNthCalledWith(1, expect.objectContaining({ ticks: 1 }));
+        expect(listener).toHaveBeenNthCalledWith(2, expect.objectContaining({ ticks: 2 }));
+        expect(listener).toHaveBeenNthCalledWith(3, expect.objectContaining({ ticks: 3 }));
+        expect(listener).toHaveBeenNthCalledWith(4, expect.objectContaining({ ticks: 4 }));
+        expect(listener).toHaveBeenNthCalledWith(5, expect.objectContaining({ ticks: 5 }));
+      });
+    });
+
+    describe('tick events on player actions', () => {
+      test('jumpToSystem should advance ticks by 1', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.universe.systems = [
+          { id: 0, name: 'Alpha', connections: { 1: 5 } }, // 5 tick cost to jump to system 1
+          { id: 1, name: 'Beta', connections: { 0: 5 } }
+        ];
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.jumpToSystem(1);
+
+        expect(game.ticks).toBe(5); // Should advance by connection cost
+        expect(listener).toHaveBeenCalledTimes(5); // Should emit 5 tick events
+        expect(listener).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'jump' })
+        );
+      });
+
+      test('dockAtStation should advance ticks by 1', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Space Station', name: 'Station Alpha', location: 0 }
+        ];
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.dockAtStation(100);
+
+        expect(game.ticks).toBe(1);
+        expect(listener).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'dock' })
+        );
+      });
+
+      test('landOnPlanet should advance ticks by 1', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
+        ];
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.landOnPlanet(100);
+
+        expect(game.ticks).toBe(1);
+        expect(listener).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'land' })
+        );
+      });
+
+      test('takeOff should advance ticks by 1', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.player.landedOn = 100;
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.takeOff();
+
+        expect(game.ticks).toBe(1);
+        expect(listener).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'takeoff' })
+        );
+      });
+
+      test('multiple actions should accumulate ticks', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.universe.systems = [
+          { id: 0, name: 'Alpha', connections: { 1: 3 } }, // 3 tick cost
+          { id: 1, name: 'Beta', connections: { 0: 3 } }
+        ];
+        game.universe.stellarObjects = [
+          { id: 100, type: 'Planet', name: 'Earth', location: 1, className: 'Earth-like' }
+        ];
+
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        game.jumpToSystem(1);
+        expect(game.ticks).toBe(3); // Jump costs 3 ticks
+
+        game.landOnPlanet(100);
+        expect(game.ticks).toBe(4); // Land costs 1 tick
+
+        game.takeOff();
+        expect(game.ticks).toBe(5); // Takeoff costs 1 tick
+
+        expect(listener).toHaveBeenCalledTimes(5); // 3 + 1 + 1 = 5 total tick events
+      });
+    });
+
+    describe('save and load with ticks', () => {
+      test('should save and restore tick count', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        // Advance ticks
+        game.advanceTicks(10, 'test');
+        expect(game.ticks).toBe(10);
+
+        // Save and load
+        const saveData = game.getSaveData();
+        expect(saveData.ticks).toBe(10);
+
+        const loadedGame = Game.loadGame(saveData);
+        expect(loadedGame.ticks).toBe(10);
+      });
+
+      test('should initialize ticks to 0 for old saves without ticks', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        // Create save data without ticks property (simulating old save)
+        const saveData = game.getSaveData();
+        delete saveData.ticks;
+
+        const loadedGame = Game.loadGame(saveData);
+        expect(loadedGame.ticks).toBe(0);
+      });
+
+      test('should recreate EventBus on load', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        // Add a listener to the original game
+        const listener = jest.fn();
+        game.eventBus.on('tick', listener);
+
+        // Save and load
+        const saveData = game.getSaveData();
+        const loadedGame = Game.loadGame(saveData);
+
+        // Original listener should not be called (new EventBus instance)
+        loadedGame.advanceTicks(1, 'test');
+        expect(listener).not.toHaveBeenCalled();
+
+        // But the new game should have a functioning EventBus
+        const newListener = jest.fn();
+        loadedGame.eventBus.on('tick', newListener);
+        loadedGame.advanceTicks(1, 'test');
+        expect(newListener).toHaveBeenCalled();
+      });
+
+      test('should save and restore player corporation with stellar objects', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        // Verify corporation has stellar objects before save
+        expect(game.player.corporation).toBeDefined();
+        expect(game.player.corporation.stellarObjects.length).toBeGreaterThan(0);
+        const originalCorpName = game.player.corporation.name;
+        const originalStellarObjects = [...game.player.corporation.stellarObjects];
+
+        // Save and load
+        const saveData = game.getSaveData();
+        const loadedGame = Game.loadGame(saveData);
+
+        // Verify corporation was restored
+        expect(loadedGame.player.corporation).toBeDefined();
+        expect(loadedGame.player.corporation.name).toBe(originalCorpName);
+        expect(loadedGame.player.corporation.stellarObjects).toEqual(originalStellarObjects);
+
+        // Verify corporation has proper class methods
+        expect(typeof loadedGame.player.corporation.addStellarObject).toBe('function');
+        expect(typeof loadedGame.player.corporation.calculateTotalValue).toBe('function');
+
+        // Verify corporations array was restored
+        expect(loadedGame.corporations).toBeDefined();
+        expect(loadedGame.corporations.length).toBeGreaterThan(0);
+        expect(loadedGame.corporations[0].name).toBe(originalCorpName);
       });
     });
   });

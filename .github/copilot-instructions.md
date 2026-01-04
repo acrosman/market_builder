@@ -31,6 +31,8 @@ Always follow Electron best practices for security, performance, and compatibili
 
 Clean up code around the work you are doing. If there are any violations of best practices or style inconsistencies, fix them as part of your changes.
 
+Don't say "Perfect!" or similar affirmations in your code comments or commit messages.
+
 ### When writing functions, always:
 
 - Add descriptive JSDoc comments
