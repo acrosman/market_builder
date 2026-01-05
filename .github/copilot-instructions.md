@@ -65,13 +65,15 @@ Backend modules run in main process only:
 - **[src/stellarObject.js](src/stellarObject.js)** - Stellar object class (planets, stations, asteroids)
   - `StellarObject`: Full state tracking for each location
   - **Capabilities**: `market`, `buildings`, `shipyard`, `shields`, `cannons`, `fighters`, `resistance` (booleans indicating what CAN be done)
-  - **Population**: Object with `{ current, limit, growthRate }` - starts at percentage of limit based on `initialPopulationPercent` range
+  - **Population**: Object with `{ current, limit, growthRate }` - starts at percentage of limit based on `initialPopulationPercent` range, grows automatically each tick
   - **Buildings**: Object tracking built buildings by type: `{ "Warehouse": { count: 2 }, "Mine": { count: 1 } }`
+  - **Construction Queue**: Array of buildings under construction: `[{ type: "Mine", ticksRemaining: 5 }]` - advances automatically each tick
   - **Shields/Cannons**: Calculated from built Shield Generator/Cannon buildings (not direct counts)
   - **Fighters**: Integer count, starts at 0
   - **Market/Shipyard State**: Objects tracking inventory, prices, construction queues when capability enabled
   - **Productivity Modifiers**: 0-10 ratings for `metal`, `food`, `chemicals`, `energy` - modify production building effectiveness
-  - Methods: `addBuilding()`, `removeBuilding()`, `getShieldStrength()`, `getCannonStrength()`, `addFighters()`, `updatePopulation()`, `calculateValue()`
+  - Methods: `addBuilding(type, buildingsData)` (queues construction), `removeBuilding()`, `getShieldStrength()`, `getCannonStrength()`, `addFighters()`, `updatePopulation()`, `calculateValue()`, `onTick(data)` (automatic time-based updates)
+  - **EventBus Integration**: Subscribes to tick events during game initialization for automatic updates (population growth, construction advancement)
 
 - **[src/corporation.js](src/corporation.js)** - Economic entities
   - Tracks owned assets (stellar objects, ships, goods inventory)
@@ -80,8 +82,10 @@ Backend modules run in main process only:
 
 - **[src/eventBus.js](src/eventBus.js)** - Pub/sub event system
   - Methods: `on()`, `once()`, `emit()`, `clear()`, `listenerCount()`
+  - **Subscriber Interface**: `subscribe(eventName, subscriber)` - object-based subscription where subscriber implements `onEventName()` methods (e.g., `onTick()`, `onGameEnd()`)
   - Used for tick events: `eventBus.emit('tick', { ticks, action })`
   - Listeners auto-unsubscribe with returned function
+  - Subscribers auto-unsubscribe with `unsubscribe(eventName, subscriber)`
 
 - **[src/actor.js](src/actor.js), [src/producer.js](src/producer.js), [src/consumer.js](src/consumer.js), [src/economy.js](src/economy.js)** - Economic simulation (placeholder/WIP)
 
@@ -119,7 +123,10 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
 - **Ticks**: Fundamental time unit (not turns)
 - Actions consume ticks: jumping (1-20 varies), docking (1), landing (1), takeoff (1)
 - `game.advanceTicks(n)` triggers `eventBus.emit('tick', { ticks, action })`
-- Systems can subscribe to tick events for time-based logic
+- Systems subscribe to tick events for automatic time-based updates:
+  - Stellar objects update population, advance construction, produce goods
+  - Subscribers implement `onTick(data)` method called automatically each tick
+  - Subscriptions registered during `initializeGame()` and `loadGame()`
 
 ## Developer Workflows
 

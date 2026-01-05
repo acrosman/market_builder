@@ -68,6 +68,10 @@ class StellarObject {
     // Format: { "Warehouse": { count: 2 }, "Mine": { count: 1 }, ... }
     this.buildings = {};
 
+    // Construction queue: Buildings being constructed
+    // Format: [{ type: "Mine", ticksRemaining: 5 }, ...]
+    this.buildingsUnderConstruction = [];
+
     // Combat/Defense: Counts of military assets (start at 0)
     this.fighters = 0;
 
@@ -134,30 +138,40 @@ class StellarObject {
   }
 
   /**
-   * Add a building to this stellar object
+   * Add a building to this stellar object (queues construction)
    * @param {string} buildingType - Type of building from buildings.json
-   * @returns {boolean} True if building was added, false if at limit
+   * @param {Object} buildingsData - Building definitions from buildings.json
+   * @returns {boolean} True if building was queued, false if at limit
    */
-  addBuilding(buildingType) {
+  addBuilding(buildingType, buildingsData) {
     if (!this.capabilities.buildings) {
       return false;
     }
 
-    // Count total buildings
-    const totalBuildings = Object.values(this.buildings).reduce(
+    // Count total buildings (built + under construction)
+    const builtCount = Object.values(this.buildings).reduce(
       (sum, building) => sum + (building.count || 0),
       0
     );
+    const queuedCount = this.buildingsUnderConstruction.length;
+    const totalBuildings = builtCount + queuedCount;
 
     if (totalBuildings >= this.buildingLimit) {
       return false;
     }
 
-    if (!this.buildings[buildingType]) {
-      this.buildings[buildingType] = { count: 0 };
+    // Get build time from buildings data
+    const buildingInfo = buildingsData[buildingType];
+    if (!buildingInfo || !buildingInfo.buildCost || !buildingInfo.buildCost.ticks) {
+      return false; // Invalid building type
     }
 
-    this.buildings[buildingType].count++;
+    // Queue the building for construction
+    this.buildingsUnderConstruction.push({
+      type: buildingType,
+      ticksRemaining: buildingInfo.buildCost.ticks
+    });
+
     return true;
   }
 
@@ -276,6 +290,45 @@ class StellarObject {
   }
 
   /**
+   * Handle tick event for time-based updates
+   * This is called automatically each tick by the EventBus subscriber system
+   * @param {Object} data - Event data containing ticks and action
+   */
+  onTick(data) {
+    const { ticks } = data;
+
+    // Update population based on growth rate
+    if (this.population.growthRate !== 0) {
+      this.updatePopulation(ticks);
+    }
+
+    // Process construction queue
+    for (let i = this.buildingsUnderConstruction.length - 1; i >= 0; i--) {
+      const construction = this.buildingsUnderConstruction[i];
+      construction.ticksRemaining -= ticks;
+
+      // If construction is complete, add building to inventory
+      if (construction.ticksRemaining <= 0) {
+        // Complete the building
+        if (!this.buildings[construction.type]) {
+          this.buildings[construction.type] = { count: 0 };
+        }
+        this.buildings[construction.type].count++;
+
+        // Remove from construction queue
+        this.buildingsUnderConstruction.splice(i, 1);
+      }
+    }
+
+    // TODO: Simple goods production
+    // This is a placeholder for future implementation
+    // Will check resources and produce goods based on:
+    // - Buildings present (mines, farms, factories)
+    // - Productivity modifiers for this location
+    // - Resource availability (check before production)
+  }
+
+  /**
    * Get a serializable representation of this object for saving
    * @returns {Object} Serializable object
    */
@@ -295,6 +348,7 @@ class StellarObject {
       capabilities: this.capabilities,
       population: this.population,
       buildings: this.buildings,
+      buildingsUnderConstruction: this.buildingsUnderConstruction,
       fighters: this.fighters,
       marketState: this.marketState,
       shipyardState: this.shipyardState,
@@ -326,6 +380,7 @@ class StellarObject {
     obj.value = data.value || 0;
     obj.population = data.population || obj.population;
     obj.buildings = data.buildings || {};
+    obj.buildingsUnderConstruction = data.buildingsUnderConstruction || [];
     obj.fighters = data.fighters || 0;
     obj.marketState = data.marketState || obj.marketState;
     obj.shipyardState = data.shipyardState || obj.shipyardState;

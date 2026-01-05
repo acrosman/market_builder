@@ -35,13 +35,16 @@ describe('StellarObject', () => {
     // Mock buildings.json structure
     mockBuildingsData = {
       'Shield Generator': {
+        buildCost: { ticks: 10, credits: 1000 },
         shieldsMaxCharge: 1000,
         shieldsChargeRate: 10
       },
       'Cannon': {
+        buildCost: { ticks: 8, credits: 800 },
         cannonBurstOutput: [50, 100]
       },
       'Warehouse': {
+        buildCost: { ticks: 5, credits: 500 },
         storage: 10000
       }
     };
@@ -208,7 +211,7 @@ describe('StellarObject', () => {
   });
 
   describe('addBuilding', () => {
-    test('should add a building and increment count', () => {
+    test('should queue a building for construction', () => {
       const obj = new StellarObject(
         1,
         'Planet',
@@ -218,13 +221,15 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      const result = obj.addBuilding('Warehouse');
+      const result = obj.addBuilding('Warehouse', mockBuildingsData);
       expect(result).toBe(true);
-      expect(obj.buildings['Warehouse'].count).toBe(1);
-      expect(obj.getBuildingCount()).toBe(1);
+      expect(obj.buildingsUnderConstruction.length).toBe(1);
+      expect(obj.buildingsUnderConstruction[0].type).toBe('Warehouse');
+      expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(5);
+      expect(obj.getBuildingCount()).toBe(0); // Not built yet
     });
 
-    test('should increment count for existing building type', () => {
+    test('should queue multiple buildings', () => {
       const obj = new StellarObject(
         1,
         'Planet',
@@ -234,13 +239,12 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      obj.addBuilding('Warehouse');
-      obj.addBuilding('Warehouse');
-      expect(obj.buildings['Warehouse'].count).toBe(2);
-      expect(obj.getBuildingCount()).toBe(2);
+      obj.addBuilding('Warehouse', mockBuildingsData);
+      obj.addBuilding('Warehouse', mockBuildingsData);
+      expect(obj.buildingsUnderConstruction.length).toBe(2);
     });
 
-    test('should return false when at building limit', () => {
+    test('should return false when at building limit (including queued)', () => {
       const obj = new StellarObject(
         1,
         'Planet',
@@ -250,15 +254,15 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      // Fill up to limit
+      // Fill up to limit with queued buildings
       for (let i = 0; i < obj.buildingLimit; i++) {
-        obj.addBuilding('Warehouse');
+        obj.addBuilding('Warehouse', mockBuildingsData);
       }
 
       // Try to add one more
-      const result = obj.addBuilding('Warehouse');
+      const result = obj.addBuilding('Warehouse', mockBuildingsData);
       expect(result).toBe(false);
-      expect(obj.getBuildingCount()).toBe(obj.buildingLimit);
+      expect(obj.buildingsUnderConstruction.length).toBe(obj.buildingLimit);
     });
 
     test('should return false when buildings capability is disabled', () => {
@@ -272,9 +276,24 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      const result = obj.addBuilding('Warehouse');
+      const result = obj.addBuilding('Warehouse', mockBuildingsData);
       expect(result).toBe(false);
-      expect(obj.getBuildingCount()).toBe(0);
+      expect(obj.buildingsUnderConstruction.length).toBe(0);
+    });
+
+    test('should return false for invalid building type', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      const result = obj.addBuilding('InvalidBuilding', mockBuildingsData);
+      expect(result).toBe(false);
+      expect(obj.buildingsUnderConstruction.length).toBe(0);
     });
   });
 
@@ -289,8 +308,8 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      obj.addBuilding('Warehouse');
-      obj.addBuilding('Warehouse');
+      // Manually add buildings (not through construction queue)
+      obj.buildings['Warehouse'] = { count: 2 };
       const result = obj.removeBuilding('Warehouse');
 
       expect(result).toBe(true);
@@ -307,7 +326,7 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      obj.addBuilding('Warehouse');
+      obj.buildings['Warehouse'] = { count: 1 };
       obj.removeBuilding('Warehouse');
 
       expect(obj.buildings['Warehouse']).toBeUndefined();
@@ -340,9 +359,8 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      obj.addBuilding('Shield Generator');
-      obj.addBuilding('Shield Generator');
-      obj.addBuilding('Shield Generator');
+      // Manually add buildings (not through construction queue)
+      obj.buildings['Shield Generator'] = { count: 3 };
 
       const strength = obj.getShieldStrength(mockBuildingsData);
       expect(strength).toBe(3000); // 3 * 1000
@@ -390,8 +408,8 @@ describe('StellarObject', () => {
         'Test Planet'
       );
 
-      obj.addBuilding('Cannon');
-      obj.addBuilding('Cannon');
+      // Manually add buildings (not through construction queue)
+      obj.buildings['Cannon'] = { count: 2 };
 
       const strength = obj.getCannonStrength(mockBuildingsData);
       expect(strength).toBe(200); // 2 * 100 (max output)
@@ -642,8 +660,11 @@ describe('StellarObject', () => {
       );
 
       obj.setOwner('Test Corp');
-      obj.addBuilding('Warehouse');
-      obj.addBuilding('Warehouse');
+      // Manually add buildings (not through construction queue)
+      obj.buildings['Warehouse'] = { count: 2 };
+      obj.buildingsUnderConstruction = [
+        { type: 'Cannon', ticksRemaining: 3 }
+      ];
       obj.addFighters(100);
       obj.landedImage = 'path/to/image.jpg';
 
@@ -658,9 +679,118 @@ describe('StellarObject', () => {
       expect(restored.owner).toBe(obj.owner);
       expect(restored.landedImage).toBe(obj.landedImage);
       expect(restored.buildings['Warehouse'].count).toBe(2);
+      expect(restored.buildingsUnderConstruction.length).toBe(1);
+      expect(restored.buildingsUnderConstruction[0].type).toBe('Cannon');
+      expect(restored.buildingsUnderConstruction[0].ticksRemaining).toBe(3);
       expect(restored.fighters).toBe(100);
       expect(restored.population.current).toBe(obj.population.current);
       expect(restored.productivityModifiers).toEqual(obj.productivityModifiers);
+    });
+  });
+
+  describe('onTick', () => {
+    test('should advance construction queue by ticks', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      obj.buildingsUnderConstruction = [
+        { type: 'Warehouse', ticksRemaining: 5 },
+        { type: 'Cannon', ticksRemaining: 8 }
+      ];
+
+      obj.onTick({ ticks: 2 });
+
+      expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(3);
+      expect(obj.buildingsUnderConstruction[1].ticksRemaining).toBe(6);
+      expect(obj.buildings['Warehouse']).toBeUndefined(); // Not complete yet
+    });
+
+    test('should complete buildings when construction finishes', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      obj.buildingsUnderConstruction = [
+        { type: 'Warehouse', ticksRemaining: 3 },
+        { type: 'Cannon', ticksRemaining: 8 }
+      ];
+
+      obj.onTick({ ticks: 5 });
+
+      // Warehouse should be complete
+      expect(obj.buildings['Warehouse'].count).toBe(1);
+      expect(obj.buildingsUnderConstruction.length).toBe(1);
+      expect(obj.buildingsUnderConstruction[0].type).toBe('Cannon');
+      expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(3);
+    });
+
+    test('should complete multiple buildings in one tick', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      obj.buildingsUnderConstruction = [
+        { type: 'Warehouse', ticksRemaining: 2 },
+        { type: 'Cannon', ticksRemaining: 3 }
+      ];
+
+      obj.onTick({ ticks: 5 });
+
+      // Both should be complete
+      expect(obj.buildings['Warehouse'].count).toBe(1);
+      expect(obj.buildings['Cannon'].count).toBe(1);
+      expect(obj.buildingsUnderConstruction.length).toBe(0);
+    });
+
+    test('should update population based on growth rate', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      const initialPopulation = obj.population.current;
+      obj.onTick({ ticks: 1 });
+
+      // Population should have grown
+      expect(obj.population.current).toBeGreaterThan(initialPopulation);
+    });
+
+    test('should not update population when growth rate is 0', () => {
+      mockTypeDetails.classes['Earth-like'].reproductionRate = 0;
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      const initialPopulation = obj.population.current;
+      obj.onTick({ ticks: 5 });
+
+      // Population should not change
+      expect(obj.population.current).toBe(initialPopulation);
     });
   });
 });

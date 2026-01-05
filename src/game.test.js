@@ -43,6 +43,9 @@ describe('Game Module', () => {
           },
           setOwner: function (ownerName) {
             this.owner = ownerName || 'Independent';
+          },
+          onTick: function (data) {
+            // Mock tick handler for tests
           }
         },
         {
@@ -58,6 +61,9 @@ describe('Game Module', () => {
           },
           setOwner: function (ownerName) {
             this.owner = ownerName || 'Independent';
+          },
+          onTick: function (data) {
+            // Mock tick handler for tests
           }
         },
         {
@@ -73,6 +79,9 @@ describe('Game Module', () => {
           },
           setOwner: function (ownerName) {
             this.owner = ownerName || 'Independent';
+          },
+          onTick: function (data) {
+            // Mock tick handler for tests
           }
         }
       ]
@@ -203,6 +212,9 @@ describe('Game Module', () => {
             },
             setOwner: function (ownerName) {
               this.owner = ownerName || 'Independent';
+            },
+            onTick: function (data) {
+              // Mock tick handler for tests
             }
           },
           {
@@ -218,6 +230,9 @@ describe('Game Module', () => {
             },
             setOwner: function (ownerName) {
               this.owner = ownerName || 'Independent';
+            },
+            onTick: function (data) {
+              // Mock tick handler for tests
             }
           }
         ]
@@ -255,6 +270,9 @@ describe('Game Module', () => {
             },
             setOwner: function (ownerName) {
               this.owner = ownerName || 'Independent';
+            },
+            onTick: function (data) {
+              // Mock tick handler for tests
             }
           }
         ]

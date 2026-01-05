@@ -22,7 +22,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 5,
+         "ticks": 5,
          "credits": 500,
          "goods": {
             "metal": 100
@@ -61,7 +61,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 50,
+         "ticks": 50,
          "credits": 1000,
          "goods": {
             "metal": 500
@@ -100,7 +100,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 10,
+         "ticks": 10,
          "credits": 500,
          "goods": {
             "metal": 10
@@ -141,7 +141,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 15,
+         "ticks": 15,
          "credits": 5000,
          "goods": {
             "metal": 100
@@ -180,7 +180,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 25,
+         "ticks": 25,
          "credits": 2000,
          "goods": {
             "metal": 100
@@ -219,7 +219,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 2,
+         "ticks": 2,
          "credits": 500,
          "goods": {
             "metal": 100
@@ -260,7 +260,7 @@
       "waterPurification": 0,
       "airPurification": 0,
       "buildCost": {
-         "turns": 75,
+         "ticks": 75,
          "credits": 1000,
          "goods": {
             "metal": 500

@@ -126,6 +126,11 @@ class Game {
     if (!this.exploredSystems.includes(this.player.location)) {
       this.exploredSystems.push(this.player.location);
     }
+
+    // Subscribe all stellar objects to tick events for automatic updates
+    this.universe.stellarObjects.forEach(obj => {
+      this.eventBus.subscribe('tick', obj);
+    });
   }
 
   /**
@@ -615,6 +620,10 @@ class Game {
     }
 
     // Note: EventBus listeners are not persisted; they must be re-registered after load
+    // Subscribe all stellar objects to tick events for automatic updates
+    universe.stellarObjects.forEach(obj => {
+      game.eventBus.subscribe('tick', obj);
+    });
 
     return game;
   }
