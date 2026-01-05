@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { StellarObject } = require('./stellarObject');
 
 /**
  * Get list of image files from a directory
@@ -169,153 +170,70 @@ class System {
 }
 
 /**
- * Represents a stellar object (e.g., planet, station, asteroid) in the universe.
+ * Gets a random image for a stellar object type
+ * @param {string} type - Type of stellar object
+ * @param {string} className - Class of stellar object
+ * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
+ * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
+ * @returns {string} Path to image
  */
-class StellarObject {
-  constructor(id, type, className, location, details, name) {
-    this.id = id;
-    this.type = type; // e.g. "Planet", "Space Station", "Asteroid"
-    this.className = className; // e.g. "Earth-like", "Trading Post"
-    this.location = location; // system id where the object is located
-    this.name = name; // e.g. "Aurora", "Apex Station"
-    this.landedImage = ''; // Image for when player has landed/docked (surface or port)
-    this.owner = 'Independent'; // Name of owning corporation or "Independent"
-    this.value = 0; // Current calculated value of the stellar object
-
-    // General properties from the data file
-    this.market = details.market;
-    this.buildings = details.buildings;
-    this.shipyard = details.shipyard;
-    this.shields = details.shields;
-    this.cannons = details.cannons;
-    this.fighters = details.fighters;
-    this.resistance = details.resistance;
-
-    // Class-specific properties
-    const classDetails = details.classes[className];
-    this.description = classDetails.description || "";
-    this.populationLimit = classDetails.populationLimit || 0;
-    this.reproductionRate = classDetails.reproductionRate || 0;
-    this.buildingCredits = classDetails.buildingCredits || 0;
-    this.buildingLimit = classDetails.buildingLimit || 0;
-
-    // Generalized goods: copy all goods fields
-    this.goods = { ...classDetails.goods };
+function getRandomImage(type, className, stellarObjectsData, dataDir = 'data/default/en-us') {
+  const typeData = stellarObjectsData[type];
+  if (!typeData || !typeData.classes) {
+    console.warn(`No type data found for: ${type}`);
+    return '';
   }
 
-  /**
-   * Gets a random image for this type of object.
-   * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
-   * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
-   * @returns string, path to image.
-   */
-  getRandomImage(stellarObjectsData, dataDir = 'data/default/en-us') {
-    const typeData = stellarObjectsData[this.type];
-    if (!typeData || !typeData.classes) {
-      console.warn(`No type data found for: ${this.type}`);
-      return '';
-    }
-
-    const classData = typeData.classes[this.className];
-    if (!classData || !classData.imagePath) {
-      console.warn(`No image path found for type: ${this.type}, class: ${this.className}`);
-      return '';
-    }
-
-    const imageDir = classData.imagePath;
-    const imageList = getImagesFromDirectory(imageDir, dataDir);
-    if (imageList.length === 0) {
-      console.warn(`No images found in directory: ${imageDir}`);
-      return '';
-    }
-
-    const randomIndex = Math.floor(Math.random() * imageList.length);
-    return path.join(dataDir, imageList[randomIndex]).replace(/\\/g, '/');
+  const classData = typeData.classes[className];
+  if (!classData || !classData.imagePath) {
+    console.warn(`No image path found for type: ${type}, class: ${className}`);
+    return '';
   }
 
-  /**
-   * Gets a landed/docked image for this type of object (surface or port).
-   * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
-   * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
-   * @returns string, path to landed/port image.
-   */
-  getLandedImage(stellarObjectsData, dataDir = 'data/default/en-us') {
-    const typeData = stellarObjectsData[this.type];
-    if (!typeData || !typeData.classes) {
-      console.warn(`No type data found for: ${this.type}`);
-      return '';
-    }
-
-    const classData = typeData.classes[this.className];
-    if (!classData || !classData.imagePath) {
-      console.warn(`No image path found for type: ${this.type}, class: ${this.className}`);
-      return '';
-    }
-
-    // Determine subfolder based on type: planets use "Surface", stations and asteroids use "Port"
-    const subfolder = this.type === 'Planet' ? 'Surface' : 'Port';
-    const imageDir = path.join(classData.imagePath, subfolder).replace(/\\/g, '/');
-
-    const imageList = getImagesFromDirectory(imageDir, dataDir);
-    if (imageList.length === 0) {
-      console.warn(`No landed images found in directory: ${imageDir}`);
-      return '';
-    }
-
-    const randomIndex = Math.floor(Math.random() * imageList.length);
-    return path.join(dataDir, imageList[randomIndex]).replace(/\\/g, '/');
+  const imageDir = classData.imagePath;
+  const imageList = getImagesFromDirectory(imageDir, dataDir);
+  if (imageList.length === 0) {
+    console.warn(`No images found in directory: ${imageDir}`);
+    return '';
   }
 
-  /**
-   * Calculates the value of this stellar object based on its properties
-   * @param {Object} baseValues - Object containing base values for different property types
-   * @returns {number} The calculated value
-   */
-  calculateValue(baseValues = {}) {
-    let value = 0;
+  const randomIndex = Math.floor(Math.random() * imageList.length);
+  return path.join(dataDir, imageList[randomIndex]).replace(/\\/g, '/');
+}
 
-    // Base value from building credits
-    value += this.buildingCredits || 0;
-
-    // Add value from population capacity
-    const populationValue = baseValues.populationValue || 100;
-    value += (this.populationLimit || 0) * populationValue;
-
-    // Add value from market capability
-    if (this.market) {
-      value += baseValues.marketValue || 10000;
-    }
-
-    // Add value from shipyard capability
-    if (this.shipyard) {
-      value += baseValues.shipyardValue || 15000;
-    }
-
-    // Add value from buildings
-    if (this.buildings) {
-      value += baseValues.buildingValue || 5000;
-    }
-
-    // Add value from defenses
-    const defenseValue = baseValues.defenseValue || 1000;
-    value += (this.shields || 0) * defenseValue;
-    value += (this.cannons || 0) * defenseValue;
-    value += (this.fighters || 0) * defenseValue * 0.5;
-
-    // Add value from building limit
-    const buildingLimitValue = baseValues.buildingLimitValue || 500;
-    value += (this.buildingLimit || 0) * buildingLimitValue;
-
-    return Math.round(value);
+/**
+ * Gets a landed/docked image for a stellar object (surface or port)
+ * @param {string} type - Type of stellar object
+ * @param {string} className - Class of stellar object
+ * @param {object} stellarObjectsData - The stellar objects data from stellarObjects.json
+ * @param {string} dataDir - Data directory path (defaults to data/default/en-us)
+ * @returns {string} Path to landed/port image
+ */
+function getLandedImage(type, className, stellarObjectsData, dataDir = 'data/default/en-us') {
+  const typeData = stellarObjectsData[type];
+  if (!typeData || !typeData.classes) {
+    console.warn(`No type data found for: ${type}`);
+    return '';
   }
 
-  /**
-   * Sets the owner of this stellar object
-   * @param {string} ownerName - The name of the owning corporation or "Independent"
-   */
-  setOwner(ownerName) {
-    this.owner = ownerName || 'Independent';
+  const classData = typeData.classes[className];
+  if (!classData || !classData.imagePath) {
+    console.warn(`No image path found for type: ${type}, class: ${className}`);
+    return '';
   }
+
+  // Determine subfolder based on type: planets use "Surface", stations and asteroids use "Port"
+  const subfolder = type === 'Planet' ? 'Surface' : 'Port';
+  const imageDir = path.join(classData.imagePath, subfolder).replace(/\\/g, '/');
+
+  const imageList = getImagesFromDirectory(imageDir, dataDir);
+  if (imageList.length === 0) {
+    console.warn(`No landed images found in directory: ${imageDir}`);
+    return '';
+  }
+
+  const randomIndex = Math.floor(Math.random() * imageList.length);
+  return path.join(dataDir, imageList[randomIndex]).replace(/\\/g, '/');
 }
 
 /**
@@ -434,7 +352,8 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
         required.class,
         1,
         typeDetails,
-        name
+        name,
+        dataDir
       );
       // System 1 objects use specific images based on type
       if (obj.type === 'Planet') {
@@ -476,15 +395,15 @@ function createUniverse(systemCount, connectionCount, objectsCount) {
     const location = Math.floor(Math.random() * (systemCount - 1)) + 2;
 
     const name = getUniqueName(type, typeDetails);
-    const obj = new StellarObject(objectId++, type, className, location, typeDetails, name);
+    const obj = new StellarObject(objectId++, type, className, location, typeDetails, name, dataDir);
 
     // Assign landed/port image
-    obj.landedImage = obj.getLandedImage(stellarObjectsData, dataDir);
+    obj.landedImage = getLandedImage(type, className, stellarObjectsData, dataDir);
 
     universe.stellarObjects.push(obj);
 
     // Add an image for the system.
-    const imagePath = obj.getRandomImage(stellarObjectsData, dataDir);
+    const imagePath = getRandomImage(type, className, stellarObjectsData, dataDir);
     universe.systems.find(s => s.id === location).image = imagePath;
 
   }
@@ -516,5 +435,7 @@ module.exports = {
   System,
   StellarObject,
   createUniverse,
-  getUniqueName
+  getUniqueName,
+  getRandomImage,
+  getLandedImage
 }

@@ -59,9 +59,19 @@ Backend modules run in main process only:
 - **[src/universe.js](src/universe.js)** - World generation
   - `Universe`: Container for systems and stellar objects
   - `System`: Star systems with connections (jump routes graph)
-  - `StellarObject`: Planets, stations, asteroids (types/classes from stellarObjects.json)
   - `createUniverse()`: Procedural generation function
   - Graph algorithms: `findShortestPath()` for jump route planning
+
+- **[src/stellarObject.js](src/stellarObject.js)** - Stellar object class (planets, stations, asteroids)
+  - `StellarObject`: Full state tracking for each location
+  - **Capabilities**: `market`, `buildings`, `shipyard`, `shields`, `cannons`, `fighters`, `resistance` (booleans indicating what CAN be done)
+  - **Population**: Object with `{ current, limit, growthRate }` - starts at percentage of limit based on `initialPopulationPercent` range
+  - **Buildings**: Object tracking built buildings by type: `{ "Warehouse": { count: 2 }, "Mine": { count: 1 } }`
+  - **Shields/Cannons**: Calculated from built Shield Generator/Cannon buildings (not direct counts)
+  - **Fighters**: Integer count, starts at 0
+  - **Market/Shipyard State**: Objects tracking inventory, prices, construction queues when capability enabled
+  - **Productivity Modifiers**: 0-10 ratings for `metal`, `food`, `chemicals`, `energy` - modify production building effectiveness
+  - Methods: `addBuilding()`, `removeBuilding()`, `getShieldStrength()`, `getCannonStrength()`, `addFighters()`, `updatePopulation()`, `calculateValue()`
 
 - **[src/corporation.js](src/corporation.js)** - Economic entities
   - Tracks owned assets (stellar objects, ships, goods inventory)

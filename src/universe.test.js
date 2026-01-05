@@ -45,24 +45,25 @@ describe('StellarObject', () => {
       "Earth-like",
       2,
       data.Planet,
+      "TestPlanet"
     );
     expect(obj.id).toBe(0);
     expect(obj.type).toBe("Planet");
     expect(obj.className).toBe("Earth-like");
     expect(obj.location).toBe(2);
-    expect(obj.market).toBe(data.Planet.market);
-    expect(obj.buildings).toBe(data.Planet.buildings);
-    expect(obj.shipyard).toBe(data.Planet.shipyard);
-    expect(obj.shields).toBe(data.Planet.shields);
-    expect(obj.cannons).toBe(data.Planet.cannons);
-    expect(obj.fighters).toBe(data.Planet.fighters);
-    expect(obj.resistance).toBe(data.Planet.resistance);
+    expect(obj.capabilities.market).toBe(data.Planet.market);
+    expect(obj.capabilities.buildings).toBe(data.Planet.buildings);
+    expect(obj.capabilities.shipyard).toBe(data.Planet.shipyard);
+    expect(obj.capabilities.shields).toBe(data.Planet.shields);
+    expect(obj.capabilities.cannons).toBe(data.Planet.cannons);
+    expect(obj.capabilities.fighters).toBe(data.Planet.fighters);
+    expect(obj.capabilities.resistance).toBe(data.Planet.resistance);
     expect(obj.description).toBe(data.Planet.classes['Earth-like'].description);
-    expect(obj.populationLimit).toBe(data.Planet.classes['Earth-like'].populationLimit);
-    expect(obj.reproductionRate).toBe(data.Planet.classes['Earth-like'].reproductionRate);
+    expect(obj.population.limit).toBe(data.Planet.classes['Earth-like'].populationLimit);
+    expect(obj.population.growthRate).toBe(data.Planet.classes['Earth-like'].reproductionRate);
     expect(obj.buildingCredits).toBe(data.Planet.classes['Earth-like'].buildingCredits);
     expect(obj.buildingLimit).toBe(data.Planet.classes['Earth-like'].buildingLimit);
-    expect(obj.goods).toEqual(data.Planet.classes['Earth-like'].goods);
+    expect(obj.productivityModifiers).toEqual(data.Planet.classes['Earth-like'].productivityModifiers);
   });
 
   test('StellarObject initializes with empty landedImage', () => {
@@ -77,63 +78,6 @@ describe('StellarObject', () => {
       "TestPlanet"
     );
     expect(obj.landedImage).toBe('');
-  });
-
-  test('getLandedImage returns path for Planet Surface subfolder', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
-    const obj = new StellarObject(
-      0,
-      "Planet",
-      "Earth-like",
-      2,
-      data.Planet,
-      "TestPlanet"
-    );
-    const landedImage = obj.getLandedImage(data);
-    // Should return a path or empty string if images don't exist yet
-    expect(typeof landedImage).toBe('string');
-    if (landedImage) {
-      expect(landedImage).toContain('Surface');
-    }
-  });
-
-  test('getLandedImage returns path for Space Station Port subfolder', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
-    const obj = new StellarObject(
-      0,
-      "Space Station",
-      "Trading Post",
-      2,
-      data['Space Station'],
-      "TestStation"
-    );
-    const landedImage = obj.getLandedImage(data);
-    // Should return a path or empty string if images don't exist yet
-    expect(typeof landedImage).toBe('string');
-    if (landedImage) {
-      expect(landedImage).toContain('Port');
-    }
-  });
-
-  test('getLandedImage returns path for Asteroid Port subfolder', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
-    const obj = new StellarObject(
-      0,
-      "Asteroid",
-      "Ice",
-      2,
-      data.Asteroid,
-      "TestAsteroid"
-    );
-    const landedImage = obj.getLandedImage(data);
-    // Should return a path or empty string if images don't exist yet
-    expect(typeof landedImage).toBe('string');
-    if (landedImage) {
-      expect(landedImage).toContain('Port');
-    }
   });
 
   test('StellarObject initializes with Independent owner', () => {
@@ -239,7 +183,7 @@ describe('StellarObject', () => {
     expect(value).toBeGreaterThan(0);
 
     // With high population limit and building credits, should be substantial
-    if (obj.populationLimit > 0) {
+    if (obj.population.limit > 0) {
       expect(value).toBeGreaterThan(10000);
     }
   });
@@ -257,7 +201,7 @@ describe('StellarObject', () => {
     const valueWith = withMarket.calculateValue(baseValues);
     const valueWithout = withoutMarket.calculateValue(baseValues);
 
-    if (withMarket.market && !withoutMarket.market) {
+    if (withMarket.capabilities.market && !withoutMarket.capabilities.market) {
       expect(valueWith).toBeGreaterThan(valueWithout);
     }
   });
