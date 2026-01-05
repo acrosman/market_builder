@@ -168,7 +168,6 @@ describe('StellarObject', () => {
     );
 
     const baseValues = {
-      populationValue: 100,
       marketValue: 10000,
       shipyardValue: 15000,
       buildingValue: 5000,
@@ -178,14 +177,12 @@ describe('StellarObject', () => {
 
     const value = obj.calculateValue(baseValues);
 
-    // Earth-like planets have market, buildings, populationLimit, buildingLimit
+    // Earth-like planets have market, buildings, buildingLimit capabilities
     // Value should reflect those properties
     expect(value).toBeGreaterThan(0);
 
-    // With high population limit and building credits, should be substantial
-    if (obj.population.limit > 0) {
-      expect(value).toBeGreaterThan(10000);
-    }
+    // With capabilities and building limits, should be substantial
+    expect(value).toBeGreaterThan(10000);
   });
 
   test('calculateValue accounts for market presence', () => {

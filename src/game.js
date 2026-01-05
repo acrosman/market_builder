@@ -141,8 +141,8 @@ class Game {
    */
   initializeStellarObjects() {
     // Base values for calculating stellar object worth
+    // Note: Population is NOT included in value calculation
     const baseValues = {
-      populationValue: 100,      // Value per population unit
       marketValue: 10000,        // Base value for having a market
       shipyardValue: 15000,      // Base value for having a shipyard
       buildingValue: 5000,       // Base value for having buildings

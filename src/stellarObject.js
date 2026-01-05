@@ -234,6 +234,7 @@ class StellarObject {
 
   /**
    * Calculate the economic value of this stellar object
+   * Does not include population - value is based on capabilities and infrastructure only
    * @param {Object} baseValues - Base values for different property types
    * @returns {number} The calculated value
    */
@@ -242,10 +243,6 @@ class StellarObject {
 
     // Base value from building credits
     value += this.buildingCredits || 0;
-
-    // Add value from population capacity
-    const populationValue = baseValues.populationValue || 100;
-    value += (this.population.limit || 0) * populationValue;
 
     // Add value from market capability
     if (this.capabilities.market) {
