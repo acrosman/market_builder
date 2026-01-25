@@ -96,6 +96,7 @@ function renderUniverseDiagram(universe) {
 
   // Clear previous diagram and info
   d3.select("#universe-diagram").selectAll("*").remove();
+  d3.select(".universe-info").remove();
 
   // Create container for summary and key
   const infoContainer = d3.select(".universe-view")
