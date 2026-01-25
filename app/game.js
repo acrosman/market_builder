@@ -34,8 +34,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const system = locationState.system;
     const objects = locationState.objects;
 
-    // Calculate total population limit
-    const totalPopulation = objects.reduce((sum, obj) => sum + (obj.populationLimit || 0), 0);
+    // Calculate total current population
+    const totalPopulation = objects.reduce((sum, obj) => sum + (obj.population?.current || 0), 0);
 
     // Create list of objects in system
     const objectsList = objects
@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // If docked or landed, show the location information
       const statusEl = document.getElementById('current-location-status');
+      const locationPopulationEl = document.getElementById('location-population');
       if (currentDockedAt !== null || currentLandedOn !== null) {
         const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
         const object = objects.find(obj => obj.id === objectId);
@@ -64,10 +65,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           document.getElementById('location-type').textContent = status;
           document.getElementById('location-name').textContent = object.name;
           document.getElementById('location-owner').textContent = object.owner || 'Independent';
+
+          // Show population for all stellar objects (both docked and landed)
+          if (object.population) {
+            locationPopulationEl.classList.remove('hidden');
+            document.getElementById('location-population-current').textContent = object.population.current.toLocaleString();
+            document.getElementById('location-population-limit').textContent = object.population.limit.toLocaleString();
+          } else {
+            locationPopulationEl.classList.add('hidden');
+          }
         }
       } else {
         // Hide the status element when in space
         statusEl.classList.add('hidden');
+        locationPopulationEl.classList.add('hidden');
       }
     } catch (error) {
       console.error('Error loading location status template:', error);
