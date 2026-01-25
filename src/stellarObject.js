@@ -25,6 +25,12 @@ class StellarObject {
     this.landedImage = ''; // Image shown when player is docked/landed
     this.owner = 'Independent'; // Corporation name or "Independent"
     this.value = 0; // Calculated economic value
+    this.dataDir = dataDir; // Store for later use
+
+    // Load game settings for population growth divisor
+    const gameSettingsPath = path.join(__dirname, '..', dataDir, 'game_settings.json');
+    const gameSettings = JSON.parse(fs.readFileSync(gameSettingsPath, 'utf-8'));
+    this.populationGrowthDivisor = gameSettings.population_growth_divisor || 1000000;
 
     // Get class-specific configuration
     const classDetails = typeDetails.classes[className];
@@ -235,9 +241,9 @@ class StellarObject {
    * @param {number} ticks - Number of ticks that have passed
    */
   updatePopulation(ticks = 1) {
-    // Growth rate is in hundredths of a percent per tick
-    // A setting of 2 means 0.02% growth per tick
-    const growthFactor = 1 + (this.population.growthRate / 10000);
+    // Growth rate divisor is configured in game_settings.json
+    // Default divisor of 1000000 means a setting of 2 = 0.0002% growth per tick
+    const growthFactor = 1 + (this.population.growthRate / this.populationGrowthDivisor);
     const newPopulation = Math.floor(this.population.current * Math.pow(growthFactor, ticks));
 
     // Cap at population limit
@@ -353,7 +359,8 @@ class StellarObject {
       fighters: this.fighters,
       marketState: this.marketState,
       shipyardState: this.shipyardState,
-      productivityModifiers: this.productivityModifiers
+      productivityModifiers: this.productivityModifiers,
+      dataDir: this.dataDir
     };
   }
 
@@ -385,6 +392,7 @@ class StellarObject {
     obj.fighters = data.fighters || 0;
     obj.marketState = data.marketState || obj.marketState;
     obj.shipyardState = data.shipyardState || obj.shipyardState;
+    obj.dataDir = data.dataDir || dataDir;
 
     return obj;
   }

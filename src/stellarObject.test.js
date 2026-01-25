@@ -536,7 +536,7 @@ describe('StellarObject', () => {
     });
 
     test('should cap population at limit', () => {
-      mockTypeDetails.classes['Earth-like'].reproductionRate = 10000; // Very high growth (100%)
+      mockTypeDetails.classes['Earth-like'].reproductionRate = 1000000; // Very high growth (100%)
       const obj = new StellarObject(
         1,
         'Planet',
@@ -552,7 +552,7 @@ describe('StellarObject', () => {
     });
 
     test('should not allow population below 0', () => {
-      mockTypeDetails.classes['Earth-like'].reproductionRate = -10000; // -100% growth (population dies)
+      mockTypeDetails.classes['Earth-like'].reproductionRate = -1000000; // -100% growth (population dies)
       const obj = new StellarObject(
         1,
         'Planet',
@@ -685,6 +685,8 @@ describe('StellarObject', () => {
       expect(restored.fighters).toBe(100);
       expect(restored.population.current).toBe(obj.population.current);
       expect(restored.productivityModifiers).toEqual(obj.productivityModifiers);
+      expect(restored.dataDir).toBe(obj.dataDir);
+      expect(restored.populationGrowthDivisor).toBe(obj.populationGrowthDivisor);
     });
   });
 

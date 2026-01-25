@@ -3,6 +3,7 @@
     "initial_ship": "Cargo Hauler",
     "food_per_person": 1,
     "starting_credits": 1000,
+    "population_growth_divisor": 1000000,
     "starting_system": {
         "required_objects": [
             {
