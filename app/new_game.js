@@ -49,8 +49,9 @@ window.api.receive('universe-created', async (payload) => {
 });
 
 function renderUniverseDiagram(universe) {
-  const width = document.getElementById('universe-diagram').clientWidth || 800;
-  const height = document.getElementById('universe-diagram').clientHeight || 400;
+  const diagramElement = document.getElementById('universe-diagram');
+  const width = diagramElement.clientWidth || 800;
+  const height = diagramElement.clientHeight || 600;
 
   // Assign a color to each type
   const types = Array.from(new Set(universe.stellarObjects.map(obj => obj.type)));
@@ -105,8 +106,10 @@ function renderUniverseDiagram(universe) {
   const svg = d3.select("#universe-diagram")
     .append("svg")
     .attr("class", "universe-svg")
-    .attr("width", width)
-    .attr("height", height);
+    .attr("viewBox", `0 0 ${width} ${height}`)
+    .attr("preserveAspectRatio", "xMidYMid meet")
+    .style("width", "100%")
+    .style("height", "100%");
 
   const container = svg.append("g");
 
