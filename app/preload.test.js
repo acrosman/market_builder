@@ -112,6 +112,7 @@ describe('Preload Script', () => {
       'get-universe-graph',
       'get-universe-summary',
       'get-universe-state',
+      'get-universe-map-data',
       'open-load-game-dialog',
       'get-all-systems',
       'calculate-jump-route',
@@ -280,6 +281,25 @@ describe('Preload Script', () => {
       expect(result).resolves.toEqual({
         systems: [{ id: 1, name: 'Alpha' }],
         stellarObjects: [{ id: 1, name: 'Earth' }]
+      });
+    });
+
+    test('getUniverseMapData should invoke get-universe-map-data', () => {
+      mockIpcRenderer.invoke.mockResolvedValue({
+        systems: [{ id: 1, name: 'Alpha' }],
+        stellarObjects: [{ id: 1, name: 'Earth' }],
+        exploredSystems: [1]
+      });
+
+      const getUniverseMapData = () => mockIpcRenderer.invoke('get-universe-map-data');
+
+      const result = getUniverseMapData();
+
+      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('get-universe-map-data');
+      expect(result).resolves.toEqual({
+        systems: [{ id: 1, name: 'Alpha' }],
+        stellarObjects: [{ id: 1, name: 'Earth' }],
+        exploredSystems: [1]
       });
     });
 

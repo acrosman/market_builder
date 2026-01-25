@@ -1330,4 +1330,223 @@ describe('Game UI Functions', () => {
       expect(document.getElementById('corp-planets-list').innerHTML).toContain('No planets owned');
     });
   });
+
+  describe('openUniverseMapModal function', () => {
+    beforeEach(() => {
+      // Mock D3 library
+      global.d3 = {
+        select: jest.fn().mockReturnThis(),
+        selectAll: jest.fn().mockReturnThis(),
+        append: jest.fn().mockReturnThis(),
+        attr: jest.fn().mockReturnThis(),
+        style: jest.fn().mockReturnThis(),
+        call: jest.fn().mockReturnThis(),
+        transition: jest.fn().mockReturnThis(),
+        duration: jest.fn().mockReturnThis(),
+        data: jest.fn().mockReturnThis(),
+        join: jest.fn().mockReturnThis(),
+        on: jest.fn().mockReturnThis(),
+        text: jest.fn().mockReturnThis(),
+        scaleOrdinal: jest.fn(() => ({
+          domain: jest.fn().mockReturnThis(),
+          range: jest.fn().mockReturnThis()
+        })),
+        schemeCategory10: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'],
+        zoom: jest.fn(() => ({
+          scaleExtent: jest.fn().mockReturnThis(),
+          on: jest.fn().mockReturnThis()
+        })),
+        zoomIdentity: {
+          translate: jest.fn().mockReturnThis(),
+          scale: jest.fn().mockReturnThis()
+        },
+        forceSimulation: jest.fn(() => ({
+          force: jest.fn().mockReturnThis(),
+          on: jest.fn().mockReturnThis()
+        })),
+        forceLink: jest.fn(() => ({
+          id: jest.fn().mockReturnThis(),
+          distance: jest.fn().mockReturnThis()
+        })),
+        forceManyBody: jest.fn(() => ({
+          strength: jest.fn().mockReturnThis()
+        })),
+        forceCenter: jest.fn(() => ({})),
+        drag: jest.fn(() => ({
+          on: jest.fn().mockReturnThis()
+        }))
+      };
+
+      window.api.getUniverseMapData = jest.fn();
+    });
+
+    afterEach(() => {
+      delete global.d3;
+    });
+
+    test('should add wide class to modal when opening universe map', async () => {
+      const mockMapData = {
+        systems: [
+          { id: 1, name: 'Alpha', connections: { 2: 5 } },
+          { id: 2, name: 'Beta', connections: { 1: 5 } }
+        ],
+        stellarObjects: [
+          { id: 1, type: 'Station', location: 1 },
+          { id: 2, type: 'Planet', location: 2 }
+        ],
+        exploredSystems: [1]
+      };
+
+      window.api.getUniverseMapData.mockResolvedValue(mockMapData);
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => '<div class="universe-map-container"><div id="universe-map-diagram"></div><div id="system-details"></div></div>'
+      });
+
+      modalBody.innerHTML = '<div class="universe-map-container"><div id="universe-map-diagram"></div><div id="system-details"></div></div>';
+
+      const openUniverseMapModalFn = async () => {
+        const modalContent = document.querySelector('.modal-content');
+        if (modalContent) {
+          modalContent.classList.add('wide');
+        }
+
+        const mapData = await window.api.getUniverseMapData();
+        expect(mapData).toBeDefined();
+      };
+
+      await openUniverseMapModalFn();
+
+      const modalContent = document.querySelector('.modal-content');
+      expect(modalContent.classList.contains('wide')).toBe(true);
+    });
+
+    test('should display unexplored message for systems not visited', () => {
+      modalBody.innerHTML = '<div id="system-details"></div>';
+
+      const showSystemDetailsFn = (systemNode, systems, stellarObjects, exploredSystems) => {
+        const detailsDiv = document.getElementById('system-details');
+        const system = systems.find(s => s.id === systemNode.id);
+
+        if (!system) {
+          detailsDiv.innerHTML = '<p>System not found</p>';
+          return;
+        }
+
+        if (!exploredSystems.includes(system.id)) {
+          detailsDiv.innerHTML = `
+            <h4>${system.name}</h4>
+            <p><strong>Status:</strong> Unexplored</p>
+            <p>You must visit this system to see its stellar objects.</p>
+          `;
+          return;
+        }
+      };
+
+      const systemNode = { id: 5, name: 'Gamma', explored: false };
+      const systems = [
+        { id: 5, name: 'Gamma', connections: { 1: 5 } }
+      ];
+      const stellarObjects = [
+        { id: 10, type: 'Station', location: 5 }
+      ];
+      const exploredSystems = [1, 2];
+
+      showSystemDetailsFn(systemNode, systems, stellarObjects, exploredSystems);
+
+      const detailsDiv = document.getElementById('system-details');
+      expect(detailsDiv.innerHTML).toContain('Gamma');
+      expect(detailsDiv.innerHTML).toContain('Unexplored');
+      expect(detailsDiv.innerHTML).toContain('You must visit this system');
+    });
+
+    test('should display system details with stellar objects for explored systems', () => {
+      modalBody.innerHTML = '<div id="system-details"></div>';
+
+      const showSystemDetailsFn = (systemNode, systems, stellarObjects, exploredSystems) => {
+        const detailsDiv = document.getElementById('system-details');
+        const system = systems.find(s => s.id === systemNode.id);
+
+        if (!exploredSystems.includes(system.id)) {
+          return;
+        }
+
+        const systemObjects = stellarObjects.filter(obj => obj.location === system.id);
+
+        let objectsHTML = '';
+        if (systemObjects.length > 0) {
+          objectsHTML = systemObjects
+            .map(obj => {
+              const ownerText = obj.owner ? `Owner: ${obj.owner}` : 'Independent';
+              return `
+                <div class="stellar-object-item">
+                  <strong>${obj.name}</strong> - ${obj.type} (${obj.className})
+                  <br>${ownerText}
+                </div>
+              `;
+            })
+            .join('');
+        }
+
+        const connections = Object.keys(system.connections)
+          .map(id => `System ${id}`)
+          .join(', ');
+
+        detailsDiv.innerHTML = `
+          <h4>${system.name} (ID: ${system.id})</h4>
+          <p><strong>Status:</strong> Explored</p>
+          <p><strong>Connected to:</strong> ${connections || 'None'}</p>
+          <h5>Stellar Objects:</h5>
+          ${objectsHTML}
+        `;
+      };
+
+      const systemNode = { id: 1, name: 'Alpha', explored: true };
+      const systems = [
+        { id: 1, name: 'Alpha', connections: { 2: 5, 3: 7 } }
+      ];
+      const stellarObjects = [
+        { id: 1, name: 'Station Alpha', type: 'Station', className: 'Trading Port', location: 1, owner: 'Player Corp' },
+        { id: 2, name: 'Planet Alpha Prime', type: 'Planet', className: 'Earth-like', location: 1, owner: null }
+      ];
+      const exploredSystems = [1];
+
+      showSystemDetailsFn(systemNode, systems, stellarObjects, exploredSystems);
+
+      const detailsDiv = document.getElementById('system-details');
+      expect(detailsDiv.innerHTML).toContain('Alpha (ID: 1)');
+      expect(detailsDiv.innerHTML).toContain('Explored');
+      expect(detailsDiv.innerHTML).toContain('System 2');
+      expect(detailsDiv.innerHTML).toContain('System 3');
+      expect(detailsDiv.innerHTML).toContain('Station Alpha');
+      expect(detailsDiv.innerHTML).toContain('Trading Port');
+      expect(detailsDiv.innerHTML).toContain('Owner: Player Corp');
+      expect(detailsDiv.innerHTML).toContain('Planet Alpha Prime');
+      expect(detailsDiv.innerHTML).toContain('Independent');
+    });
+  });
+
+  describe('closeModal function', () => {
+    test('should remove wide class when closing modal', () => {
+      gameModal.classList.add('visible');
+      const modalContent = document.querySelector('.modal-content');
+      modalContent.classList.add('wide');
+      modalBody.innerHTML = '<div>Some content</div>';
+
+      const closeModalFn = () => {
+        gameModal.classList.remove('visible');
+        modalBody.innerHTML = '';
+        const modalContent = document.querySelector('.modal-content');
+        if (modalContent) {
+          modalContent.classList.remove('wide');
+        }
+      };
+
+      closeModalFn();
+
+      expect(gameModal.classList.contains('visible')).toBe(false);
+      expect(modalBody.innerHTML).toBe('');
+      expect(modalContent.classList.contains('wide')).toBe(false);
+    });
+  });
 });

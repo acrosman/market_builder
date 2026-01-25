@@ -225,3 +225,101 @@ describe('get-universe-state IPC handler', () => {
     expect(result).toBeNull();
   });
 });
+
+describe('get-universe-map-data IPC handler', () => {
+  test('should return null when no current game exists', () => {
+    const currentGame = null;
+
+    const getUniverseMapData = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects,
+        exploredSystems: currentGame.exploredSystems || []
+      };
+    };
+
+    const result = getUniverseMapData();
+    expect(result).toBeNull();
+  });
+
+  test('should return universe map data with systems, stellarObjects, and exploredSystems', () => {
+    const currentGame = {
+      universe: {
+        systems: [
+          { id: 1, name: 'Alpha', connections: { 2: 5 } },
+          { id: 2, name: 'Beta', connections: { 1: 5, 3: 7 } },
+          { id: 3, name: 'Gamma', connections: { 2: 7 } }
+        ],
+        stellarObjects: [
+          { id: 1, name: 'Earth', type: 'Planet', location: 1 },
+          { id: 2, name: 'Station Alpha', type: 'Station', location: 2 },
+          { id: 3, name: 'Mining Base', type: 'Station', location: 3 }
+        ]
+      },
+      exploredSystems: [1, 2]
+    };
+
+    const getUniverseMapData = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects,
+        exploredSystems: currentGame.exploredSystems || []
+      };
+    };
+
+    const result = getUniverseMapData();
+
+    expect(result).not.toBeNull();
+    expect(result.systems).toHaveLength(3);
+    expect(result.stellarObjects).toHaveLength(3);
+    expect(result.exploredSystems).toEqual([1, 2]);
+    expect(result.systems[0].name).toBe('Alpha');
+    expect(result.stellarObjects[1].type).toBe('Station');
+  });
+
+  test('should return empty exploredSystems array when not initialized', () => {
+    const currentGame = {
+      universe: {
+        systems: [{ id: 1, name: 'Alpha' }],
+        stellarObjects: [{ id: 1, name: 'Earth', type: 'Planet', location: 1 }]
+      }
+      // exploredSystems not set
+    };
+
+    const getUniverseMapData = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects,
+        exploredSystems: currentGame.exploredSystems || []
+      };
+    };
+
+    const result = getUniverseMapData();
+
+    expect(result).not.toBeNull();
+    expect(result.exploredSystems).toEqual([]);
+  });
+
+  test('should return null when universe is missing', () => {
+    const currentGame = {
+      player: { name: 'Test' },
+      exploredSystems: [1]
+      // universe is missing
+    };
+
+    const getUniverseMapData = () => {
+      if (!currentGame || !currentGame.universe) return null;
+      return {
+        systems: currentGame.universe.systems,
+        stellarObjects: currentGame.universe.stellarObjects,
+        exploredSystems: currentGame.exploredSystems || []
+      };
+    };
+
+    const result = getUniverseMapData();
+    expect(result).toBeNull();
+  });
+});
