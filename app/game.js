@@ -299,6 +299,104 @@ document.addEventListener('DOMContentLoaded', async () => {
     consoleDiv.scrollTop = consoleDiv.scrollHeight;
   }
 
+  /**
+   * Display all properties of a stellar object in the console
+   * @param {Object} obj - The stellar object to display
+   */
+  async function displayStellarObjectProperties(obj) {
+    try {
+      // Load template
+      const template = await fetch('./templates/stellar-object-properties.html').then(r => r.text());
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = template;
+      const propertiesElement = tempDiv.firstElementChild;
+
+      // Populate basic information
+      propertiesElement.querySelector('.obj-name').textContent = obj.name;
+      propertiesElement.querySelector('.obj-type').textContent = obj.type;
+      propertiesElement.querySelector('.obj-class').textContent = obj.className;
+      propertiesElement.querySelector('.obj-owner').textContent = obj.owner;
+      propertiesElement.querySelector('.obj-value').textContent = obj.value.toLocaleString();
+
+      // Population
+      if (obj.population) {
+        const popPercent = ((obj.population.current / obj.population.limit) * 100).toFixed(1);
+        propertiesElement.querySelector('.obj-population').textContent = obj.population.current.toLocaleString();
+        propertiesElement.querySelector('.obj-population-limit').textContent = obj.population.limit.toLocaleString();
+        propertiesElement.querySelector('.obj-population-percent').textContent = popPercent;
+        propertiesElement.querySelector('.obj-growth-rate').textContent = obj.population.growthRate;
+      } else {
+        propertiesElement.querySelector('.population-section').style.display = 'none';
+      }
+
+      // Buildings
+      if (obj.capabilities.buildings) {
+        propertiesElement.querySelector('.obj-building-limit').textContent = obj.buildingLimit;
+        propertiesElement.querySelector('.obj-building-credits').textContent = obj.buildingCredits.toLocaleString();
+
+        const buildingCount = Object.keys(obj.buildings).length;
+        if (buildingCount > 0) {
+          propertiesElement.querySelector('.obj-buildings').textContent = JSON.stringify(obj.buildings, null, 2);
+        } else {
+          propertiesElement.querySelector('.obj-buildings').textContent = 'None';
+        }
+
+        if (obj.buildingsUnderConstruction.length > 0) {
+          propertiesElement.querySelector('.obj-construction').textContent = JSON.stringify(obj.buildingsUnderConstruction, null, 2);
+        } else {
+          propertiesElement.querySelector('.construction-list').style.display = 'none';
+        }
+      } else {
+        propertiesElement.querySelector('.buildings-section').style.display = 'none';
+      }
+
+      // Capabilities
+      const capabilities = [];
+      if (obj.capabilities.market) capabilities.push('Market');
+      if (obj.capabilities.buildings) capabilities.push('Buildings');
+      if (obj.capabilities.shipyard) capabilities.push('Shipyard');
+      if (obj.capabilities.shields) capabilities.push('Shields');
+      if (obj.capabilities.cannons) capabilities.push('Cannons');
+      if (obj.capabilities.fighters) capabilities.push('Fighters');
+      if (obj.capabilities.resistance) capabilities.push('Resistance');
+      propertiesElement.querySelector('.obj-capabilities').textContent = capabilities.join(', ') || 'None';
+
+      // Fighters
+      if (obj.capabilities.fighters && obj.fighters > 0) {
+        propertiesElement.querySelector('.obj-fighters').textContent = obj.fighters;
+      } else {
+        propertiesElement.querySelector('.fighters-section').style.display = 'none';
+      }
+
+      // Productivity Modifiers
+      if (obj.productivityModifiers) {
+        propertiesElement.querySelector('.obj-prod-metal').textContent = obj.productivityModifiers.metal;
+        propertiesElement.querySelector('.obj-prod-food').textContent = obj.productivityModifiers.food;
+        propertiesElement.querySelector('.obj-prod-chemicals').textContent = obj.productivityModifiers.chemicals;
+        propertiesElement.querySelector('.obj-prod-energy').textContent = obj.productivityModifiers.energy;
+      }
+
+      // Market State
+      if (obj.marketState) {
+        const inventoryCount = Object.keys(obj.marketState.inventory || {}).length;
+        if (inventoryCount > 0) {
+          propertiesElement.querySelector('.obj-market').textContent = JSON.stringify(obj.marketState.inventory, null, 2);
+        } else {
+          propertiesElement.querySelector('.obj-market').textContent = 'Empty';
+        }
+      } else {
+        propertiesElement.querySelector('.market-section').style.display = 'none';
+      }
+
+      // Add to console
+      consoleDiv.appendChild(propertiesElement);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    } catch (error) {
+      console.error('Error displaying stellar object properties:', error);
+      addMessage('Error: Unable to display object properties.');
+    }
+  }
+
   addMessage('message:ui.welcome');
   addMessage('message:ui.help_prompt');
 
@@ -461,6 +559,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (result.landedObject.description) {
         addMessage(result.landedObject.description);
       }
+
+      // Display all stellar object properties using template
+      await displayStellarObjectProperties(result.landedObject);
 
       // Update the UI with the new landed status
       await updateLocationDisplay();
