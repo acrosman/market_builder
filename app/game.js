@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const locationImage = document.getElementById('location-image');
   const noImagePlaceholder = document.getElementById('no-image-placeholder');
   const jumpPlannerBtn = document.getElementById('jump-planner-btn');
+  const universeMapBtn = document.getElementById('universe-map-btn');
   const saveGameBtn = document.getElementById('save-game-btn');
   const loadGameBtn = document.getElementById('load-game-btn');
   const playerStatusBtn = document.getElementById('player-status-btn');
@@ -574,6 +575,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   function closeModal() {
     gameModal.classList.remove('visible');
     modalBody.innerHTML = '';
+    // Remove wide class if it was added
+    const modalContent = document.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.classList.remove('wide');
+    }
   }
 
   /**
@@ -692,7 +698,299 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  /**
+   * Open the universe map modal and display the universe visualization
+   */
+  async function openUniverseMapModal() {
+    await loadModal('Universe Map', './modals/universe-map.html', async () => {
+      // Add wide class to modal for universe map
+      const modalContent = document.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.classList.add('wide');
+      }
+
+      const mapData = await window.api.getUniverseMapData();
+      if (!mapData) return;
+
+      const { systems, stellarObjects, exploredSystems } = mapData;
+
+      // Map system id to the most common stellar object type in that system (for coloring)
+      const systemType = {};
+      systems.forEach(sys => {
+        const objs = stellarObjects.filter(obj => obj.location === sys.id);
+        if (objs.length > 0) {
+          const typeCounts = {};
+          objs.forEach(obj => { typeCounts[obj.type] = (typeCounts[obj.type] || 0) + 1; });
+          systemType[sys.id] = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0][0];
+        } else {
+          systemType[sys.id] = null;
+        }
+      });
+
+      // Prepare nodes and links for D3
+      const nodes = systems.map(sys => ({
+        id: sys.id,
+        name: sys.name,
+        type: systemType[sys.id],
+        explored: exploredSystems.includes(sys.id)
+      }));
+
+      // Build unique links (avoid duplicates)
+      const linkSet = new Set();
+      systems.forEach(sys => {
+        Object.keys(sys.connections).forEach(connId => {
+          const numConnId = Number(connId);
+          const key = [Math.min(sys.id, numConnId), Math.max(sys.id, numConnId)].join('-');
+          linkSet.add(key);
+        });
+      });
+      const links = Array.from(linkSet).map(key => {
+        const [source, target] = key.split('-').map(Number);
+        return { source, target };
+      });
+
+      // Render the universe map
+      renderUniverseMap(nodes, links, systems, stellarObjects, exploredSystems);
+    });
+  }
+
+  /**
+   * Render the universe map with D3.js
+   * @param {Array} nodes - Array of system nodes
+   * @param {Array} links - Array of connections between systems
+   * @param {Array} systems - Full system data
+   * @param {Array} stellarObjects - All stellar objects
+   * @param {Array} exploredSystems - List of explored system IDs
+   */
+  function renderUniverseMap(nodes, links, systems, stellarObjects, exploredSystems) {
+    const diagramElement = document.getElementById('universe-map-diagram');
+    const width = diagramElement.clientWidth || 600;
+    const height = diagramElement.clientHeight || 500;
+
+    // Assign a color to each type
+    const types = Array.from(new Set(stellarObjects.map(obj => obj.type)));
+    const color = d3.scaleOrdinal()
+      .domain(types)
+      .range(d3.schemeCategory10);
+
+    // Clear previous diagram
+    d3.select('#universe-map-diagram').selectAll('*').remove();
+
+    // Create SVG and group for zooming
+    const svg = d3.select('#universe-map-diagram')
+      .append('svg')
+      .attr('class', 'universe-svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('width', '100%')
+      .style('height', '100%');
+
+    const container = svg.append('g');
+
+    // Add zoom behavior
+    const zoom = d3.zoom()
+      .scaleExtent([0.2, 5])
+      .on('zoom', (event) => {
+        container.attr('transform', event.transform);
+      });
+
+    svg.call(zoom);
+
+    // Add zoom control button handlers
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.3);
+      });
+    }
+
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 0.7);
+      });
+    }
+
+    if (zoomResetBtn) {
+      zoomResetBtn.addEventListener('click', () => {
+        // Re-fit view to show all nodes
+        const bounds = container.node().getBBox();
+        const dx = bounds.width;
+        const dy = bounds.height;
+        const x = bounds.x + bounds.width / 2;
+        const y = bounds.y + bounds.height / 2;
+
+        const scale = 0.9 / Math.max(dx / width, dy / height);
+        const translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+        svg.transition()
+          .duration(750)
+          .call(zoom.transform, d3.zoomIdentity
+            .translate(translate[0], translate[1])
+            .scale(scale));
+      });
+    }
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(50))
+      .force('charge', d3.forceManyBody().strength(-120))
+      .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const link = container.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('class', 'universe-link');
+
+    const node = container.append('g')
+      .selectAll('circle')
+      .data(nodes)
+      .join('circle')
+      .attr('class', 'universe-node')
+      .attr('r', 8)
+      .attr('fill', d => {
+        if (!d.explored) return '#666';
+        return d.type ? color(d.type) : '#888';
+      })
+      .attr('stroke', d => d.explored ? '#fff' : '#333')
+      .attr('stroke-width', 2)
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        showSystemDetails(d, systems, stellarObjects, exploredSystems);
+      })
+      .call(drag(simulation));
+
+    const label = container.append('g')
+      .selectAll('text')
+      .data(nodes)
+      .join('text')
+      .attr('class', 'universe-label')
+      .attr('dy', -12)
+      .text(d => d.name)
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        showSystemDetails(d, systems, stellarObjects, exploredSystems);
+      });
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y);
+
+      label
+        .attr('x', d => d.x)
+        .attr('y', d => d.y);
+    });
+
+    // Fit view to show all nodes
+    setTimeout(() => {
+      const bounds = container.node().getBBox();
+      const dx = bounds.width;
+      const dy = bounds.height;
+      const x = bounds.x + bounds.width / 2;
+      const y = bounds.y + bounds.height / 2;
+
+      const scale = 0.9 / Math.max(dx / width, dy / height);
+      const translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+      svg.transition()
+        .duration(750)
+        .call(zoom.transform, d3.zoomIdentity
+          .translate(translate[0], translate[1])
+          .scale(scale));
+    }, 100);
+
+    function drag(simulation) {
+      function dragStarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+      function dragEnded(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+      return d3.drag()
+        .on('start', dragStarted)
+        .on('drag', dragged)
+        .on('end', dragEnded);
+    }
+  }
+
+  /**
+   * Display details about a clicked system
+   * @param {Object} systemNode - The clicked system node
+   * @param {Array} systems - Full system data
+   * @param {Array} stellarObjects - All stellar objects
+   * @param {Array} exploredSystems - List of explored system IDs
+   */
+  function showSystemDetails(systemNode, systems, stellarObjects, exploredSystems) {
+    const detailsDiv = document.getElementById('system-details');
+    const system = systems.find(s => s.id === systemNode.id);
+
+    if (!system) {
+      detailsDiv.innerHTML = '<p>System not found</p>';
+      return;
+    }
+
+    if (!exploredSystems.includes(system.id)) {
+      detailsDiv.innerHTML = `
+        <h4>${system.name}</h4>
+        <p><strong>Status:</strong> Unexplored</p>
+        <p>You must visit this system to see its stellar objects.</p>
+      `;
+      return;
+    }
+
+    // Get stellar objects in this system
+    const systemObjects = stellarObjects.filter(obj => obj.location === system.id);
+
+    let objectsHTML = '';
+    if (systemObjects.length > 0) {
+      objectsHTML = systemObjects
+        .map(obj => {
+          const ownerText = obj.owner ? `Owner: ${obj.owner}` : 'Independent';
+          return `
+            <div class="stellar-object-item">
+              <strong>${obj.name}</strong> - ${obj.type} (${obj.className})
+              <br>${ownerText}
+            </div>
+          `;
+        })
+        .join('');
+    } else {
+      objectsHTML = '<p>No stellar objects in this system</p>';
+    }
+
+    // Get connected systems
+    const connections = Object.keys(system.connections)
+      .map(id => `System ${id}`)
+      .join(', ');
+
+    detailsDiv.innerHTML = `
+      <h4>${system.name} (ID: ${system.id})</h4>
+      <p><strong>Status:</strong> Explored</p>
+      <p><strong>Connected to:</strong> ${connections || 'None'}</p>
+      <h5>Stellar Objects:</h5>
+      ${objectsHTML}
+    `;
+  }
+
   playerStatusBtn.addEventListener('click', openPlayerStatusModal);
+  universeMapBtn.addEventListener('click', openUniverseMapModal);
 
   // Close modal when close button is clicked
   modalCloseBtn.addEventListener('click', closeModal);

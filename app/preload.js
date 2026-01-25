@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
       'get-universe-graph',
       'get-universe-summary',
       'get-universe-state',
+      'get-universe-map-data',
       'open-load-game-dialog',
       'get-all-systems',
       'calculate-jump-route',
@@ -66,6 +67,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   getLocationState: () => ipcRenderer.invoke('get-location-state'),  // Add this
   getUniverseState: () => ipcRenderer.invoke('get-universe-state'),
+  getUniverseMapData: () => ipcRenderer.invoke('get-universe-map-data'),
   getGameSettings: () => ipcRenderer.invoke('get-game-settings'), // Add this line
   getShipData: () => ipcRenderer.invoke('get-ship-data'),
   getGameData: (dataType) => {

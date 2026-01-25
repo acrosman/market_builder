@@ -262,6 +262,15 @@ ipcMain.handle('get-universe-state', () => {
   };
 });
 
+ipcMain.handle('get-universe-map-data', () => {
+  if (!currentGame || !currentGame.universe) return null;
+  return {
+    systems: currentGame.universe.systems,
+    stellarObjects: currentGame.universe.stellarObjects,
+    exploredSystems: currentGame.exploredSystems || []
+  };
+});
+
 ipcMain.handle('get-ship-data', () => {
   const dataDir = gameSettings.data_directory || 'data/default/en-us';
   const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, dataDir, 'ships.json'), 'utf-8'));

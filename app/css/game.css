@@ -207,6 +207,11 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
 }
 
+.modal-content.wide {
+  max-width: 1200px;
+  width: 95%;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -357,4 +362,142 @@
 
 .asset-item br {
   line-height: 1.6;
+}
+/* Universe Map Styles */
+.universe-map-container {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  min-height: 500px;
+}
+
+.universe-map-layout {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.universe-map-visualization {
+  flex: 2;
+  min-width: 0;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a202c;
+  position: relative;
+}
+
+#universe-map-diagram {
+  width: 100%;
+  height: 100%;
+}
+
+.universe-map-details {
+  flex: 1;
+  min-width: 250px;
+  max-width: 350px;
+  padding: 15px;
+  background: #2d3748;
+  border-radius: 8px;
+  overflow-y: auto;
+}
+
+.universe-map-details h3 {
+  margin: 0 0 15px 0;
+  color: #4ade80;
+  border-bottom: 2px solid #4ade80;
+  padding-bottom: 8px;
+}
+
+.universe-map-details h4 {
+  color: #cbd5e0;
+  margin: 0 0 10px 0;
+  font-size: 1.2em;
+}
+
+.universe-map-details h5 {
+  color: #a0aec0;
+  margin: 15px 0 10px 0;
+  font-size: 1em;
+}
+
+.universe-map-details p {
+  margin: 8px 0;
+  color: #a0aec0;
+}
+
+.stellar-object-item {
+  background: #1a202c;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 4px;
+  border-left: 3px solid #3182ce;
+  font-size: 0.9em;
+  color: #cbd5e0;
+}
+
+.stellar-object-item strong {
+  color: #4ade80;
+}
+
+.universe-svg {
+  background: #1a202c;
+}
+
+.universe-link {
+  stroke: #4a5568;
+  stroke-width: 1.5;
+}
+
+.universe-node {
+  transition: r 0.2s;
+}
+
+.universe-node:hover {
+  r: 10;
+}
+
+.universe-label {
+  fill: #cbd5e0;
+  font-size: 12px;
+  font-weight: 500;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 10;
+}
+
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  color: #cbd5e0;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+  background: #3182ce;
+  border-color: #3182ce;
+  color: white;
+}
+
+.zoom-btn:active {
+  transform: scale(0.95);
 }

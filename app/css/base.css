@@ -5,20 +5,31 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    justify-content: flex-start;
+    min-height: 100vh;
     margin: 0;
+    padding: 0;
+    overflow-x: hidden;
 }
 .game-logo {
-    width: 220px;
-    height: 220px;
-    margin: 24px auto 12px auto;
+    width: 150px;
+    height: 150px;
+    margin: 16px auto 12px auto;
     background: url('../images/logo.jpg') no-repeat center center;
     background-size: contain;
     display: block;
     border-radius: 16px;
     box-sizing: border-box;
     padding: 12px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .game-logo {
+        width: 120px;
+        height: 120px;
+        margin: 12px auto 8px auto;
+    }
 }
 .game-logo-large {
     width: 367px;
@@ -52,6 +63,18 @@ button {
 }
 button:hover {
     background: #2b6cb0;
+}
+
+h1 {
+    margin: 8px 0 16px 0;
+    font-size: 1.8em;
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.5em;
+        margin: 6px 0 12px 0;
+    }
 }
 
 .hidden {

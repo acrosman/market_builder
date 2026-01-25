@@ -32,32 +32,38 @@
   pointer-events: none;
 }
 
-.universe-color-key {
-  margin: 16px 0;
-  color: #fff;
-  font-size: 0.95em;
-}
-
-.universe-summary {
-  margin: 16px 0;
-  color: #fff;
-}
-
 .universe-view {
-  flex: 2 1 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 400px;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 1200px) {
+  .universe-view {
+    width: 100%;
+    min-height: 600px;
+  }
 }
 
 .universe-info {
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  padding: 12px;
+  padding: 12px 16px;
   background: #232b3a;
   border-radius: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .universe-info {
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 
 .universe-summary,
@@ -65,12 +71,21 @@
   flex: 1;
   font-size: 0.9em;
   color: #fff;
+  margin: 0;
 }
 
 #universe-diagram {
-  flex: 1;
-  min-height: 400px;
+  flex: 1 1 auto;
   background: #222a38;
   border-radius: 8px;
   margin: 0;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+@media (max-width: 1200px) {
+  #universe-diagram {
+    min-height: 500px;
+  }
 }

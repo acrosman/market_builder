@@ -4,8 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <title>Universe Market Builder - Main Game</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
-  <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-d3js';">
+  <meta http-equiv="X-Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-d3js';">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/game.css">
 </head>
@@ -17,6 +19,7 @@
       <div class="action-group">
         <h3>Navigation</h3>
         <button id="jump-planner-btn" class="action-btn">Jump to...</button>
+        <button id="universe-map-btn" class="action-btn">Universe Map</button>
         <div id="jump-buttons">
           <!-- Jump buttons will be inserted here dynamically -->
         </div>
@@ -77,7 +80,8 @@
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <script nonce="d3js" src="../node_modules/d3/dist/d3.min.js"></script>
+  <script nonce="d3js" src="game.js"></script>
 </body>
 
 </html>
