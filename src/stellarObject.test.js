@@ -512,7 +512,7 @@ describe('StellarObject', () => {
       const initialPopulation = obj.population.current;
       obj.updatePopulation(1);
 
-      // Growth rate is 5%, so population should increase
+      // Growth rate is 5, which means 0.05%, so population should increase slightly
       expect(obj.population.current).toBeGreaterThan(initialPopulation);
       expect(obj.population.current).toBeLessThanOrEqual(obj.population.limit);
     });
@@ -536,7 +536,7 @@ describe('StellarObject', () => {
     });
 
     test('should cap population at limit', () => {
-      mockTypeDetails.classes['Earth-like'].reproductionRate = 100; // Very high growth
+      mockTypeDetails.classes['Earth-like'].reproductionRate = 10000; // Very high growth (100%)
       const obj = new StellarObject(
         1,
         'Planet',
@@ -552,7 +552,7 @@ describe('StellarObject', () => {
     });
 
     test('should not allow population below 0', () => {
-      mockTypeDetails.classes['Earth-like'].reproductionRate = -100;
+      mockTypeDetails.classes['Earth-like'].reproductionRate = -10000; // -100% growth (population dies)
       const obj = new StellarObject(
         1,
         'Planet',

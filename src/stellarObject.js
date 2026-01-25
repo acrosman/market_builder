@@ -235,8 +235,9 @@ class StellarObject {
    * @param {number} ticks - Number of ticks that have passed
    */
   updatePopulation(ticks = 1) {
-    // Growth rate is percentage per tick
-    const growthFactor = 1 + (this.population.growthRate / 100);
+    // Growth rate is in hundredths of a percent per tick
+    // A setting of 2 means 0.02% growth per tick
+    const growthFactor = 1 + (this.population.growthRate / 10000);
     const newPopulation = Math.floor(this.population.current * Math.pow(growthFactor, ticks));
 
     // Cap at population limit
