@@ -63,7 +63,6 @@ class Game {
     this.corporations = []; // List of all corporations in the game
     this.turn = 0;
     this.ticks = 0; // Track game time in ticks
-    this.gameOver = false;
     this.exploredSystems = []; // List of system ids the player has explored
     this.eventBus = new EventBus(); // Event system for tick events
   }
@@ -170,15 +169,7 @@ class Game {
    * Process one game turn
    */
   processTurn() {
-    if (this.gameOver) return;
-
     this.turn++;
-
-    // Check game-ending conditions
-    if (this.settings.game_turn_limit > 0 && this.turn >= this.settings.game_turn_limit) {
-      this.gameOver = true;
-      return;
-    }
 
     // Recharge ship energy
     this.rechargeShipEnergy();
@@ -490,19 +481,17 @@ class Game {
         landedImage: obj.landedImage,
         owner: obj.owner,
         value: obj.value,
-        market: obj.market,
+        population: obj.population,
         buildings: obj.buildings,
-        shipyard: obj.shipyard,
-        shields: obj.shields,
-        cannons: obj.cannons,
+        buildingsUnderConstruction: obj.buildingsUnderConstruction,
         fighters: obj.fighters,
-        resistance: obj.resistance,
+        capabilities: obj.capabilities,
+        marketState: obj.marketState,
+        shipyardState: obj.shipyardState,
+        productivityModifiers: obj.productivityModifiers,
         description: obj.description,
-        populationLimit: obj.populationLimit,
-        reproductionRate: obj.reproductionRate,
         buildingCredits: obj.buildingCredits,
-        buildingLimit: obj.buildingLimit,
-        goods: obj.goods
+        buildingLimit: obj.buildingLimit
       }))
     };
 
@@ -567,21 +556,21 @@ class Game {
         objData.className,
         objData.location,
         {
-          market: objData.market,
-          buildings: objData.buildings,
-          shipyard: objData.shipyard,
-          shields: objData.shields,
-          cannons: objData.cannons,
-          fighters: objData.fighters,
-          resistance: objData.resistance,
+          market: objData.capabilities?.market || false,
+          buildings: objData.capabilities?.buildings || false,
+          shipyard: objData.capabilities?.shipyard || false,
+          shields: objData.capabilities?.shields || false,
+          cannons: objData.capabilities?.cannons || false,
+          fighters: objData.capabilities?.fighters || false,
+          resistance: objData.capabilities?.resistance || false,
           classes: {
             [objData.className]: {
               description: objData.description,
-              populationLimit: objData.populationLimit,
-              reproductionRate: objData.reproductionRate,
+              populationLimit: objData.population?.limit || 0,
+              reproductionRate: objData.population?.growthRate || 0,
               buildingCredits: objData.buildingCredits,
               buildingLimit: objData.buildingLimit,
-              goods: objData.goods
+              productivityModifiers: objData.productivityModifiers || {}
             }
           }
         }
@@ -590,6 +579,33 @@ class Game {
       if (objData.landedImage) obj.landedImage = objData.landedImage;
       if (objData.owner) obj.owner = objData.owner;
       if (objData.value !== undefined) obj.value = objData.value;
+
+      // Restore population state
+      if (objData.population) {
+        obj.population = { ...objData.population };
+      }
+
+      // Restore buildings state
+      if (objData.buildings) {
+        obj.buildings = { ...objData.buildings };
+      }
+      if (objData.buildingsUnderConstruction) {
+        obj.buildingsUnderConstruction = [...objData.buildingsUnderConstruction];
+      }
+
+      // Restore military assets
+      if (objData.fighters !== undefined) {
+        obj.fighters = objData.fighters;
+      }
+
+      // Restore market and shipyard states
+      if (objData.marketState) {
+        obj.marketState = JSON.parse(JSON.stringify(objData.marketState));
+      }
+      if (objData.shipyardState) {
+        obj.shipyardState = JSON.parse(JSON.stringify(objData.shipyardState));
+      }
+
       return obj;
     });
 

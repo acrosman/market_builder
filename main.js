@@ -18,8 +18,7 @@ try {
   console.error('Error loading game settings:', error);
   gameSettings = {
     initial_ship: "Shuttle",
-    food_per_person: 1,
-    game_turn_limit: -1
+    food_per_person: 1
   };
 }
 

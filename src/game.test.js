@@ -91,7 +91,6 @@ describe('Game Module', () => {
     mockSettings = {
       initial_ship: 'Cargo Hauler',
       food_per_person: 1,
-      game_turn_limit: 100,
       starting_credits: 1000,
       data_directory: 'data/default/en-us'
     };
@@ -155,7 +154,6 @@ describe('Game Module', () => {
       expect(game.player).toBeNull();
       expect(game.npcs).toEqual([]);
       expect(game.turn).toBe(0);
-      expect(game.gameOver).toBe(false);
     });
 
     test('initializes game with player and NPCs', () => {
@@ -292,18 +290,6 @@ describe('Game Module', () => {
       game.processTurn();
 
       expect(game.turn).toBe(1);
-      expect(game.gameOver).toBe(false);
-    });
-
-    test('ends game when turn limit reached', () => {
-      game.settings.game_turn_limit = 2;
-      game.initializeGame(createTestPlayerData());
-
-      game.processTurn();
-      expect(game.gameOver).toBe(false);
-
-      game.processTurn();
-      expect(game.gameOver).toBe(true);
     });
 
     test('gets current location state', () => {
@@ -374,6 +360,50 @@ describe('Game Module', () => {
         expect(() => {
           Game.loadGame('non-existent-save');
         }).toThrow();
+      });
+
+      test('saves and loads stellar object population data', () => {
+        // Modify population of a stellar object
+        const stellarObj = game.universe.stellarObjects[0];
+        const originalPopulation = {
+          current: 5000,
+          limit: 10000,
+          growthRate: 2.5
+        };
+        stellarObj.population = { ...originalPopulation };
+
+        // Save the game
+        game.saveGame(testFilename);
+
+        // Load the game
+        const loadedGame = Game.loadGame(testFilename);
+
+        // Verify population was preserved
+        const loadedObj = loadedGame.universe.stellarObjects[0];
+        expect(loadedObj.population).toBeDefined();
+        expect(loadedObj.population.current).toBe(originalPopulation.current);
+        expect(loadedObj.population.limit).toBe(originalPopulation.limit);
+        expect(loadedObj.population.growthRate).toBe(originalPopulation.growthRate);
+      });
+
+      test('saves and loads buildings and construction queue', () => {
+        // Add some buildings and construction queue items
+        const stellarObj = game.universe.stellarObjects[0];
+        stellarObj.buildings = { 'Mine': { count: 2 }, 'Warehouse': { count: 1 } };
+        stellarObj.buildingsUnderConstruction = [{ type: 'Mine', ticksRemaining: 5 }];
+        stellarObj.fighters = 10;
+
+        // Save the game
+        game.saveGame(testFilename);
+
+        // Load the game
+        const loadedGame = Game.loadGame(testFilename);
+
+        // Verify buildings state was preserved
+        const loadedObj = loadedGame.universe.stellarObjects[0];
+        expect(loadedObj.buildings).toEqual({ 'Mine': { count: 2 }, 'Warehouse': { count: 1 } });
+        expect(loadedObj.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 5 }]);
+        expect(loadedObj.fighters).toBe(10);
       });
     });
 

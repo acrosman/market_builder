@@ -156,7 +156,6 @@ The game uses a configurable data directory system to support multiple languages
   - `initial_ship` - Starting ship type for new players
   - `starting_credits` - Initial credits for new players
   - `food_per_person` - Food consumption per person per turn
-  - `game_turn_limit` - Maximum turns (-1 for unlimited)
   - `starting_system` - Configuration for the home system (System 1)
   - `pronoun_options` - Available pronoun sets for player creation
 

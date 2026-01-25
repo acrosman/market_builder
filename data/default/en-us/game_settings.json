@@ -2,7 +2,6 @@
     "data_directory": "data/default/en-us",
     "initial_ship": "Cargo Hauler",
     "food_per_person": 1,
-    "game_turn_limit": -1,
     "starting_credits": 1000,
     "starting_system": {
         "required_objects": [
