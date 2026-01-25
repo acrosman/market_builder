@@ -156,6 +156,7 @@ The game uses a configurable data directory system to support multiple languages
   - `initial_ship` - Starting ship type for new players
   - `starting_credits` - Initial credits for new players
   - `food_per_person` - Food consumption per person per turn
+  - `population_growth_divisor` - Divisor for population growth rate calculations (default: 1000000). A reproduction rate of 2 with divisor 1000000 equals 0.0002% growth per tick. Lower divisor = faster growth
   - `starting_system` - Configuration for the home system (System 1)
   - `pronoun_options` - Available pronoun sets for player creation
 
