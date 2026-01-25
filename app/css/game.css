@@ -200,7 +200,7 @@
   background: #232b3a;
   border: 1px solid #2d3748;
   border-radius: 8px;
-  max-width: 500px;
+  max-width: 800px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
@@ -500,4 +500,131 @@
 
 .zoom-btn:active {
   transform: scale(0.95);
+}
+
+/* Trade Modal Styles */
+.trade-modal {
+  padding: 20px;
+}
+
+.trade-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.trade-section {
+  background: #232b3a;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+}
+
+.trade-section h4 {
+  margin: 0 0 15px 0;
+  color: #a0aec0;
+  font-size: 1.1em;
+  border-bottom: 1px solid #2d3748;
+  padding-bottom: 8px;
+}
+
+.trade-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #2d3748;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.trade-item .good-name {
+  flex: 1;
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.trade-item .good-quantity,
+.trade-item .good-price {
+  color: #a0aec0;
+  font-size: 0.9em;
+}
+
+.trade-item .trade-quantity {
+  width: 80px;
+  padding: 6px;
+  background: #181f2a;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.trade-item .trade-btn {
+  padding: 6px 16px;
+  background: #3182ce;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: auto;
+}
+
+.trade-item .trade-btn:hover {
+  background: #2c5aa0;
+}
+
+.trade-summary {
+  background: #232b3a;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+  font-size: 1.1em;
+}
+
+.trade-summary strong {
+  color: #a0aec0;
+}
+
+#passenger-controls {
+  margin-top: 15px;
+  padding: 15px;
+  background: #2d3748;
+  border-radius: 4px;
+}
+
+#passenger-controls label {
+  display: block;
+  color: #a0aec0;
+  margin-bottom: 8px;
+}
+
+#passenger-count {
+  width: 120px;
+  padding: 8px;
+  background: #181f2a;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  color: #e2e8f0;
+  margin-right: 10px;
+}
+
+#passenger-cargo-info {
+  color: #a0aec0;
+  font-size: 0.9em;
+  margin-left: 10px;
+}
+
+#load-passengers-btn {
+  margin-top: 10px;
+  padding: 10px 20px;
+  width: auto;
+}
+
+#passenger-info,
+#no-passengers-info {
+  color: #a0aec0;
+  font-style: italic;
 }

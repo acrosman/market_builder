@@ -448,6 +448,184 @@ class Game {
   }
 
   /**
+   * Buy goods from a stellar object
+   * @param {number} stellarObjectId - ID of the stellar object
+   * @param {string} goodName - Name of the good to buy
+   * @param {number} quantity - Quantity to buy
+   * @param {number} price - Price per unit
+   * @returns {Object} Result object with success status and message
+   */
+  buyGood(stellarObjectId, goodName, quantity, price) {
+    const stellarObject = this.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    if (!stellarObject) {
+      return { success: false, message: 'Stellar object not found' };
+    }
+
+    if (!stellarObject.marketState) {
+      return { success: false, message: 'No market available at this location' };
+    }
+
+    // Check if good is available
+    const availableQuantity = stellarObject.marketState.inventory[goodName] || 0;
+    if (availableQuantity < quantity) {
+      return { success: false, message: `Only ${availableQuantity} units available` };
+    }
+
+    const totalCost = quantity * price;
+    if (this.player.credits < totalCost) {
+      return { success: false, message: `Insufficient credits. Need ${totalCost} credits` };
+    }
+
+    // Calculate cargo space needed
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const good = goodsData[goodName];
+    if (!good) {
+      return { success: false, message: 'Unknown good' };
+    }
+
+    const mass = good.finishedMass.mass;
+    const units = good.finishedMass.units;
+    let cargoNeeded = 0;
+    if (units === 'metric tons') {
+      cargoNeeded = mass * quantity;
+    } else if (units === 'kilograms') {
+      cargoNeeded = (mass * quantity) / 1000;
+    }
+
+    // Check cargo capacity
+    const currentCargo = this.calculateCargoUsed();
+    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
+    const shipData = shipsData[this.player.ship];
+    const cargoCapacity = shipData.cargoCapacity;
+
+    if (currentCargo + cargoNeeded > cargoCapacity) {
+      return { success: false, message: `Insufficient cargo space. Need ${cargoNeeded.toFixed(2)} tons, only ${(cargoCapacity - currentCargo).toFixed(2)} available` };
+    }
+
+    // Execute transaction
+    this.player.credits -= totalCost;
+    stellarObject.marketState.inventory[goodName] -= quantity;
+    this.player.cargo[goodName] = (this.player.cargo[goodName] || 0) + quantity;
+
+    return { success: true, message: `Bought ${quantity} units of ${goodName} for ${totalCost} credits` };
+  }
+
+  /**
+   * Sell goods to a stellar object
+   * @param {number} stellarObjectId - ID of the stellar object
+   * @param {string} goodName - Name of the good to sell
+   * @param {number} quantity - Quantity to sell
+   * @param {number} price - Price per unit
+   * @returns {Object} Result object with success status and message
+   */
+  sellGood(stellarObjectId, goodName, quantity, price) {
+    const stellarObject = this.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    if (!stellarObject) {
+      return { success: false, message: 'Stellar object not found' };
+    }
+
+    if (!stellarObject.marketState) {
+      return { success: false, message: 'No market available at this location' };
+    }
+
+    // Check if player has the goods
+    const playerQuantity = this.player.cargo[goodName] || 0;
+    if (playerQuantity < quantity) {
+      return { success: false, message: `You only have ${playerQuantity} units` };
+    }
+
+    // Execute transaction
+    const totalRevenue = quantity * price;
+    this.player.credits += totalRevenue;
+    stellarObject.marketState.inventory[goodName] = (stellarObject.marketState.inventory[goodName] || 0) + quantity;
+    this.player.cargo[goodName] -= quantity;
+
+    // Remove from cargo if quantity is 0
+    if (this.player.cargo[goodName] === 0) {
+      delete this.player.cargo[goodName];
+    }
+
+    return { success: true, message: `Sold ${quantity} units of ${goodName} for ${totalRevenue} credits` };
+  }
+
+  /**
+   * Load passengers from a stellar object
+   * @param {number} stellarObjectId - ID of the stellar object
+   * @param {number} passengerCount - Number of passengers to load
+   * @returns {Object} Result object with success status and message
+   */
+  loadPassengers(stellarObjectId, passengerCount) {
+    const stellarObject = this.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    if (!stellarObject) {
+      return { success: false, message: 'Stellar object not found' };
+    }
+
+    // Calculate available passengers
+    const population = stellarObject.population;
+    const populationPercent = (population.current / population.limit) * 100;
+    let availablePassengers = 0;
+
+    if (populationPercent < 25) {
+      return { success: false, message: 'Population is too low. People are not willing to leave.' };
+    }
+
+    const willingPercent = ((populationPercent - 25) / 75) * 50;
+    availablePassengers = Math.floor((population.current * willingPercent) / 100);
+
+    if (passengerCount > availablePassengers) {
+      return { success: false, message: `Only ${availablePassengers} passengers available` };
+    }
+
+    // Check cargo capacity (10 people per ton)
+    const cargoNeeded = passengerCount / 10;
+    const currentCargo = this.calculateCargoUsed();
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
+    const shipData = shipsData[this.player.ship];
+    const cargoCapacity = shipData.cargoCapacity;
+
+    if (currentCargo + cargoNeeded > cargoCapacity) {
+      return { success: false, message: `Insufficient cargo space. Need ${cargoNeeded.toFixed(2)} tons, only ${(cargoCapacity - currentCargo).toFixed(2)} available` };
+    }
+
+    // Execute transaction
+    stellarObject.population.current -= passengerCount;
+    this.player.cargo.passengers = (this.player.cargo.passengers || 0) + passengerCount;
+
+    return { success: true, message: `Loaded ${passengerCount} passengers (${cargoNeeded.toFixed(2)} tons)` };
+  }
+
+  /**
+   * Calculate total cargo space used
+   * @returns {number} Cargo space used in tons
+   */
+  calculateCargoUsed() {
+    let cargoUsed = 0;
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+
+    for (const [goodName, quantity] of Object.entries(this.player.cargo)) {
+      if (goodName === 'passengers') {
+        cargoUsed += quantity / 10; // 10 people per ton
+      } else {
+        const good = goodsData[goodName];
+        if (good && good.finishedMass) {
+          const mass = good.finishedMass.mass;
+          const units = good.finishedMass.units;
+          if (units === 'metric tons') {
+            cargoUsed += mass * quantity;
+          } else if (units === 'kilograms') {
+            cargoUsed += (mass * quantity) / 1000;
+          }
+        }
+      }
+    }
+
+    return cargoUsed;
+  }
+
+  /**
    * Recharge ship energy (called during turn processing)
    */
   rechargeShipEnergy() {

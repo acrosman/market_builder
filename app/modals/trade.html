@@ -1,0 +1,38 @@
+<div class="trade-modal">
+  <h3>Trading at <span id="trade-location-name"></span></h3>
+
+  <div class="trade-sections">
+    <!-- Available to Buy Section -->
+    <div class="trade-section">
+      <h4>Available to Buy</h4>
+      <div id="goods-to-buy">
+        <!-- Dynamically populated with goods from location -->
+      </div>
+    </div>
+
+    <!-- Your Cargo to Sell Section -->
+    <div class="trade-section">
+      <h4>Your Cargo to Sell</h4>
+      <div id="goods-to-sell">
+        <!-- Dynamically populated with player's cargo -->
+      </div>
+    </div>
+
+    <!-- Passengers Section -->
+    <div class="trade-section">
+      <h4>Passengers Seeking Transport</h4>
+      <p id="passenger-info"></p>
+      <div id="passenger-controls" class="hidden">
+        <label for="passenger-count">Number of passengers to load:</label>
+        <input type="number" id="passenger-count" min="0" max="0" value="0">
+        <span id="passenger-cargo-info"></span>
+        <button id="load-passengers-btn" class="action-btn">Load Passengers</button>
+      </div>
+      <div id="no-passengers-info"></div>
+    </div>
+  </div>
+
+  <div class="trade-summary">
+    <p><strong>Cargo Space:</strong> <span id="cargo-used"></span> / <span id="cargo-capacity"></span> tons</p>
+  </div>
+</div>

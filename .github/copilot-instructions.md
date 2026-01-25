@@ -118,6 +118,34 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
   - Never embed HTML in JS strings
   - CSS files in `app/css/` (one per page + shared)
 
+### Template Loading Pattern
+
+When building dynamic UI content, **always** use HTML templates:
+
+1. **Create template file**: Place in `app/templates/` or `app/modals/`
+2. **Load template**: `const template = await fetch('./templates/file.html').then(r => r.text())`
+3. **Insert into DOM**: `container.innerHTML = template` or create wrapper div
+4. **Populate data**: Use `querySelector()` and `textContent` to fill in dynamic values
+
+**Example**:
+
+```javascript
+// Load template
+const itemTemplate = await fetch('./templates/item.html').then((r) => r.text());
+const itemDiv = document.createElement('div');
+itemDiv.innerHTML = itemTemplate;
+const item = itemDiv.firstElementChild;
+
+// Populate with data
+item.querySelector('#item-name').textContent = name;
+item.querySelector('#item-price').textContent = price;
+
+// Add to DOM
+container.appendChild(item);
+```
+
+**Why**: Separates presentation (HTML) from logic (JS), maintains security (prevents XSS), supports localization, and keeps code maintainable.
+
 ### Time System
 
 - **Ticks**: Fundamental time unit (not turns)
@@ -166,10 +194,22 @@ npm run lint       # Check code style
 ### Code Style
 
 - **Strict equality only**: Use `===` and `!==` (never `==` or `!=`)
-- **No HTML in JS**: Always `fetch()` templates, never string concatenation
+- **No HTML in JS**: Always `fetch()` templates, never string concatenation or `innerHTML` with template literals
+  - ❌ **NEVER**: `element.innerHTML = '<div>...' + variable + '...</div>'`
+  - ❌ **NEVER**: ``element.innerHTML = `<div>...${variable}...</div>` ``
+  - ✅ **ALWAYS**: `fetch('./templates/file.html')` then populate with `textContent` or `querySelector()`
+  - Create template files in `app/templates/` or `app/modals/`
+  - Use `document.createElement()` and `textContent` for dynamic text
+  - Use template loading pattern: fetch template → insert into DOM → populate with `querySelector()` and `textContent`
+- **No hardcoded UI strings**: Never embed user-facing text directly in JavaScript
+  - ❌ **NEVER**: `addMessage('Error: something went wrong')`
+  - ❌ **NEVER**: `element.textContent = 'Click here to continue'`
+  - ✅ **ALWAYS**: Load from `game_messages.json` using `addMessage('message:key', { variables })`
+  - Static labels in HTML templates are acceptable (e.g., form labels, button text in templates)
+  - Exception: System/technical strings for developers (console.log, error handling) are OK
 - **Variable declarations**: `const` for immutable, `let` for mutable (avoid `var`)
 - **Callbacks**: Arrow functions for anonymous functions/callbacks
-- **String interpolation**: Template literals with `${variable}` not concatenation
+- **String interpolation**: Template literals with `${variable}` for logging/technical strings only, not UI content
 
 ### Function Documentation
 

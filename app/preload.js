@@ -39,7 +39,11 @@ contextBridge.exposeInMainWorld('api', {
       'open-load-game-dialog',
       'get-all-systems',
       'calculate-jump-route',
-      'get-game-messages'
+      'get-game-messages',
+      'get-ships-data',
+      'get-goods-data',
+      'trade-goods',
+      'load-passengers'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

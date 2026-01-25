@@ -501,3 +501,44 @@ ipcMain.on('load-game', (event, saveFilePath) => {
     event.reply('load-game-result', { success: false, reason: "Error loading game" });
   }
 });
+
+// Handle get-ships-data request from renderer
+ipcMain.handle('get-ships-data', () => {
+  const dataDir = gameSettings.data_directory || 'data/default/en-us';
+  const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, dataDir, 'ships.json'), 'utf-8'));
+  return shipsData;
+});
+
+// Handle get-goods-data request from renderer
+ipcMain.handle('get-goods-data', () => {
+  const dataDir = gameSettings.data_directory || 'data/default/en-us';
+  const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, dataDir, 'goods.json'), 'utf-8'));
+  return goodsData;
+});
+
+// Handle trade-goods request from renderer
+ipcMain.handle('trade-goods', (event, tradeData) => {
+  if (!currentGame) {
+    return { success: false, message: 'No active game' };
+  }
+
+  const { action, goodName, quantity, price, stellarObjectId } = tradeData;
+
+  if (action === 'buy') {
+    return currentGame.buyGood(stellarObjectId, goodName, quantity, price);
+  } else if (action === 'sell') {
+    return currentGame.sellGood(stellarObjectId, goodName, quantity, price);
+  } else {
+    return { success: false, message: 'Invalid trade action' };
+  }
+});
+
+// Handle load-passengers request from renderer
+ipcMain.handle('load-passengers', (event, passengerData) => {
+  if (!currentGame) {
+    return { success: false, message: 'No active game' };
+  }
+
+  const { stellarObjectId, passengerCount } = passengerData;
+  return currentGame.loadPassengers(stellarObjectId, passengerCount);
+});

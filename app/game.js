@@ -313,6 +313,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('[DEBUG] Objects in current system:', locationState.objects.map(obj => ({ id: obj.id, name: obj.name, type: obj.type, className: obj.className })));
 
     if (isDocked || isLanded) {
+      // Find the current object
+      const currentObjectId = isDocked ? locationState.playerState.dockedAt : locationState.playerState.landedOn;
+      const currentObject = locationState.objects.find(obj => obj.id === currentObjectId);
+
+      // Add trade button if the object has market capability and player is landed
+      if (isLanded && currentObject && currentObject.capabilities?.market) {
+        const tradeButton = document.createElement('button');
+        tradeButton.className = 'action-btn';
+        tradeButton.dataset.action = 'trade';
+        tradeButton.textContent = 'Trade';
+        tradeButton.addEventListener('click', () => openTradeModal(currentObject));
+        localButtons.appendChild(tradeButton);
+      }
+
       const takeOffButton = document.createElement('button');
       takeOffButton.className = 'action-btn';
       takeOffButton.dataset.action = 'takeoff';
@@ -710,6 +724,254 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
+   * Open the trade modal for buying/selling goods and loading passengers
+   * @param {Object} stellarObject - The stellar object to trade with
+   */
+  async function openTradeModal(stellarObject) {
+    await loadModal('Trade', './modals/trade.html', async () => {
+      // Add wide class to modal for trade interface
+      const modalContent = document.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.classList.add('wide');
+      }
+
+      const locationState = await window.api.getLocationState();
+      if (!locationState) return;
+
+      const playerState = locationState.playerState;
+      const shipsData = await window.api.invoke('get-ships-data');
+      const shipData = shipsData[playerState.ship];
+      const goodsData = await window.api.invoke('get-goods-data');
+
+      // Set location name
+      document.getElementById('trade-location-name').textContent = stellarObject.name;
+
+      // Calculate cargo usage
+      let cargoUsed = 0;
+      const cargo = playerState.cargo || {};
+
+      // Calculate cargo from goods
+      for (const [goodName, quantity] of Object.entries(cargo)) {
+        if (goodName === 'passengers') continue; // Handle passengers separately
+        const good = goodsData[goodName];
+        if (good && good.finishedMass) {
+          const mass = good.finishedMass.mass;
+          const units = good.finishedMass.units;
+          if (units === 'metric tons') {
+            cargoUsed += mass * quantity;
+          } else if (units === 'kilograms') {
+            cargoUsed += (mass * quantity) / 1000; // Convert kg to tons
+          }
+        }
+      }
+
+      // Add passengers cargo (10 people per ton)
+      if (cargo.passengers) {
+        cargoUsed += cargo.passengers / 10;
+      }
+
+      const cargoCapacity = shipData.cargoCapacity;
+
+      // Update cargo display
+      document.getElementById('cargo-used').textContent = cargoUsed.toFixed(2);
+      document.getElementById('cargo-capacity').textContent = cargoCapacity;
+
+      // Populate goods to buy
+      const goodsToBuyDiv = document.getElementById('goods-to-buy');
+      goodsToBuyDiv.innerHTML = '';
+
+      if (stellarObject.marketState && stellarObject.marketState.inventory) {
+        const inventory = stellarObject.marketState.inventory;
+        if (Object.keys(inventory).length === 0) {
+          const noGoods = document.createElement('p');
+          noGoods.textContent = 'No goods available for purchase.';
+          goodsToBuyDiv.appendChild(noGoods);
+        } else {
+          const tradeItemTemplate = await fetch('./templates/trade-item.html').then(r => r.text());
+          for (const [goodName, quantity] of Object.entries(inventory)) {
+            if (quantity > 0) {
+              const good = goodsData[goodName];
+              const price = stellarObject.marketState.prices[goodName] || good.value;
+
+              const goodDiv = document.createElement('div');
+              goodDiv.innerHTML = tradeItemTemplate;
+              const container = goodDiv.firstElementChild;
+
+              container.querySelector('#good-name').textContent = goodName;
+              container.querySelector('#good-quantity').textContent = `Available: ${quantity}`;
+              container.querySelector('#good-price').textContent = `Price: ${price} cr/unit`;
+
+              const input = container.querySelector('#trade-quantity-input');
+              input.max = quantity;
+              input.setAttribute('data-good', goodName);
+              input.setAttribute('data-action', 'buy');
+
+              const btn = container.querySelector('#trade-btn');
+              btn.textContent = 'Buy';
+              btn.setAttribute('data-good', goodName);
+              btn.setAttribute('data-price', price);
+              btn.setAttribute('data-action', 'buy');
+
+              goodsToBuyDiv.appendChild(container);
+            }
+          }
+        }
+      } else {
+        const noMarket = document.createElement('p');
+        noMarket.textContent = 'No market available.';
+        goodsToBuyDiv.appendChild(noMarket);
+      }
+
+      // Populate goods to sell
+      const goodsToSellDiv = document.getElementById('goods-to-sell');
+      goodsToSellDiv.innerHTML = '';
+
+      if (Object.keys(cargo).filter(k => k !== 'passengers').length === 0) {
+        const emptyCargo = document.createElement('p');
+        emptyCargo.textContent = 'Your cargo is empty.';
+        goodsToSellDiv.appendChild(emptyCargo);
+      } else {
+        const tradeItemTemplate = await fetch('./templates/trade-item.html').then(r => r.text());
+        for (const [goodName, quantity] of Object.entries(cargo)) {
+          if (goodName === 'passengers') continue; // Skip passengers in goods section
+          if (quantity > 0) {
+            const good = goodsData[goodName];
+            const price = stellarObject.marketState?.prices[goodName] || good.value;
+
+            const goodDiv = document.createElement('div');
+            goodDiv.innerHTML = tradeItemTemplate;
+            const container = goodDiv.firstElementChild;
+
+            container.querySelector('#good-name').textContent = goodName;
+            container.querySelector('#good-quantity').textContent = `In Cargo: ${quantity}`;
+            container.querySelector('#good-price').textContent = `Price: ${price} cr/unit`;
+
+            const input = container.querySelector('#trade-quantity-input');
+            input.max = quantity;
+            input.setAttribute('data-good', goodName);
+            input.setAttribute('data-action', 'sell');
+
+            const btn = container.querySelector('#trade-btn');
+            btn.textContent = 'Sell';
+            btn.setAttribute('data-good', goodName);
+            btn.setAttribute('data-price', price);
+            btn.setAttribute('data-action', 'sell');
+
+            goodsToSellDiv.appendChild(container);
+          }
+        }
+      }
+
+      // Add click handlers for buy/sell buttons
+      document.querySelectorAll('.trade-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const goodName = btn.dataset.good;
+          const price = parseFloat(btn.dataset.price);
+          const action = btn.dataset.action;
+          const input = btn.parentElement.querySelector('.trade-quantity');
+          const quantity = parseInt(input.value);
+
+          if (quantity <= 0) {
+            addMessage('Please enter a quantity greater than 0.');
+            return;
+          }
+
+          const result = await window.api.invoke('trade-goods', {
+            action,
+            goodName,
+            quantity,
+            price,
+            stellarObjectId: stellarObject.id
+          });
+
+          if (result.success) {
+            addMessage(result.message);
+            closeModal();
+            await updateLocationDisplay();
+            await updateShipStatus();
+          } else {
+            addMessage('Error: ' + result.message);
+          }
+        });
+      });
+
+      // Handle passengers
+      const population = stellarObject.population;
+      const passengerInfo = document.getElementById('passenger-info');
+      const passengerControls = document.getElementById('passenger-controls');
+      const noPassengersInfo = document.getElementById('no-passengers-info');
+
+      // Calculate available passengers using the specified formula
+      const populationPercent = (population.current / population.limit) * 100;
+      let availablePassengers = 0;
+
+      if (populationPercent < 25) {
+        availablePassengers = 0;
+      } else {
+        // Linear scale from 25% to 100%
+        // At 25% population: 0% willing to leave
+        // At 100% population: 50% willing to leave
+        const willingPercent = ((populationPercent - 25) / 75) * 50;
+        availablePassengers = Math.floor((population.current * willingPercent) / 100);
+      }
+
+      if (availablePassengers === 0) {
+        passengerInfo.textContent = 'No passengers seeking transport at this time.';
+        passengerControls.classList.add('hidden');
+        noPassengersInfo.textContent = population.current < (population.limit * 0.25)
+          ? 'Population is too low. People are not willing to leave.'
+          : 'No passengers available.';
+      } else {
+        passengerInfo.textContent = `${availablePassengers.toLocaleString()} passengers seeking transport.`;
+        passengerControls.classList.remove('hidden');
+        noPassengersInfo.textContent = '';
+
+        const passengerInput = document.getElementById('passenger-count');
+        const passengerCargoInfo = document.getElementById('passenger-cargo-info');
+
+        // Calculate max passengers based on available cargo space
+        const availableCargoSpace = cargoCapacity - cargoUsed;
+        const maxPassengersFromCargo = Math.floor(availableCargoSpace * 10); // 10 people per ton
+        const maxPassengers = Math.min(availablePassengers, maxPassengersFromCargo);
+
+        passengerInput.max = maxPassengers;
+        passengerInput.value = 0;
+
+        // Update cargo info when input changes
+        passengerInput.addEventListener('input', () => {
+          const count = parseInt(passengerInput.value) || 0;
+          const cargoNeeded = (count / 10).toFixed(2);
+          passengerCargoInfo.textContent = `(${cargoNeeded} tons)`;
+        });
+
+        // Handle load passengers button
+        document.getElementById('load-passengers-btn').addEventListener('click', async () => {
+          const count = parseInt(passengerInput.value);
+
+          if (count <= 0) {
+            addMessage('Please enter a number of passengers to load.');
+            return;
+          }
+
+          const result = await window.api.invoke('load-passengers', {
+            stellarObjectId: stellarObject.id,
+            passengerCount: count
+          });
+
+          if (result.success) {
+            addMessage(result.message);
+            closeModal();
+            await updateLocationDisplay();
+            await updateShipStatus();
+          } else {
+            addMessage(`Error: ${result.message}`);
+          }
+        });
+      }
+    });
+  }
+
+  /**
    * Open the universe map modal and display the universe visualization
    */
   async function openUniverseMapModal() {
@@ -948,56 +1210,62 @@ document.addEventListener('DOMContentLoaded', async () => {
    * @param {Array} stellarObjects - All stellar objects
    * @param {Array} exploredSystems - List of explored system IDs
    */
-  function showSystemDetails(systemNode, systems, stellarObjects, exploredSystems) {
+  async function showSystemDetails(systemNode, systems, stellarObjects, exploredSystems) {
     const detailsDiv = document.getElementById('system-details');
     const system = systems.find(s => s.id === systemNode.id);
 
     if (!system) {
-      detailsDiv.innerHTML = '<p>System not found</p>';
+      detailsDiv.textContent = 'System not found';
       return;
     }
 
+    // Load template
+    const template = await fetch('./templates/system-details.html').then(r => r.text());
+    detailsDiv.innerHTML = template;
+
+    document.getElementById('system-name').textContent = system.name;
+
     if (!exploredSystems.includes(system.id)) {
-      detailsDiv.innerHTML = `
-        <h4>${system.name}</h4>
-        <p><strong>Status:</strong> Unexplored</p>
-        <p>You must visit this system to see its stellar objects.</p>
-      `;
+      document.getElementById('system-status').textContent = 'Unexplored';
+      document.getElementById('unexplored-message').classList.remove('hidden');
+      document.getElementById('explored-content').classList.add('hidden');
       return;
     }
+
+    document.getElementById('system-status').textContent = 'Explored';
+    document.getElementById('unexplored-message').classList.add('hidden');
+    document.getElementById('explored-content').classList.remove('hidden');
 
     // Get stellar objects in this system
     const systemObjects = stellarObjects.filter(obj => obj.location === system.id);
+    const objectsList = document.getElementById('stellar-objects-list');
+    objectsList.innerHTML = '';
 
-    let objectsHTML = '';
     if (systemObjects.length > 0) {
-      objectsHTML = systemObjects
-        .map(obj => {
-          const ownerText = obj.owner ? `Owner: ${obj.owner}` : 'Independent';
-          return `
-            <div class="stellar-object-item">
-              <strong>${obj.name}</strong> - ${obj.type} (${obj.className})
-              <br>${ownerText}
-            </div>
-          `;
-        })
-        .join('');
+      const itemTemplate = await fetch('./templates/stellar-object-item.html').then(r => r.text());
+      systemObjects.forEach(obj => {
+        const itemDiv = document.createElement('div');
+        itemDiv.innerHTML = itemTemplate;
+        const item = itemDiv.firstElementChild;
+
+        item.querySelector('#object-name').textContent = obj.name;
+        item.querySelector('#object-type').textContent = obj.type;
+        item.querySelector('#object-class').textContent = obj.className;
+        item.querySelector('#object-owner').textContent = obj.owner ? `Owner: ${obj.owner}` : 'Independent';
+
+        objectsList.appendChild(item);
+      });
     } else {
-      objectsHTML = '<p>No stellar objects in this system</p>';
+      const noObjects = document.createElement('p');
+      noObjects.textContent = 'No stellar objects in this system';
+      objectsList.appendChild(noObjects);
     }
 
     // Get connected systems
     const connections = Object.keys(system.connections)
       .map(id => `System ${id}`)
       .join(', ');
-
-    detailsDiv.innerHTML = `
-      <h4>${system.name} (ID: ${system.id})</h4>
-      <p><strong>Status:</strong> Explored</p>
-      <p><strong>Connected to:</strong> ${connections || 'None'}</p>
-      <h5>Stellar Objects:</h5>
-      ${objectsHTML}
-    `;
+    document.getElementById('system-connections').textContent = connections || 'None';
   }
 
   playerStatusBtn.addEventListener('click', openPlayerStatusModal);
