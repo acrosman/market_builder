@@ -467,4 +467,147 @@ describe('Game Trading System', () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe('Passenger Unloading', () => {
+    test('should unload passengers successfully', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers first
+      stellarObject.population.current = stellarObject.population.limit;
+      game.loadPassengers(1, 500);
+      expect(game.player.cargo.passengers).toBe(500);
+
+      const initialPopulation = stellarObject.population.current;
+
+      // Unload 200 passengers
+      const result = game.unloadPassengers(1, 200);
+      expect(result.success).toBe(true);
+      expect(game.player.cargo.passengers).toBe(300);
+      expect(stellarObject.population.current).toBe(initialPopulation + 200);
+    });
+
+    test('should remove passengers from cargo when count reaches 0', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers
+      stellarObject.population.current = stellarObject.population.limit;
+      game.loadPassengers(1, 300);
+      expect(game.player.cargo.passengers).toBe(300);
+
+      // Unload all passengers
+      const result = game.unloadPassengers(1, 300);
+      expect(result.success).toBe(true);
+      expect(game.player.cargo.passengers).toBeUndefined();
+    });
+
+    test('should fail when trying to unload more passengers than in cargo', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers
+      stellarObject.population.current = stellarObject.population.limit;
+      game.loadPassengers(1, 100);
+      expect(game.player.cargo.passengers).toBe(100);
+
+      // Try to unload more than available
+      const result = game.unloadPassengers(1, 200);
+      expect(result.success).toBe(false);
+      expect(game.player.cargo.passengers).toBe(100); // Unchanged
+    });
+
+    test('should fail when no passengers in cargo', () => {
+      const { game } = createTestGameWithMarket();
+
+      const result = game.unloadPassengers(1, 50);
+      expect(result.success).toBe(false);
+    });
+
+    test('should fail when location population is at capacity', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers
+      stellarObject.population.current = stellarObject.population.limit - 500;
+      game.loadPassengers(1, 200);
+      expect(game.player.cargo.passengers).toBe(200);
+
+      // Fill population to limit
+      stellarObject.population.current = stellarObject.population.limit;
+
+      // Try to unload passengers (should fail - no space)
+      const result = game.unloadPassengers(1, 100);
+      expect(result.success).toBe(false);
+      expect(game.player.cargo.passengers).toBe(200); // Unchanged
+    });
+
+    test('should fail when trying to unload more than location can accept', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers
+      stellarObject.population.current = stellarObject.population.limit - 1000;
+      game.loadPassengers(1, 500);
+
+      // Set population close to limit (only 100 space available)
+      stellarObject.population.current = stellarObject.population.limit - 100;
+
+      // Try to unload 200 passengers (should fail - only 100 space)
+      const result = game.unloadPassengers(1, 200);
+      expect(result.success).toBe(false);
+    });
+
+    test('should fail when not docked or landed', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers while landed
+      stellarObject.population.current = stellarObject.population.limit;
+      game.loadPassengers(1, 100);
+
+      // Take off
+      game.player.landedOn = null;
+
+      // Try to unload (should fail - not landed/docked)
+      const result = game.unloadPassengers(1, 50);
+      expect(result.success).toBe(false);
+      expect(game.player.cargo.passengers).toBe(100); // Unchanged
+    });
+
+    test('should calculate correct cargo freed when unloading', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Load passengers
+      stellarObject.population.current = stellarObject.population.limit;
+      game.loadPassengers(1, 500);
+
+      const cargoBefore = game.calculateCargoUsed();
+
+      // Unload 200 passengers (should free 20 tons)
+      game.unloadPassengers(1, 200);
+
+      const cargoAfter = game.calculateCargoUsed();
+      expect(cargoBefore - cargoAfter).toBe(20); // 200 passengers / 10 = 20 tons
+    });
+
+    test('should allow buying goods after unloading passengers', () => {
+      const { game, stellarObject } = createTestGameWithMarket();
+
+      // Ensure market has enough wheat
+      stellarObject.marketState.inventory.wheat = 2000;
+
+      // Fill cargo with passengers
+      stellarObject.population.current = stellarObject.population.limit;
+      game.loadPassengers(1, 10000); // 1000 tons
+      expect(game.calculateCargoUsed()).toBe(1000);
+
+      // Can't buy goods (cargo full)
+      let result = game.buyGood(1, 'wheat', 10, 10);
+      expect(result.success).toBe(false);
+
+      // Unload half the passengers (frees 500 tons)
+      game.unloadPassengers(1, 5000);
+      expect(game.calculateCargoUsed()).toBe(500);
+
+      // Now can buy goods
+      result = game.buyGood(1, 'wheat', 400, 10);
+      expect(result.success).toBe(true);
+      expect(game.player.cargo.wheat).toBe(400);
+    });
+  });
 });

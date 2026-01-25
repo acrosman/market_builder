@@ -542,3 +542,13 @@ ipcMain.handle('load-passengers', (event, passengerData) => {
   const { stellarObjectId, passengerCount } = passengerData;
   return currentGame.loadPassengers(stellarObjectId, passengerCount);
 });
+
+// Handle unload-passengers request from renderer
+ipcMain.handle('unload-passengers', (event, passengerData) => {
+  if (!currentGame) {
+    return { success: false, message: 'No active game' };
+  }
+
+  const { stellarObjectId, passengerCount } = passengerData;
+  return currentGame.unloadPassengers(stellarObjectId, passengerCount);
+});

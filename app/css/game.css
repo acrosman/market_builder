@@ -601,8 +601,9 @@
   margin-bottom: 8px;
 }
 
-#passenger-count {
-  width: 120px;
+#passenger-count,
+#unload-passenger-count {
+  width: 150px;
   padding: 8px;
   background: #181f2a;
   border: 1px solid #4a5568;
@@ -627,4 +628,18 @@
 #no-passengers-info {
   color: #a0aec0;
   font-style: italic;
+}
+
+.trade-error {
+  background: #742a2a;
+  color: #feb2b2;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #9b2c2c;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.trade-error.hidden {
+  display: none;
 }

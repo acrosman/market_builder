@@ -43,7 +43,8 @@ contextBridge.exposeInMainWorld('api', {
       'get-ships-data',
       'get-goods-data',
       'trade-goods',
-      'load-passengers'
+      'load-passengers',
+      'unload-passengers'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

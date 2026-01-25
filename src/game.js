@@ -597,6 +597,60 @@ class Game {
   }
 
   /**
+   * Unload passengers at a stellar object
+   * @param {number} stellarObjectId - ID of the stellar object
+   * @param {number} passengerCount - Number of passengers to unload
+   * @returns {Object} Result object with success status and message
+   */
+  unloadPassengers(stellarObjectId, passengerCount) {
+    // Ensure passengerCount is a valid integer
+    passengerCount = parseInt(passengerCount, 10);
+
+    // Check if player is landed or docked at the location
+    if (this.player.dockedAt !== stellarObjectId && this.player.landedOn !== stellarObjectId) {
+      return { success: false, message: 'You must be docked or landed at this location' };
+    }
+
+    // Find the stellar object
+    const stellarObject = this.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    if (!stellarObject) {
+      return { success: false, message: 'Stellar object not found' };
+    }
+
+    // Check if player has passengers
+    const currentPassengers = this.player.cargo.passengers || 0;
+    if (currentPassengers === 0) {
+      return { success: false, message: 'No passengers in cargo' };
+    }
+
+    if (isNaN(passengerCount) || passengerCount <= 0) {
+      return { success: false, message: 'Invalid passenger count' };
+    }
+
+    if (passengerCount > currentPassengers) {
+      return { success: false, message: `You only have ${currentPassengers} passengers on board` };
+    }
+
+    // Check population limit
+    if (stellarObject.population.current + passengerCount > stellarObject.population.limit) {
+      const availableSpace = stellarObject.population.limit - stellarObject.population.current;
+      return { success: false, message: `Location can only accept ${availableSpace} more passengers` };
+    }
+
+    // Execute transaction
+    stellarObject.population.current += passengerCount;
+    this.player.cargo.passengers -= passengerCount;
+
+    // Remove passengers from cargo if count reaches 0
+    if (this.player.cargo.passengers === 0) {
+      delete this.player.cargo.passengers;
+    }
+
+    const cargoFreed = (passengerCount / 10).toFixed(2);
+    return { success: true, message: `Unloaded ${passengerCount} passengers (freed ${cargoFreed} tons)` };
+  }
+
+  /**
    * Calculate total cargo space used
    * @returns {number} Cargo space used in tons
    */

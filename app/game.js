@@ -130,6 +130,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       shipMaxEnergy: shipData.energy
     };
 
+    // Calculate cargo usage
+    let cargoUsed = 0;
+    const cargo = playerState.cargo || {};
+    const goodsData = await window.api.invoke('get-goods-data');
+
+    // Calculate cargo from goods
+    for (const [goodName, quantity] of Object.entries(cargo)) {
+      if (goodName === 'passengers') continue; // Handle passengers separately
+      const good = goodsData[goodName];
+      if (good && good.finishedMass) {
+        const mass = good.finishedMass.mass;
+        const units = good.finishedMass.units;
+        if (units === 'metric tons') {
+          cargoUsed += mass * quantity;
+        } else if (units === 'kilograms') {
+          cargoUsed += (mass * quantity) / 1000; // Convert kg to tons
+        }
+      }
+    }
+
+    // Add passengers cargo (10 people per ton)
+    if (cargo.passengers) {
+      cargoUsed += cargo.passengers / 10;
+    }
+
     // Determine ship status (in space, docked, or landed)
     let statusText = 'Status: In Space';
     if (playerState.dockedAt !== null) {
@@ -152,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('ship-clock').textContent = playerState.ticks || 0;
       document.getElementById('ship-hp').textContent = shipData.hitPoints;
       document.getElementById('ship-max-hp').textContent = shipData.hitPoints;
-      document.getElementById('ship-cargo').textContent = '0';
+      document.getElementById('ship-cargo').textContent = cargoUsed.toFixed(2);
       document.getElementById('ship-max-cargo').textContent = shipData.cargoCapacity;
       document.getElementById('ship-shields').textContent = shipData.shields;
       document.getElementById('ship-max-shields').textContent = shipData.shields;
@@ -735,6 +760,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         modalContent.classList.add('wide');
       }
 
+      /**
+       * Display an error message in the trade modal
+       * @param {string} message - Error message to display
+       */
+      function showTradeError(message) {
+        const errorDiv = document.getElementById('trade-error');
+        if (errorDiv) {
+          errorDiv.textContent = message;
+          errorDiv.classList.remove('hidden');
+        }
+      }
+
+      /**
+       * Hide the error message in the trade modal
+       */
+      function hideTradeError() {
+        const errorDiv = document.getElementById('trade-error');
+        if (errorDiv) {
+          errorDiv.classList.add('hidden');
+        }
+      }
+
       const locationState = await window.api.getLocationState();
       if (!locationState) return;
 
@@ -865,6 +912,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Add click handlers for buy/sell buttons
       document.querySelectorAll('.trade-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
+          hideTradeError(); // Clear any previous errors
+
           const goodName = btn.dataset.good;
           const price = parseFloat(btn.dataset.price);
           const action = btn.dataset.action;
@@ -872,7 +921,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const quantity = parseInt(input.value);
 
           if (quantity <= 0) {
-            addMessage('Please enter a quantity greater than 0.');
+            showTradeError('Please enter a quantity greater than 0.');
             return;
           }
 
@@ -890,7 +939,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             await updateLocationDisplay();
             await updateShipStatus();
           } else {
-            addMessage('Error: ' + result.message);
+            showTradeError(result.message);
           }
         });
       });
@@ -946,10 +995,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Handle load passengers button
         document.getElementById('load-passengers-btn').addEventListener('click', async () => {
+          hideTradeError(); // Clear any previous errors
+
           const count = parseInt(passengerInput.value);
 
           if (count <= 0) {
-            addMessage('Please enter a number of passengers to load.');
+            showTradeError('Please enter a number of passengers to load.');
             return;
           }
 
@@ -964,9 +1015,84 @@ document.addEventListener('DOMContentLoaded', async () => {
             await updateLocationDisplay();
             await updateShipStatus();
           } else {
-            addMessage(`Error: ${result.message}`);
+            showTradeError(result.message);
           }
         });
+      }
+
+      // Handle passengers in cargo
+      const passengersInCargo = cargo.passengers || 0;
+      const passengersInCargoSection = document.getElementById('passengers-in-cargo-section');
+
+      if (passengersInCargo > 0) {
+        passengersInCargoSection.classList.remove('hidden');
+
+        const passengersInCargoInfo = document.getElementById('passengers-in-cargo-info');
+        passengersInCargoInfo.textContent = `You have ${passengersInCargo.toLocaleString()} passengers on board.`;
+
+        const unloadPassengerInput = document.getElementById('unload-passenger-count');
+        const unloadPassengerCargoInfo = document.getElementById('unload-passenger-cargo-info');
+
+        // Calculate max passengers that can be unloaded (limited by population capacity)
+        const availablePopulationSpace = population.limit - population.current;
+        const maxUnloadPassengers = Math.min(passengersInCargo, availablePopulationSpace);
+
+        unloadPassengerInput.max = maxUnloadPassengers;
+        unloadPassengerInput.value = 0;
+
+        // Update cargo info when input changes
+        unloadPassengerInput.addEventListener('input', () => {
+          const count = parseInt(unloadPassengerInput.value) || 0;
+          const cargoFreed = (count / 10).toFixed(2);
+          unloadPassengerCargoInfo.textContent = `(frees ${cargoFreed} tons)`;
+        });
+
+        // Handle unload passengers button
+        document.getElementById('unload-passengers-btn').addEventListener('click', async () => {
+          hideTradeError(); // Clear any previous errors
+
+          const count = Math.floor(unloadPassengerInput.valueAsNumber);
+
+          if (isNaN(count) || count <= 0) {
+            showTradeError('Please enter a valid number of passengers to unload.');
+            return;
+          }
+
+          const result = await window.api.invoke('unload-passengers', {
+            stellarObjectId: stellarObject.id,
+            passengerCount: count
+          });
+
+          if (result.success) {
+            addMessage(result.message);
+            closeModal();
+            await updateLocationDisplay();
+            await updateShipStatus();
+          } else {
+            showTradeError(result.message);
+          }
+        });
+
+        // Handle unload all passengers button
+        document.getElementById('unload-all-passengers-btn').addEventListener('click', async () => {
+          hideTradeError(); // Clear any previous errors
+
+          const result = await window.api.invoke('unload-passengers', {
+            stellarObjectId: stellarObject.id,
+            passengerCount: maxUnloadPassengers
+          });
+
+          if (result.success) {
+            addMessage(result.message);
+            closeModal();
+            await updateLocationDisplay();
+            await updateShipStatus();
+          } else {
+            showTradeError(result.message);
+          }
+        });
+      } else {
+        passengersInCargoSection.classList.add('hidden');
       }
     });
   }
