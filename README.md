@@ -350,3 +350,7 @@ The game will (in future updates) use these production chains to simulate manufa
 - Process them into intermediate goods at industrial facilities
 - Manufacture finished goods for sale at consumer markets
 - Profit from the difference in prices at each stage
+
+## Trading and Pricing
+
+The game features a dynamic pricing system that adjusts buy and sell prices based on supply and demand factors. For detailed information about how market prices are calculated, see [Dynamic Pricing System](docs/DYNAMIC_PRICING.md).
