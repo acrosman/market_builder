@@ -238,6 +238,7 @@ class Game {
    * @returns {number} Calculated price per unit
    */
   calculateMarketPrice(stellarObject, goodName, priceType = 'buy') {
+    console.log('[DEBUG calculateMarketPrice] stellarObject:', stellarObject?.id, 'goodName:', goodName, 'priceType:', priceType);
     const dataDir = this.settings.data_directory || 'data/default/en-us';
     const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
     const good = goodsData[goodName];
@@ -253,6 +254,7 @@ class Game {
 
     // Determine production capability for this good
     const productivityModifier = stellarObject.productivityModifiers?.[category] || 0;
+    console.log('[DEBUG calculateMarketPrice] baseValue:', baseValue, 'currentStock:', currentStock, 'productivityModifier:', productivityModifier);
 
     // Calculate ideal stock levels based on productivity and good type
     let idealStock = 0;
@@ -321,6 +323,7 @@ class Game {
 
     // Calculate final buy price
     let finalPrice = Math.round(baseValue * supplyFactor * productionFactor);
+    console.log('[DEBUG calculateMarketPrice] supplyFactor:', supplyFactor, 'productionFactor:', productionFactor, 'finalPrice:', finalPrice);
 
     // For selling to the market, players get 50-80% of the buy price
     if (priceType === 'sell') {
@@ -348,10 +351,7 @@ class Game {
       finalPrice = Math.round(finalPrice * sellRatio);
     }
 
-    // Add small random variation (±5%) for realism
-    const randomVariation = 0.95 + Math.random() * 0.1;
-    finalPrice = Math.round(finalPrice * randomVariation);
-
+    console.log('[DEBUG calculateMarketPrice] FINAL PRICE:', finalPrice, 'for', goodName, priceType);
     return Math.max(1, finalPrice); // Minimum price of 1 credit
   }
 

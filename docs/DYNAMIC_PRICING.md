@@ -17,12 +17,11 @@ The `calculateMarketPrice()` method in [src/game.js](src/game.js) considers mult
 3. **Production Factor**: Local productivity rating (0.7x - 1.5x multiplier)
    - High production capability = lower buy prices
    - Low production capability = higher buy prices
-4. **Random Variation**: ±5% for market unpredictability
 
 ### Buy vs Sell Prices
 
 - **Buy Price**: What you pay to purchase from the market
-  - Formula: `baseValue × supplyFactor × productionFactor × randomVariation`
+  - Formula: `baseValue × supplyFactor × productionFactor`
   - Higher when goods are scarce or hard to produce locally
 
 - **Sell Price**: What you receive when selling to the market
@@ -90,7 +89,7 @@ Planet B (Low metal productivity):
 ## Technical Notes
 
 - Prices are calculated on-demand, not stored (prevents stale prices)
-- Each market interaction triggers a fresh price calculation
+- Prices are deterministic based on current inventory and productivity
+- The same good at the same location will have the same price until inventory changes
 - Sell ratios dynamically adjust from 50-80% based on inventory levels
-- Random variation prevents exploiting perfectly predictable prices
 - All prices rounded to integers for clean display

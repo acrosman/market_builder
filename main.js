@@ -523,7 +523,13 @@ ipcMain.handle('get-market-price', (event, { stellarObjectId, goodName, priceTyp
   }
 
   try {
-    return currentGame.calculateMarketPrice(stellarObjectId, goodName, priceType);
+    // Find the stellar object
+    const stellarObject = currentGame.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    if (!stellarObject) {
+      console.error('Stellar object not found:', stellarObjectId);
+      return null;
+    }
+    return currentGame.calculateMarketPrice(stellarObject, goodName, priceType);
   } catch (error) {
     console.error('Error calculating market price:', error);
     return null;
