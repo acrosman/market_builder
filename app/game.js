@@ -945,7 +945,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           for (const [goodName, quantity] of Object.entries(inventory)) {
             if (quantity > 0) {
               const good = goodsData[goodName];
-              const price = stellarObject.marketState.prices[goodName] || good.value;
+              // Fetch dynamic buy price from backend
+              const price = await window.api.invoke('get-market-price', {
+                stellarObjectId: stellarObject.id,
+                goodName,
+                priceType: 'buy'
+              }) || good.value;
               const displayName = good.label || goodName;
 
               const goodDiv = document.createElement('div');
@@ -991,7 +996,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (goodName === 'passengers') continue; // Skip passengers in goods section
           if (quantity > 0) {
             const good = goodsData[goodName];
-            const price = stellarObject.marketState?.prices[goodName] || good.value;
+            // Fetch dynamic sell price from backend
+            const price = await window.api.invoke('get-market-price', {
+              stellarObjectId: stellarObject.id,
+              goodName,
+              priceType: 'sell'
+            }) || good.value;
             const displayName = good.label || goodName;
 
             const goodDiv = document.createElement('div');

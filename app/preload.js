@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
       'get-game-messages',
       'get-ships-data',
       'get-goods-data',
+      'get-market-price',
       'trade-goods',
       'load-passengers',
       'unload-passengers'

@@ -516,6 +516,20 @@ ipcMain.handle('get-goods-data', () => {
   return goodsData;
 });
 
+// Handle get-market-price request from renderer
+ipcMain.handle('get-market-price', (event, { stellarObjectId, goodName, priceType }) => {
+  if (!currentGame) {
+    return null;
+  }
+
+  try {
+    return currentGame.calculateMarketPrice(stellarObjectId, goodName, priceType);
+  } catch (error) {
+    console.error('Error calculating market price:', error);
+    return null;
+  }
+});
+
 // Handle trade-goods request from renderer
 ipcMain.handle('trade-goods', (event, tradeData) => {
   if (!currentGame) {
