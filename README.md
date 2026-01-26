@@ -226,6 +226,7 @@ Each good is defined with the following properties:
 ```json
 {
   "wheat": {
+    "label": "Wheat",
     "value": 8,
     "type": "raw",
     "category": "food",
@@ -240,6 +241,7 @@ Each good is defined with the following properties:
 
 **Required Properties:**
 
+- **label** (string) - Human-readable display name for the good. Defaults to title-cased version of the key (e.g., "metalOre" → "Metal Ore"). Used in trading interfaces and player status displays
 - **value** (number) - Base market value in credits. This is modified by local market conditions
 - **type** (string) - Manufacturing stage in the production chain:
   - `raw` - Raw materials extracted or harvested (wheat, metalOre, crudeOil)

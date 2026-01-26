@@ -1,5 +1,6 @@
 {
   "wheat": {
+    "label": "Wheat",
     "value": 8,
     "type": "raw",
     "category": "food",
@@ -10,6 +11,7 @@
     }
   },
   "water": {
+    "label": "Water",
     "value": 5,
     "type": "raw",
     "category": "food",
@@ -20,6 +22,7 @@
     }
   },
   "yeast": {
+    "label": "Yeast",
     "value": 20,
     "type": "raw",
     "category": "food",
@@ -30,6 +33,7 @@
     }
   },
   "flour": {
+    "label": "Flour",
     "value": 15,
     "type": "intermediate",
     "category": "food",
@@ -42,6 +46,7 @@
     }
   },
   "bread": {
+    "label": "Bread",
     "value": 35,
     "type": "finished",
     "category": "food",
@@ -56,6 +61,7 @@
     }
   },
   "metalOre": {
+    "label": "Metal Ore",
     "value": 25,
     "type": "raw",
     "category": "metal",
@@ -66,6 +72,7 @@
     }
   },
   "refinedMetal": {
+    "label": "Refined Metal",
     "value": 60,
     "type": "intermediate",
     "category": "metal",
@@ -78,6 +85,7 @@
     }
   },
   "metalComponents": {
+    "label": "Metal Components",
     "value": 120,
     "type": "intermediate",
     "category": "metal",
@@ -90,6 +98,7 @@
     }
   },
   "electronics": {
+    "label": "Electronics",
     "value": 250,
     "type": "finished",
     "category": "metal",
@@ -103,6 +112,7 @@
     }
   },
   "wood": {
+    "label": "Wood",
     "value": 15,
     "type": "raw",
     "category": "food",
@@ -113,6 +123,7 @@
     }
   },
   "lumber": {
+    "label": "Lumber",
     "value": 30,
     "type": "intermediate",
     "category": "food",
@@ -125,6 +136,7 @@
     }
   },
   "furniture": {
+    "label": "Furniture",
     "value": 120,
     "type": "finished",
     "category": "general",
@@ -138,6 +150,7 @@
     }
   },
   "crudeOil": {
+    "label": "Crude Oil",
     "value": 40,
     "type": "raw",
     "category": "chemicals",
@@ -148,6 +161,7 @@
     }
   },
   "plastics": {
+    "label": "Plastics",
     "value": 80,
     "type": "intermediate",
     "category": "chemicals",
@@ -160,6 +174,7 @@
     }
   },
   "consumerGoods": {
+    "label": "Consumer Goods",
     "value": 180,
     "type": "finished",
     "category": "general",
@@ -173,6 +188,7 @@
     }
   },
   "cotton": {
+    "label": "Cotton",
     "value": 12,
     "type": "raw",
     "category": "food",
@@ -183,6 +199,7 @@
     }
   },
   "fabric": {
+    "label": "Fabric",
     "value": 35,
     "type": "intermediate",
     "category": "general",
@@ -195,6 +212,7 @@
     }
   },
   "clothing": {
+    "label": "Clothing",
     "value": 90,
     "type": "finished",
     "category": "general",
@@ -207,6 +225,7 @@
     }
   },
   "chemicals": {
+    "label": "Chemicals",
     "value": 75,
     "type": "raw",
     "category": "chemicals",
@@ -217,6 +236,7 @@
     }
   },
   "ballbarrings": {
+    "label": "Ball Bearings",
     "value": 150,
     "type": "finished",
     "category": "metal",
@@ -230,6 +250,7 @@
     }
   },
   "smallFighters": {
+    "label": "Small Fighters",
     "value": 35000,
     "type": "finished",
     "category": "military",

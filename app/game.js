@@ -742,11 +742,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!locationState) return;
 
       const playerState = locationState.playerState;
+      const goodsData = await window.api.invoke('get-goods-data');
 
-      // Format cargo display
+      // Format cargo display with labels
       const cargoDisplay = Object.keys(playerState.cargo).length > 0
         ? Object.entries(playerState.cargo)
-          .map(([good, quantity]) => `${good}: ${quantity}`)
+          .map(([good, quantity]) => {
+            if (good === 'passengers') return `Passengers: ${quantity}`;
+            const goodData = goodsData[good];
+            const displayName = goodData?.label || good;
+            return `${displayName}: ${quantity}`;
+          })
           .join(', ')
         : 'Empty';
 
@@ -940,12 +946,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (quantity > 0) {
               const good = goodsData[goodName];
               const price = stellarObject.marketState.prices[goodName] || good.value;
+              const displayName = good.label || goodName;
 
               const goodDiv = document.createElement('div');
               goodDiv.innerHTML = tradeItemTemplate;
               const container = goodDiv.firstElementChild;
 
-              container.querySelector('#good-name').textContent = goodName;
+              container.querySelector('#good-name').textContent = displayName;
               container.querySelector('#good-quantity').textContent = `Available: ${quantity}`;
               container.querySelector('#good-price').textContent = `Price: ${price} cr/unit`;
 
@@ -985,12 +992,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (quantity > 0) {
             const good = goodsData[goodName];
             const price = stellarObject.marketState?.prices[goodName] || good.value;
+            const displayName = good.label || goodName;
 
             const goodDiv = document.createElement('div');
             goodDiv.innerHTML = tradeItemTemplate;
             const container = goodDiv.firstElementChild;
 
-            container.querySelector('#good-name').textContent = goodName;
+            container.querySelector('#good-name').textContent = displayName;
             container.querySelector('#good-quantity').textContent = `In Cargo: ${quantity}`;
             container.querySelector('#good-price').textContent = `Price: ${price} cr/unit`;
 
