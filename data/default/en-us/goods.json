@@ -2,6 +2,7 @@
   "wheat": {
     "value": 8,
     "type": "raw",
+    "category": "food",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -11,6 +12,7 @@
   "water": {
     "value": 5,
     "type": "raw",
+    "category": "food",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -20,6 +22,7 @@
   "yeast": {
     "value": 20,
     "type": "raw",
+    "category": "food",
     "inputs": {},
     "finishedMass": {
       "units": "kilograms",
@@ -29,6 +32,7 @@
   "flour": {
     "value": 15,
     "type": "intermediate",
+    "category": "food",
     "inputs": {
       "wheat": 1
     },
@@ -40,6 +44,7 @@
   "bread": {
     "value": 35,
     "type": "finished",
+    "category": "food",
     "inputs": {
       "flour": 1,
       "water": 0.5,
@@ -53,6 +58,7 @@
   "metalOre": {
     "value": 25,
     "type": "raw",
+    "category": "metal",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -62,6 +68,7 @@
   "refinedMetal": {
     "value": 60,
     "type": "intermediate",
+    "category": "metal",
     "inputs": {
       "metalOre": 2
     },
@@ -73,6 +80,7 @@
   "metalComponents": {
     "value": 120,
     "type": "intermediate",
+    "category": "metal",
     "inputs": {
       "refinedMetal": 1
     },
@@ -84,6 +92,7 @@
   "electronics": {
     "value": 250,
     "type": "finished",
+    "category": "metal",
     "inputs": {
       "metalComponents": 2,
       "plastics": 1
@@ -96,6 +105,7 @@
   "wood": {
     "value": 15,
     "type": "raw",
+    "category": "food",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -105,6 +115,7 @@
   "lumber": {
     "value": 30,
     "type": "intermediate",
+    "category": "food",
     "inputs": {
       "wood": 1
     },
@@ -116,6 +127,7 @@
   "furniture": {
     "value": 120,
     "type": "finished",
+    "category": "general",
     "inputs": {
       "lumber": 2,
       "refinedMetal": 0.5
@@ -128,6 +140,7 @@
   "crudeOil": {
     "value": 40,
     "type": "raw",
+    "category": "chemicals",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -137,6 +150,7 @@
   "plastics": {
     "value": 80,
     "type": "intermediate",
+    "category": "chemicals",
     "inputs": {
       "crudeOil": 1
     },
@@ -148,6 +162,7 @@
   "consumerGoods": {
     "value": 180,
     "type": "finished",
+    "category": "general",
     "inputs": {
       "plastics": 2,
       "electronics": 1
@@ -160,6 +175,7 @@
   "cotton": {
     "value": 12,
     "type": "raw",
+    "category": "food",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -169,6 +185,7 @@
   "fabric": {
     "value": 35,
     "type": "intermediate",
+    "category": "general",
     "inputs": {
       "cotton": 1
     },
@@ -180,6 +197,7 @@
   "clothing": {
     "value": 90,
     "type": "finished",
+    "category": "general",
     "inputs": {
       "fabric": 2
     },
@@ -191,6 +209,7 @@
   "chemicals": {
     "value": 75,
     "type": "raw",
+    "category": "chemicals",
     "inputs": {},
     "finishedMass": {
       "units": "metric tons",
@@ -200,6 +219,7 @@
   "ballbarrings": {
     "value": 150,
     "type": "finished",
+    "category": "metal",
     "inputs": {
       "refinedMetal": 2,
       "chemicals": 1
@@ -212,6 +232,7 @@
   "smallFighters": {
     "value": 35000,
     "type": "finished",
+    "category": "military",
     "inputs": {
       "refinedMetal": 10,
       "electronics": 5,

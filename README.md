@@ -180,6 +180,7 @@ The game uses a configurable data directory system to support multiple languages
 - **goods.json** - Tradeable goods with manufacturing chains:
   - `value` - Base market value
   - `type` - Category (raw, intermediate, finished)
+  - `category` - Production category matching productivity modifiers (food, metal, chemicals, energy, general, military)
   - `inputs` - Required materials for production
   - `finishedMass` - Weight/volume of finished product
 
@@ -213,3 +214,137 @@ To create a custom language or game variant:
 3. Update the `data_directory` setting in your game_settings.json to point to the new location
 
 All file paths in JSON files should be relative to the data directory root.
+
+## Defining Goods
+
+Goods in the game are defined in `goods.json` and control what can be traded, manufactured, and transported. The market system uses goods definitions to populate stellar object markets based on their productivity capabilities.
+
+### Good Definition Structure
+
+Each good is defined with the following properties:
+
+```json
+{
+  "wheat": {
+    "value": 8,
+    "type": "raw",
+    "category": "food",
+    "inputs": {},
+    "finishedMass": {
+      "units": "metric tons",
+      "mass": 1
+    }
+  }
+}
+```
+
+**Required Properties:**
+
+- **value** (number) - Base market value in credits. This is modified by local market conditions
+- **type** (string) - Manufacturing stage in the production chain:
+  - `raw` - Raw materials extracted or harvested (wheat, metalOre, crudeOil)
+  - `intermediate` - Processed materials used in further production (flour, refinedMetal, plastics)
+  - `finished` - Final products ready for consumption (bread, electronics, consumerGoods)
+- **category** (string) - Production category that determines which markets stock this good:
+  - `food` - Agricultural and organic products
+  - `metal` - Metals and metal-based products
+  - `chemicals` - Chemical products and petrochemicals
+  - `energy` - Energy-related products (future use)
+  - `general` - General consumer goods (stocked on all markets)
+  - `military` - Military equipment and weapons
+- **inputs** (object) - Materials required to produce one unit of this good:
+  - Empty `{}` for raw materials
+  - Key-value pairs for manufactured goods: `{ "wheat": 1, "water": 0.5 }`
+- **finishedMass** (object) - Physical properties of the good:
+  - `units` - Unit of measurement (metric tons, kilograms, etc.)
+  - `mass` - Weight/volume per unit (affects cargo capacity)
+
+### Market Stocking System
+
+Markets on stellar objects are populated based on the object's **productivity modifiers** defined in `stellarObjects.json`:
+
+```json
+"productivityModifiers": {
+  "metal": 5,
+  "food": 7,
+  "chemicals": 6,
+  "energy": 8
+}
+```
+
+**How Market Stocking Works:**
+
+1. **Category Matching** - Markets stock goods whose `category` matches their productivity modifiers
+2. **Quantity Calculation** - Higher productivity modifier = more goods in stock:
+   - Raw materials: modifier × 50 units (0-500)
+   - Intermediate goods: modifier × 20 units (0-200)
+   - Finished goods: modifier × 10 units (0-100)
+3. **Price Variation** - Prices are inversely related to productivity:
+   - High productivity = lower prices (abundant local supply)
+   - Low productivity = higher prices (scarce local supply)
+4. **General Goods** - Items with `category: "general"` are stocked on all markets at moderate levels
+
+**Example:**
+
+A Farm World planet with `"food": 10` productivity modifier will stock:
+
+- Large quantities of food-category goods (wheat, water, bread, etc.)
+- Lower prices for food goods (abundant local production)
+- Normal quantities of general goods (furniture, clothing, etc.)
+- Small or no stock of metal/chemical goods (low productivity)
+
+### Adding New Goods
+
+To add a new good to the game:
+
+1. **Choose a category** that matches stellar object productivity modifiers
+2. **Define the good** in `goods.json` with all required properties
+3. **Set up production chain** using the `inputs` field if it's a manufactured good
+4. **Test market behavior** by creating a game and visiting planets with matching productivity
+
+**Example - Adding a new food product:**
+
+```json
+"cheese": {
+  "value": 45,
+  "type": "finished",
+  "category": "food",
+  "inputs": {
+    "milk": 2,
+    "salt": 0.1
+  },
+  "finishedMass": {
+    "units": "kilograms",
+    "mass": 400
+  }
+}
+```
+
+This cheese will automatically appear on markets of planets with high food productivity, with quantities and prices based on their food modifier value.
+
+### Production Chains
+
+Goods can be linked in production chains using the `inputs` field:
+
+```
+Raw: wheat → Intermediate: flour → Finished: bread
+Raw: metalOre → Intermediate: refinedMetal → Intermediate: metalComponents → Finished: electronics
+```
+
+Complex goods can require multiple inputs:
+
+```json
+"electronics": {
+  "inputs": {
+    "metalComponents": 2,
+    "plastics": 1
+  }
+}
+```
+
+The game will (in future updates) use these production chains to simulate manufacturing, allowing players to:
+
+- Extract raw materials from resource-rich planets
+- Process them into intermediate goods at industrial facilities
+- Manufacture finished goods for sale at consumer markets
+- Profit from the difference in prices at each stage

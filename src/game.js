@@ -136,8 +136,103 @@ class Game {
    * Initialize market conditions across all systems
    */
   initializeMarkets() {
-    // TODO: Set up initial market conditions
-    // This will be implemented when we add the economic system
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+
+    // Categorize goods dynamically based on their category field from goods.json
+    const categorizeGoods = () => {
+      const categories = {};
+
+      Object.keys(goodsData).forEach(goodName => {
+        const category = goodsData[goodName].category || 'general';
+        if (!categories[category]) {
+          categories[category] = [];
+        }
+        categories[category].push(goodName);
+      });
+
+      return categories;
+    };
+
+    const categories = categorizeGoods();
+
+    // Populate markets for all stellar objects with market capability
+    this.universe.stellarObjects.forEach(obj => {
+      if (!obj.marketState) {
+        return; // Skip objects without markets
+      }
+
+      // Initialize empty inventory and prices
+      obj.marketState.inventory = {};
+      obj.marketState.prices = {};
+
+      // Determine which goods to stock based on productivity modifiers
+      const stockGoods = (category, modifier) => {
+        const goodsList = categories[category] || [];
+        goodsList.forEach(goodName => {
+          const baseValue = goodsData[goodName].value;
+          const goodType = goodsData[goodName].type;
+
+          // Quantity based on productivity modifier (0-10 scale)
+          // Higher modifier = more goods
+          let baseQuantity = 0;
+          if (goodType === 'raw') {
+            baseQuantity = modifier * 50; // 0-500 units
+          } else if (goodType === 'intermediate') {
+            baseQuantity = modifier * 20; // 0-200 units
+          } else if (goodType === 'finished') {
+            baseQuantity = modifier * 10; // 0-100 units
+          }
+
+          // Add some randomness (±30%)
+          const randomFactor = 0.7 + Math.random() * 0.6;
+          const quantity = Math.floor(baseQuantity * randomFactor);
+
+          if (quantity > 0) {
+            obj.marketState.inventory[goodName] = quantity;
+
+            // Price inversely related to local modifier (high production = lower price)
+            // Base price ±50% based on modifier
+            const priceModifier = 1 + (5 - modifier) * 0.1; // 0.5x to 1.5x
+            const randomPrice = 0.8 + Math.random() * 0.4; // ±20%
+            obj.marketState.prices[goodName] = Math.round(baseValue * priceModifier * randomPrice);
+          }
+        });
+      };
+
+      // Stock goods based on all productivity modifiers dynamically
+      // This ensures planets with any productivity modifier get their relevant goods
+      Object.keys(obj.productivityModifiers).forEach(modifierKey => {
+        const modifier = obj.productivityModifiers[modifierKey] || 0;
+        stockGoods(modifierKey, modifier);
+      });
+
+      // Stock general category goods at moderate levels on all markets
+      if (categories.general) {
+        categories.general.forEach(goodName => {
+          const baseValue = goodsData[goodName].value;
+          const goodType = goodsData[goodName].type;
+
+          let baseQuantity = 0;
+          if (goodType === 'raw') {
+            baseQuantity = 100;
+          } else if (goodType === 'intermediate') {
+            baseQuantity = 50;
+          } else if (goodType === 'finished') {
+            baseQuantity = 25;
+          }
+
+          const randomFactor = 0.5 + Math.random();
+          const quantity = Math.floor(baseQuantity * randomFactor);
+
+          if (quantity > 0) {
+            obj.marketState.inventory[goodName] = quantity;
+            const randomPrice = 0.8 + Math.random() * 0.4;
+            obj.marketState.prices[goodName] = Math.round(baseValue * randomPrice);
+          }
+        });
+      }
+    });
   }
 
   /**
