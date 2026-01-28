@@ -87,8 +87,6 @@ Backend modules run in main process only:
   - Listeners auto-unsubscribe with returned function
   - Subscribers auto-unsubscribe with `unsubscribe(eventName, subscriber)`
 
-- **[src/actor.js](src/actor.js), [src/producer.js](src/producer.js), [src/consumer.js](src/consumer.js), [src/economy.js](src/economy.js)** - Economic simulation (placeholder/WIP)
-
 ### Game Data System
 
 All game content is data-driven from `data/default/en-us/`:
