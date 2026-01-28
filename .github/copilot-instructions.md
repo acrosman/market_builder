@@ -79,12 +79,13 @@ Backend modules run in main process only:
 
 - **[src/stellarObject.js](src/stellarObject.js)** - Stellar object class (planets, stations, asteroids)
   - `StellarObject`: Full state tracking for each location
-  - **Capabilities**: `market`, `buildings`, `shipyard`, `shields`, `cannons`, `fighters`, `resistance` (booleans indicating what CAN be done)
+  - **Capabilities**: Boolean flags in `capabilities` object indicating what CAN exist: `{ market: true, buildings: true, shipyard: false, shields: true, ... }`
+  - **Important distinction**: `capabilities.shields` (boolean, CAN have shields) vs `getShieldStrength()` (calculated number from built Shield Generator buildings)
   - **Population**: Object with `{ current, limit, growthRate }` - starts at percentage of limit based on `initialPopulationPercent` range, grows automatically each tick
   - **Buildings**: Object tracking built buildings by type: `{ "Warehouse": { count: 2 }, "Mine": { count: 1 } }`
   - **Construction Queue**: Array of buildings under construction: `[{ type: "Mine", ticksRemaining: 5 }]` - advances automatically each tick
-  - **Shields/Cannons**: Calculated from built Shield Generator/Cannon buildings (not direct counts)
-  - **Fighters**: Integer count, starts at 0
+  - **Shields/Cannons**: NOT direct properties - calculated via `getShieldStrength()` and `getCannonStrength()` from Shield Generator/Cannon building counts
+  - **Fighters**: Integer count stored directly, starts at 0, modified via `addFighters()`
   - **Market/Shipyard State**: Objects tracking inventory, prices, construction queues when capability enabled
   - **Productivity Modifiers**: 0-10 ratings for `metal`, `food`, `chemicals`, `energy` - modify production building effectiveness
   - Methods: `addBuilding(type, buildingsData)` (queues construction), `removeBuilding()`, `getShieldStrength()`, `getCannonStrength()`, `addFighters()`, `updatePopulation()`, `calculateValue()`, `onTick(data)` (automatic time-based updates)
@@ -95,12 +96,21 @@ Backend modules run in main process only:
   - Asset valuation methods
   - Player and NPC corporations
 
+- **[src/market.js](src/market.js)** - Market and trading system
+  - `Market` class: Manages all trading, pricing, and market initialization
+  - Methods: `initializeMarkets()`, `updatePrices()`, `processTrade()`
+  - Populates `marketState` for stellar objects with market capability
+  - Determines which goods to stock based on productivity modifiers
+  - Dynamic pricing based on supply/demand
+  - Integrates with stellar objects' productivity ratings
+
 - **[src/eventBus.js](src/eventBus.js)** - Pub/sub event system
-  - Methods: `on()`, `once()`, `emit()`, `clear()`, `listenerCount()`
-  - **Subscriber Interface**: `subscribe(eventName, subscriber)` - object-based subscription where subscriber implements `onEventName()` methods (e.g., `onTick()`, `onGameEnd()`)
+  - **Direct listener methods**: `on(eventName, callback)`, `once()`, `emit()`, `clear()`, `listenerCount()`
+  - **Subscriber interface**: `subscribe(eventName, subscriber)` - object-based subscription where subscriber implements `onEventName()` methods (e.g., `onTick()`, `onGameEnd()`)
   - Used for tick events: `eventBus.emit('tick', { ticks, action })`
-  - Listeners auto-unsubscribe with returned function
-  - Subscribers auto-unsubscribe with `unsubscribe(eventName, subscriber)`
+  - Direct listeners unsubscribe with returned function: `const unsubscribe = eventBus.on('tick', cb); unsubscribe();`
+  - Subscribers unsubscribe with `eventBus.unsubscribe('tick', subscriber)`
+  - **Pattern choice**: Use subscriber interface for objects with lifecycle (StellarObject), direct `on()` for simple callbacks
 
 ### Game Data System
 
@@ -130,6 +140,8 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
   - Load HTML templates from `app/templates/` or `app/modals/` via `fetch()`
   - Never embed HTML in JS strings
   - CSS files in `app/css/` (one per page + shared)
+  - **Modal pattern**: Fetch from `app/modals/`, create overlay div, append modal content, add close handlers
+  - **Data directory pattern**: Thread `dataDir` parameter through constructors (defaults to `data/default/en-us`), use `path.join(__dirname, '..', dataDir, 'file.json')` for file access
 
 ### Template Loading Pattern
 
@@ -210,10 +222,21 @@ npm run lint       # Check code style
 - **No HTML in JS**: Always `fetch()` templates, never string concatenation or `innerHTML` with template literals
   - ❌ **NEVER**: `element.innerHTML = '<div>...' + variable + '...</div>'`
   - ❌ **NEVER**: ``element.innerHTML = `<div>...${variable}...</div>` ``
+  - ❌ **NEVER**: `element.outerHTML = ...`, `document.write()`, or any HTML string building
   - ✅ **ALWAYS**: `fetch('./templates/file.html')` then populate with `textContent` or `querySelector()`
   - Create template files in `app/templates/` or `app/modals/`
   - Use `document.createElement()` and `textContent` for dynamic text
   - Use template loading pattern: fetch template → insert into DOM → populate with `querySelector()` and `textContent`
+- **Error handling**: Wrap async operations in try-catch, especially template loading:
+  ```javascript
+  try {
+    const template = await fetch('./templates/file.html').then((r) => r.text());
+    // ... use template
+  } catch (error) {
+    console.error('Error loading template:', error);
+    // Fallback behavior
+  }
+  ```
 - **No hardcoded UI strings**: Never embed user-facing text directly in JavaScript
   - ❌ **NEVER**: `addMessage('Error: something went wrong')`
   - ❌ **NEVER**: `element.textContent = 'Click here to continue'`
@@ -223,6 +246,8 @@ npm run lint       # Check code style
 - **Variable declarations**: `const` for immutable, `let` for mutable (avoid `var`)
 - **Callbacks**: Arrow functions for anonymous functions/callbacks
 - **String interpolation**: Template literals with `${variable}` for logging/technical strings only, not UI content
+- **Console logging**: Use `[DEBUG functionName]` prefix for debug logs: `console.log('[DEBUG updateLocationDisplay] value:', value)`
+- **Show/hide UI elements**: Use `.hidden` CSS class with `classList.add('hidden')` and `classList.remove('hidden')` - never inline styles
 
 ### Function Documentation
 
@@ -271,17 +296,63 @@ When modifying code:
 1. Run existing tests first: `npm test`
 2. Add tests for new functionality (colocate in same directory)
 3. Mock external dependencies (universe, settings) - see [src/game.test.js](src/game.test.js#L22-L70)
-4. Test both success and error paths
-5. Clean up (no "Perfect!" in commit messages)
+4. **Create reusable test helpers**: Extract common mock setup into helper functions (see `createTestPlayerData()`) rather than duplicating across test files
+5. Test both success and error paths
+6. Verify tests pass after changes
+7. **Never use praise language**: No "Perfect!", "Great!", "Excellent!", "Looking good!", or similar affirmations in responses, commit messages, or code comments - these waste tokens and provide no value
+
+## What NOT to Do (Anti-Patterns)
+
+### Process and Architecture Violations
+
+1. **Don't modify game state in renderer process** - All state changes must go through IPC to main process
+2. **Don't use Node.js APIs in renderer** - Use preload bridge for file system, path operations, etc.
+3. **Don't enable nodeIntegration or enableRemoteModule** - Security boundary must stay intact
+4. **Don't bypass Trader methods** - Never directly manipulate `credits` or `cargo` properties; use `addCredits()`, `removeCargo()`, etc.
+5. **Don't mutate stellarObjects directly** - Use provided methods (`setOwner()`, `addBuilding()`) to maintain consistency
+
+### Code Quality Violations
+
+6. **Don't use synchronous file operations in renderer** - Always async, and prefer IPC calls to main process
+7. **Don't read files in small chunks repeatedly** - Read larger sections to minimize tool calls
+8. **Don't duplicate test setup** - Create reusable helper functions for common mocks
+9. **Don't forget error handling** - Always wrap async operations, especially template loading and IPC calls
+10. **Don't use `==` or `!=`** - Only strict equality (`===`, `!==`)
+
+### UI and Content Violations
+
+11. **Don't embed HTML in JavaScript strings** - No `innerHTML` with template literals, string concatenation, `outerHTML`, or `document.write()`
+12. **Don't hardcode user-facing text** - Load from `game_messages.json` via `addMessage()`
+13. **Don't use inline styles for show/hide** - Use `.hidden` CSS class
+14. **Don't break message token replacement** - Ensure tokens match `game_messages.json` format exactly
+
+### Development Process Violations
+
+15. **Don't forget to update preload.js** - When adding IPC channels, update THREE places (preload validChannels, main handler, renderer call)
+16. **Don't hardcode file paths** - Always use `path.join(__dirname, ...)` and respect `data_directory` setting
+17. **Don't forget to await async operations** - IPC `invoke()` returns Promise
+18. **Don't use praise language** - No "Perfect!", "Great!", "Excellent!", etc. in any output
 
 ## Common Pitfalls
 
-1. **Forgetting to update preload.js** when adding IPC channels
+1. **Forgetting to update preload.js** when adding IPC channels (must update 3 places)
 2. **Mixing process contexts** - `require()` doesn't work in renderer without preload bridge
 3. **Hardcoding file paths** - Always use `path.join(__dirname, ...)` and respect `data_directory` setting
 4. **Not handling async** - IPC `invoke()` returns Promise, must await
-5. **Mutating stellarObjects directly** - Use methods like `setOwner()` to maintain consistency
+5. **Confusing capabilities with state** - `capabilities.shields` (boolean) vs `getShieldStrength()` (calculated value)
 6. **Breaking message token replacement** - Ensure tokens match `game_messages.json` format
+
+## Performance and Efficiency Expectations
+
+1. **Parallelize independent operations**: When reading multiple files, searching different areas, or gathering unrelated context, make tool calls in parallel rather than sequentially
+2. **Read larger file sections**: Prefer reading 50-100 lines at once over making many 10-line reads
+3. **Batch related edits**: Use `multi_replace_string_in_file` when making multiple independent edits
+4. **Minimize tool calls**: Gather sufficient context in one pass before implementing changes
+5. **Use appropriate search tools**:
+   - `grep_search` for exact strings/patterns within known file locations
+   - `semantic_search` for concept-based queries across workspace
+   - `file_search` for finding files by name/path pattern
+6. **Don't over-search**: If initial results are insufficient, refine query or increase `maxResults` rather than making many small searches
 
 ## Key Files Reference
 
@@ -289,6 +360,8 @@ When modifying code:
 - [app/preload.js](app/preload.js) - IPC whitelist and bridge
 - [src/game.js](src/game.js) - Core game logic and player state
 - [src/universe.js](src/universe.js) - World generation and graph algorithms
+- [src/market.js](src/market.js) - Market initialization, trading, and dynamic pricing
+- [src/stellarObject.js](src/stellarObject.js) - Stellar object state and capabilities management
 - [src/eventBus.js](src/eventBus.js) - Event system for game-wide notifications
 - [jest.config.js](jest.config.js) - Test configuration (dual environments)
 - [data/default/en-us/game_settings.json](data/default/en-us/game_settings.json) - Game configuration
