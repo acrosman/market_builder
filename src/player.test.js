@@ -42,4 +42,22 @@ describe('Player Class', () => {
     expect(player.dockedAt).toBeNull();
     expect(player.landedOn).toBeNull();
   });
+
+  test('inherits Trader functionality', () => {
+    const player = new Player('TestPlayer', mockSettings);
+
+    // Test inherited methods
+    expect(player.canAfford(500)).toBe(true);
+    expect(player.canAfford(2000)).toBe(false);
+
+    player.addCargo('Iron', 10);
+    expect(player.getCargoQuantity('Iron')).toBe(10);
+
+    const removed = player.removeCargo('Iron', 5);
+    expect(removed).toBe(true);
+    expect(player.getCargoQuantity('Iron')).toBe(5);
+
+    player.moveTo(3);
+    expect(player.location).toBe(3);
+  });
 });

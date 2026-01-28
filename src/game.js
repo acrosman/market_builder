@@ -31,7 +31,7 @@ class Game {
   initializeGame(playerData) {
     // Create player with proper starting location
     this.player = new Player(playerData.name, this.settings);
-    this.player.location = 1;  // System 1 is home
+    // Player starts at location 1 (set in constructor), no need to reassign
     this.player.pronouns = playerData.pronouns;
     this.player.description = playerData.description;
 
@@ -290,7 +290,7 @@ class Game {
     const tickCost = currentSystem?.connections?.[targetSystemId] || 1;
 
     // Update player location
-    this.player.location = targetSystemId;
+    this.player.moveTo(targetSystemId);
 
     // Update player stats
     this.player.stats.jumps += 1;

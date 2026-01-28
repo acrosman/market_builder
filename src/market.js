@@ -262,7 +262,7 @@ class Market {
     const actualPrice = this.calculateMarketPrice(stellarObject, goodName, 'buy');
     const totalCost = quantity * actualPrice;
 
-    if (player.credits < totalCost) {
+    if (!player.canAfford(totalCost)) {
       return { success: false, message: `Insufficient credits. Need ${totalCost} credits` };
     }
 
@@ -294,9 +294,9 @@ class Market {
     }
 
     // Execute transaction
-    player.credits -= totalCost;
+    player.removeCredits(totalCost);
     stellarObject.marketState.inventory[goodName] -= quantity;
-    player.cargo[goodName] = (player.cargo[goodName] || 0) + quantity;
+    player.addCargo(goodName, quantity);
 
     return { success: true, message: `Bought ${quantity} units of ${good.label || goodName} for ${totalCost} credits` };
   }
@@ -321,7 +321,7 @@ class Market {
     }
 
     // Check if player has the goods
-    const playerQuantity = player.cargo[goodName] || 0;
+    const playerQuantity = player.getCargoQuantity(goodName);
     if (playerQuantity < quantity) {
       return { success: false, message: `You only have ${playerQuantity} units` };
     }
@@ -336,14 +336,9 @@ class Market {
     const good = goodsData[goodName];
 
     // Execute transaction
-    player.credits += totalRevenue;
+    player.addCredits(totalRevenue);
     stellarObject.marketState.inventory[goodName] = (stellarObject.marketState.inventory[goodName] || 0) + quantity;
-    player.cargo[goodName] -= quantity;
-
-    // Remove from cargo if quantity is 0
-    if (player.cargo[goodName] === 0) {
-      delete player.cargo[goodName];
-    }
+    player.removeCargo(goodName, quantity);
 
     return { success: true, message: `Sold ${quantity} units of ${good?.label || goodName} for ${totalRevenue} credits` };
   }

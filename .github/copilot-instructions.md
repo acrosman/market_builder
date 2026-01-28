@@ -51,10 +51,25 @@ Backend modules run in main process only:
 
 - **[src/game.js](src/game.js)** - Central state manager
   - `Game` class: Tracks universe, player, NPCs, corporations, turn/tick counters
-  - `Player` class: Location, ship stats, cargo, credits, docked/landed state
-  - `NPC` class: AI traders
   - Methods: `initializeGame()`, `jump()`, `dock()`, `land()`, `takeoff()`, `advanceTicks()`
   - Uses `EventBus` for tick events
+
+- **[src/trader.js](src/trader.js)** - Base class for entities that trade and move
+  - `Trader` class: Common functionality for Player and NPC
+  - Properties: `id`, `location`, `ship`, `credits`, `cargo`
+  - Methods: `moveTo()`, `addCargo()`, `removeCargo()`, `canAfford()`, `addCredits()`, `removeCredits()`, `getCargoQuantity()`
+  - Both Player and NPC extend this class
+  - **Usage**: Always use Trader methods instead of direct property manipulation for credits and cargo
+
+- **[src/player.js](src/player.js)** - Player character (extends Trader)
+  - Additional properties: `dockedAt`, `landedOn`, `shipEnergy`, `shipMaxEnergy`, `energyPerJump`, `energyRecharge`, `stats`
+  - Filesystem access for loading ship data
+  - Inherits all Trader methods for movement and cargo management
+
+- **[src/npc.js](src/npc.js)** - AI traders (extends Trader)
+  - Additional properties: `type`, `homeSystem`, `currentSystem` (alias for `location`)
+  - Overrides `moveTo()` to keep `currentSystem` synchronized
+  - Inherits all Trader methods for movement and cargo management
 
 - **[src/universe.js](src/universe.js)** - World generation
   - `Universe`: Container for systems and stellar objects

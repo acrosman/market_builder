@@ -1,15 +1,17 @@
 const fs = require('fs');
 const path = require('path');
+const { Trader } = require('./trader');
 
 /**
  * Represents a player in the game
+ * Extends Trader with player-specific functionality
  */
-class Player {
+class Player extends Trader {
   constructor(name, settings) {
+    // Call parent constructor with player-specific values
+    super(name, 1, settings.initial_ship, settings.starting_credits);
+
     this.name = name;
-    this.credits = settings.starting_credits;
-    this.location = 1;  // Start in System 1
-    this.ship = settings.initial_ship;
     this.dockedAt = null;  // ID of stellar object if docked
     this.landedOn = null;  // ID of stellar object if landed
 
@@ -24,7 +26,6 @@ class Player {
     this.energyPerJump = shipData.energyPerJump;
     this.energyRecharge = shipData.energyRecharge;
 
-    this.cargo = {};
     this.stats = {
       jumps: 0,
       trades: 0,
