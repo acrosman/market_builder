@@ -701,19 +701,18 @@ class Game {
     loadedPlayer.location = savedPlayerData.location ?? loadedPlayer.location;
     loadedPlayer.ship = savedPlayerData.ship ?? loadedPlayer.ship;
     loadedPlayer.credits = savedPlayerData.credits ?? loadedPlayer.credits;
-    loadedPlayer.cargo = savedPlayerData.cargo ?? {};
+    loadedPlayer.cargo = savedPlayerData.cargo ?? loadedPlayer.cargo;
     loadedPlayer.shipEnergy = savedPlayerData.shipEnergy ?? loadedPlayer.shipEnergy;
     loadedPlayer.shipMaxEnergy = savedPlayerData.shipMaxEnergy ?? loadedPlayer.shipMaxEnergy;
     loadedPlayer.energyPerJump = savedPlayerData.energyPerJump ?? loadedPlayer.energyPerJump;
     loadedPlayer.energyRecharge = savedPlayerData.energyRecharge ?? loadedPlayer.energyRecharge;
     loadedPlayer.dockedAt = savedPlayerData.dockedAt ?? null;
     loadedPlayer.landedOn = savedPlayerData.landedOn ?? null;
-    loadedPlayer.pronouns = savedPlayerData.pronouns;
-    loadedPlayer.description = savedPlayerData.description;
+    loadedPlayer.pronouns = savedPlayerData.pronouns ?? loadedPlayer.pronouns;
+    loadedPlayer.description = savedPlayerData.description ?? loadedPlayer.description;
     loadedPlayer.stats = {
-      jumps: savedPlayerData.stats?.jumps || 0,
-      trades: savedPlayerData.stats?.trades || 0,
-      profit: savedPlayerData.stats?.profit || 0
+      ...loadedPlayer.stats,
+      ...savedPlayerData.stats
     };
     loadedPlayer.corporation = savedPlayerData.corporation;
 
