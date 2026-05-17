@@ -695,7 +695,29 @@ class Game {
     });
 
     const game = new Game(universe, saveData.settings);
-    game.player = saveData.player;
+    const savedPlayerData = saveData.player || {};
+    const loadedPlayer = new Player(savedPlayerData.name || 'Player', saveData.settings);
+
+    loadedPlayer.location = savedPlayerData.location ?? loadedPlayer.location;
+    loadedPlayer.ship = savedPlayerData.ship ?? loadedPlayer.ship;
+    loadedPlayer.credits = savedPlayerData.credits ?? loadedPlayer.credits;
+    loadedPlayer.cargo = savedPlayerData.cargo ?? {};
+    loadedPlayer.shipEnergy = savedPlayerData.shipEnergy ?? loadedPlayer.shipEnergy;
+    loadedPlayer.shipMaxEnergy = savedPlayerData.shipMaxEnergy ?? loadedPlayer.shipMaxEnergy;
+    loadedPlayer.energyPerJump = savedPlayerData.energyPerJump ?? loadedPlayer.energyPerJump;
+    loadedPlayer.energyRecharge = savedPlayerData.energyRecharge ?? loadedPlayer.energyRecharge;
+    loadedPlayer.dockedAt = savedPlayerData.dockedAt ?? null;
+    loadedPlayer.landedOn = savedPlayerData.landedOn ?? null;
+    loadedPlayer.pronouns = savedPlayerData.pronouns;
+    loadedPlayer.description = savedPlayerData.description;
+    loadedPlayer.stats = {
+      jumps: savedPlayerData.stats?.jumps || 0,
+      trades: savedPlayerData.stats?.trades || 0,
+      profit: savedPlayerData.stats?.profit || 0
+    };
+    loadedPlayer.corporation = savedPlayerData.corporation;
+
+    game.player = loadedPlayer;
     game.npcs = saveData.npcs;
     game.turn = saveData.turn;
     game.ticks = saveData.ticks || 0;
