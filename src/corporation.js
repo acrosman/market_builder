@@ -8,14 +8,24 @@ class Corporation {
    * @param {string} name - The name of the corporation
    * @param {string} description - Description of the corporation
    * @param {boolean} isPlayerOwned - Whether this corporation is owned by the player
+   * @param {Object} cashReserves - Initial cash reserves by category
    */
-  constructor(name, description, isPlayerOwned = false) {
+  constructor(name, description, isPlayerOwned = false, cashReserves = {}) {
     this.name = name;
     this.description = description;
     this.isPlayerOwned = isPlayerOwned;
     this.stellarObjects = []; // Array of stellar object IDs owned by this corporation
     this.ships = []; // Array of ship IDs owned by this corporation
     this.goods = {}; // Object mapping good names to quantities
+    this.cashReserves = {
+      trade: 0,
+      buildings: 0,
+      planets: 0,
+      stocks: 0,
+      ships: 0,
+      operations: 0,
+      ...cashReserves
+    };
   }
 
   /**
@@ -90,6 +100,51 @@ class Corporation {
   }
 
   /**
+   * Adds cash to a specific reserve category
+   * @param {string} category - Reserve category to credit
+   * @param {number} amount - Amount to add
+   * @returns {boolean} True if successful, false otherwise
+   */
+  addCashReserve(category, amount) {
+    if (!category || typeof amount !== 'number' || amount <= 0) {
+      return false;
+    }
+    if (!this.cashReserves[category]) {
+      this.cashReserves[category] = 0;
+    }
+    this.cashReserves[category] += amount;
+    return true;
+  }
+
+  /**
+   * Spends cash from a specific reserve category
+   * @param {string} category - Reserve category to debit
+   * @param {number} amount - Amount to spend
+   * @returns {boolean} True if successful, false when insufficient funds or invalid input
+   */
+  spendCashReserve(category, amount) {
+    if (
+      !category ||
+      typeof amount !== 'number' ||
+      amount <= 0 ||
+      !this.cashReserves[category] ||
+      this.cashReserves[category] < amount
+    ) {
+      return false;
+    }
+    this.cashReserves[category] -= amount;
+    return true;
+  }
+
+  /**
+   * Gets total corporation cash reserves across all categories
+   * @returns {number} Total reserve amount
+   */
+  getTotalCashReserves() {
+    return Object.values(this.cashReserves).reduce((total, amount) => total + amount, 0);
+  }
+
+  /**
    * Calculates the total value of all corporation assets
    * @param {Universe} universe - The universe object to get stellar object values
    * @param {Object} shipValues - Object mapping ship types/IDs to values
@@ -120,6 +175,8 @@ class Corporation {
       totalValue += price * quantity;
     });
 
+    totalValue += this.getTotalCashReserves();
+
     return totalValue;
   }
 
@@ -137,7 +194,9 @@ class Corporation {
       shipCount: this.ships.length,
       ships: [...this.ships],
       goods: { ...this.goods },
-      goodTypes: Object.keys(this.goods).length
+      goodTypes: Object.keys(this.goods).length,
+      cashReserves: { ...this.cashReserves },
+      totalCashReserves: this.getTotalCashReserves()
     };
   }
 }

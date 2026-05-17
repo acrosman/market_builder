@@ -288,6 +288,15 @@ describe('Game Module', () => {
       expect(state.corporation.description).toBe('A test corporation');
       expect(typeof state.corporation.value).toBe('number');
       expect(state.corporation.value).toBeGreaterThanOrEqual(0);
+      expect(state.corporation.cashReserves).toEqual({
+        trade: 0,
+        buildings: 0,
+        planets: 0,
+        stocks: 0,
+        ships: 0,
+        operations: 0
+      });
+      expect(state.corporation.totalCashReserves).toBe(0);
     });
 
     describe('Save and Load', () => {
@@ -843,12 +852,14 @@ describe('Game Module', () => {
       test('should save and restore player corporation with stellar objects', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
+        game.player.corporation.addCashReserve('trade', 7500);
 
         // Verify corporation has stellar objects before save
         expect(game.player.corporation).toBeDefined();
         expect(game.player.corporation.stellarObjects.length).toBeGreaterThan(0);
         const originalCorpName = game.player.corporation.name;
         const originalStellarObjects = [...game.player.corporation.stellarObjects];
+        const originalCashReserves = { ...game.player.corporation.cashReserves };
 
         // Save and load
         const saveData = game.getSaveData();
@@ -858,6 +869,7 @@ describe('Game Module', () => {
         expect(loadedGame.player.corporation).toBeDefined();
         expect(loadedGame.player.corporation.name).toBe(originalCorpName);
         expect(loadedGame.player.corporation.stellarObjects).toEqual(originalStellarObjects);
+        expect(loadedGame.player.corporation.cashReserves).toEqual(originalCashReserves);
 
         // Verify corporation has proper class methods
         expect(typeof loadedGame.player.corporation.addStellarObject).toBe('function');

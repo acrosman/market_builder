@@ -1024,6 +1024,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('corp-name').textContent = corporation.name;
       document.getElementById('corp-description').textContent = corporation.description;
       document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+      const cashReserves = corporation.cashReserves || {};
+      const totalCashReserves = corporation.totalCashReserves ||
+        Object.values(cashReserves).reduce((total, amount) => total + amount, 0);
+
+      const cashTotalElement = document.getElementById('corp-cash-total');
+      if (cashTotalElement) {
+        cashTotalElement.textContent = totalCashReserves.toLocaleString();
+      }
+
+      const reserveFields = {
+        trade: 'corp-cash-trade',
+        buildings: 'corp-cash-buildings',
+        planets: 'corp-cash-planets',
+        stocks: 'corp-cash-stocks',
+        ships: 'corp-cash-ships',
+        operations: 'corp-cash-operations'
+      };
+
+      Object.entries(reserveFields).forEach(([category, elementId]) => {
+        const reserveElement = document.getElementById(elementId);
+        if (reserveElement) {
+          reserveElement.textContent = (cashReserves[category] || 0).toLocaleString();
+        }
+      });
 
       // Get full universe state to access stellar object details
       const universeState = await window.api.getUniverseState();

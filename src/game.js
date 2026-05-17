@@ -39,7 +39,8 @@ class Game {
     const playerCorp = new Corporation(
       playerData.corporation?.name || 'Unknown Corp',
       playerData.corporation?.description || 'A trading company',
-      true  // isPlayerOwned
+      true,  // isPlayerOwned
+      playerData.corporation?.cashReserves || {}
     );
     this.corporations.push(playerCorp);
     this.player.corporation = playerCorp;
@@ -219,7 +220,9 @@ class Game {
         name: this.player.corporation?.name || 'None',
         description: this.player.corporation?.description || '',
         value: corporationValue,
-        stellarObjects: this.player.corporation?.stellarObjects || []
+        stellarObjects: this.player.corporation?.stellarObjects || [],
+        cashReserves: { ...(this.player.corporation?.cashReserves || {}) },
+        totalCashReserves: this.player.corporation?.getTotalCashReserves?.() || 0
       }
     };
   }
@@ -701,7 +704,12 @@ class Game {
     // Reconstruct corporations with proper Corporation instances
     if (saveData.corporations && Array.isArray(saveData.corporations)) {
       game.corporations = saveData.corporations.map(corpData => {
-        const corp = new Corporation(corpData.name, corpData.description, corpData.isPlayerOwned);
+        const corp = new Corporation(
+          corpData.name,
+          corpData.description,
+          corpData.isPlayerOwned,
+          corpData.cashReserves || {}
+        );
         corp.stellarObjects = corpData.stellarObjects || [];
         corp.ships = corpData.ships || [];
         corp.goods = corpData.goods || {};
