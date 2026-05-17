@@ -29,6 +29,15 @@ class Corporation {
   }
 
   /**
+   * Check whether a reserve category is valid
+   * @param {string} category - Reserve category to validate
+   * @returns {boolean} True when category is supported
+   */
+  isValidCashReserveCategory(category) {
+    return typeof category === 'string' && Object.prototype.hasOwnProperty.call(this.cashReserves, category);
+  }
+
+  /**
    * Adds a stellar object to the corporation's assets
    * @param {number} stellarObjectId - The ID of the stellar object to add
    */
@@ -106,11 +115,8 @@ class Corporation {
    * @returns {boolean} True if successful, false otherwise
    */
   addCashReserve(category, amount) {
-    if (!category || typeof amount !== 'number' || amount <= 0) {
+    if (!this.isValidCashReserveCategory(category) || typeof amount !== 'number' || amount <= 0) {
       return false;
-    }
-    if (!this.cashReserves[category]) {
-      this.cashReserves[category] = 0;
     }
     this.cashReserves[category] += amount;
     return true;
@@ -127,7 +133,7 @@ class Corporation {
       !category ||
       typeof amount !== 'number' ||
       amount <= 0 ||
-      !this.cashReserves[category] ||
+      !this.isValidCashReserveCategory(category) ||
       this.cashReserves[category] < amount
     ) {
       return false;

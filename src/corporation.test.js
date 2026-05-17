@@ -142,6 +142,11 @@ describe('Corporation', () => {
       expect(corporation.cashReserves.ships).toBe(100);
     });
 
+    test('should reject unknown reserve categories', () => {
+      expect(corporation.addCashReserve('unknown', 50)).toBe(false);
+      expect(corporation.spendCashReserve('unknown', 10)).toBe(false);
+    });
+
     test('should calculate total cash reserves across all categories', () => {
       corporation.addCashReserve('trade', 400);
       corporation.addCashReserve('buildings', 600);
