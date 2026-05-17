@@ -1,6 +1,6 @@
 # Copilot / Coding Agent Instructions — Repository Onboarding
 
-You are a skilled JavaScript developer familiar with game development and simulation. When making changes, ensure that all existing tests pass and add new tests for any new functionality. Follow the existing code style and conventions used in the project.
+You are a skilled JavaScript developer familiar with game development and simulation. Ensure that all existing tests pass and add new tests for any new functionality. Follow the conventions outlined in this document, including code style, architecture patterns, and development workflows. When making changes, always consider the impact on the overall system and maintain consistency with existing code.
 
 ## Purpose
 
@@ -137,7 +137,8 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
   - Modals: player status, corporation status, jump planner
 
 - **Shared patterns**:
-  - Load HTML templates from `app/templates/` or `app/modals/` via `fetch()`
+  - Load HTML templates from `app/templates/` or `app/modals/` via shared helpers (`window.gameHelpers.loadTemplate()` in renderer modules)
+  - Reuse shared helpers for cross-module utility logic (for example, template loading and cargo mass calculations) instead of re-implementing logic per file
   - Never embed HTML in JS strings
   - CSS files in `app/css/` (one per page + shared)
   - **Modal pattern**: Fetch from `app/modals/`, create overlay div, append modal content, add close handlers
@@ -148,7 +149,7 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
 When building dynamic UI content, **always** use HTML templates:
 
 1. **Create template file**: Place in `app/templates/` or `app/modals/`
-2. **Load template**: `const template = await fetch('./templates/file.html').then(r => r.text())`
+2. **Load template**: `const template = await window.gameHelpers.loadTemplate('./templates/file.html')`
 3. **Insert into DOM**: `container.innerHTML = template` or create wrapper div
 4. **Populate data**: Use `querySelector()` and `textContent` to fill in dynamic values
 
@@ -156,7 +157,7 @@ When building dynamic UI content, **always** use HTML templates:
 
 ```javascript
 // Load template
-const itemTemplate = await fetch('./templates/item.html').then((r) => r.text());
+const itemTemplate = await window.gameHelpers.loadTemplate('./templates/item.html');
 const itemDiv = document.createElement('div');
 itemDiv.innerHTML = itemTemplate;
 const item = itemDiv.firstElementChild;
@@ -219,18 +220,21 @@ npm run lint       # Check code style
 ### Code Style
 
 - **Strict equality only**: Use `===` and `!==` (never `==` or `!=`)
-- **No HTML in JS**: Always `fetch()` templates, never string concatenation or `innerHTML` with template literals
+- **No HTML in JS**: Always load templates via shared helpers, never string concatenation or `innerHTML` with template literals
   - ❌ **NEVER**: `element.innerHTML = '<div>...' + variable + '...</div>'`
   - ❌ **NEVER**: ``element.innerHTML = `<div>...${variable}...</div>` ``
   - ❌ **NEVER**: `element.outerHTML = ...`, `document.write()`, or any HTML string building
-  - ✅ **ALWAYS**: `fetch('./templates/file.html')` then populate with `textContent` or `querySelector()`
+  - ✅ **ALWAYS**: `window.gameHelpers.loadTemplate('./templates/file.html')` then populate with `textContent` or `querySelector()`
   - Create template files in `app/templates/` or `app/modals/`
   - Use `document.createElement()` and `textContent` for dynamic text
-  - Use template loading pattern: fetch template → insert into DOM → populate with `querySelector()` and `textContent`
+  - Use template loading pattern: shared helper load → insert into DOM → populate with `querySelector()` and `textContent`
+- **Single implementation rule**: Implement shared utility behavior once and reuse it.
+  - ❌ **NEVER**: Re-implement utility logic in multiple files when a shared helper exists.
+  - ✅ **ALWAYS**: Route shared utility logic through one canonical helper/module and call that from feature files.
 - **Error handling**: Wrap async operations in try-catch, especially template loading:
   ```javascript
   try {
-    const template = await fetch('./templates/file.html').then((r) => r.text());
+    const template = await window.gameHelpers.loadTemplate('./templates/file.html');
     // ... use template
   } catch (error) {
     console.error('Error loading template:', error);
@@ -248,6 +252,10 @@ npm run lint       # Check code style
 - **String interpolation**: Template literals with `${variable}` for logging/technical strings only, not UI content
 - **Console logging**: Use `[DEBUG functionName]` prefix for debug logs: `console.log('[DEBUG updateLocationDisplay] value:', value)`
 - **Show/hide UI elements**: Use `.hidden` CSS class with `classList.add('hidden')` and `classList.remove('hidden')` - never inline styles
+- **File size and modularity**:
+  - Files over **500 lines** should be reviewed during any touch/update to determine if they can be shortened or split into focused modules.
+  - Files over **1000 lines** must be reviewed and refactored into smaller files unless there is a documented, justified exception.
+  - Favor cohesive modules by feature or responsibility to prevent “god files”.
 
 ### Function Documentation
 
@@ -331,7 +339,7 @@ When modifying code:
 15. **Don't forget to update preload.js** - When adding IPC channels, update THREE places (preload validChannels, main handler, renderer call)
 16. **Don't hardcode file paths** - Always use `path.join(__dirname, ...)` and respect `data_directory` setting
 17. **Don't forget to await async operations** - IPC `invoke()` returns Promise
-18. **Don't use praise language** - No "Perfect!", "Great!", "Excellent!", etc. in any output
+18. **Don't duplicate shared utility logic** - If a helper/module already exists (for example in `app/gameHelpers.js`), use it instead of re-implementing behavior
 
 ## Common Pitfalls
 
@@ -341,6 +349,7 @@ When modifying code:
 4. **Not handling async** - IPC `invoke()` returns Promise, must await
 5. **Confusing capabilities with state** - `capabilities.shields` (boolean) vs `getShieldStrength()` (calculated value)
 6. **Breaking message token replacement** - Ensure tokens match `game_messages.json` format
+7. **Re-implementing shared helper logic** - Use canonical helpers (`window.gameHelpers`) instead of local duplicates in multiple renderer modules
 
 ## Performance and Efficiency Expectations
 
