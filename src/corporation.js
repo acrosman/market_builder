@@ -8,14 +8,42 @@ class Corporation {
    * @param {string} name - The name of the corporation
    * @param {string} description - Description of the corporation
    * @param {boolean} isPlayerOwned - Whether this corporation is owned by the player
+   * @param {number} cashReserves - Initial fungible cash reserves
    */
-  constructor(name, description, isPlayerOwned = false) {
+  constructor(name, description, isPlayerOwned = false, cashReserves = 0) {
     this.name = name;
     this.description = description;
     this.isPlayerOwned = isPlayerOwned;
     this.stellarObjects = []; // Array of stellar object IDs owned by this corporation
     this.ships = []; // Array of ship IDs owned by this corporation
     this.goods = {}; // Object mapping good names to quantities
+    this.cashReserves = Corporation.normalizeCashReserves(cashReserves);
+  }
+
+  /**
+   * Convert reserve input to a fungible numeric amount
+   * Numeric input is used directly when finite and non-negative.
+   * Object input is summed across numeric positive properties.
+   * Negative, non-finite, and invalid values are ignored and default to 0.
+   * @param {number|Object} cashReserves - Reserve value to normalize
+   * @returns {number} Numeric reserve amount
+   */
+  static normalizeCashReserves(cashReserves) {
+    if (typeof cashReserves === 'number' && Number.isFinite(cashReserves) && cashReserves >= 0) {
+      return cashReserves;
+    }
+
+    if (cashReserves && typeof cashReserves === 'object') {
+      const total = Object.values(cashReserves).reduce((sum, amount) => {
+        if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) {
+          return sum + amount;
+        }
+        return sum;
+      }, 0);
+      return total;
+    }
+
+    return 0;
   }
 
   /**
@@ -90,6 +118,44 @@ class Corporation {
   }
 
   /**
+   * Adds cash to corporation reserves
+   * @param {number} amount - Amount to add
+   * @returns {boolean} True if successful, false otherwise
+   */
+  addCashReserve(amount) {
+    if (typeof amount !== 'number' || amount <= 0) {
+      return false;
+    }
+    this.cashReserves += amount;
+    return true;
+  }
+
+  /**
+   * Spends cash from corporation reserves
+   * @param {number} amount - Amount to spend
+   * @returns {boolean} True if successful, false when insufficient funds or invalid input
+   */
+  spendCashReserve(amount) {
+    if (
+      typeof amount !== 'number' ||
+      amount <= 0 ||
+      this.cashReserves < amount
+    ) {
+      return false;
+    }
+    this.cashReserves -= amount;
+    return true;
+  }
+
+  /**
+   * Gets total corporation fungible cash reserves
+   * @returns {number} Total reserve amount
+   */
+  getTotalCashReserves() {
+    return this.cashReserves;
+  }
+
+  /**
    * Calculates the total value of all corporation assets
    * @param {Universe} universe - The universe object to get stellar object values
    * @param {Object} shipValues - Object mapping ship types/IDs to values
@@ -120,6 +186,8 @@ class Corporation {
       totalValue += price * quantity;
     });
 
+    totalValue += this.getTotalCashReserves();
+
     return totalValue;
   }
 
@@ -137,7 +205,9 @@ class Corporation {
       shipCount: this.ships.length,
       ships: [...this.ships],
       goods: { ...this.goods },
-      goodTypes: Object.keys(this.goods).length
+      goodTypes: Object.keys(this.goods).length,
+      cashReserves: this.cashReserves,
+      totalCashReserves: this.getTotalCashReserves()
     };
   }
 }

@@ -1024,6 +1024,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('corp-name').textContent = corporation.name;
       document.getElementById('corp-description').textContent = corporation.description;
       document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+      const cashTotalElement = document.getElementById('corp-cash-total');
+      if (cashTotalElement) {
+        cashTotalElement.textContent = corporation.totalCashReserves.toLocaleString();
+      }
 
       // Get full universe state to access stellar object details
       const universeState = await window.api.getUniverseState();

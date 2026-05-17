@@ -19,6 +19,7 @@ describe('Corporation', () => {
       expect(corporation.stellarObjects).toEqual([]);
       expect(corporation.ships).toEqual([]);
       expect(corporation.goods).toEqual({});
+      expect(corporation.cashReserves).toBe(0);
     });
 
     test('should default isPlayerOwned to false', () => {
@@ -119,6 +120,44 @@ describe('Corporation', () => {
     });
   });
 
+  describe('cash reserve management', () => {
+    test('should add and spend fungible cash reserves', () => {
+      expect(corporation.addCashReserve(1000)).toBe(true);
+      expect(corporation.cashReserves).toBe(1000);
+
+      expect(corporation.spendCashReserve(250)).toBe(true);
+      expect(corporation.cashReserves).toBe(750);
+    });
+
+    test('should fail to spend more than available cash reserves', () => {
+      corporation.addCashReserve(100);
+      expect(corporation.spendCashReserve(200)).toBe(false);
+      expect(corporation.cashReserves).toBe(100);
+    });
+
+    test('should reject zero-value add and spend operations', () => {
+      expect(corporation.addCashReserve(0)).toBe(false);
+      expect(corporation.spendCashReserve(0)).toBe(false);
+      expect(corporation.cashReserves).toBe(0);
+    });
+
+    test('should calculate total fungible cash reserves', () => {
+      corporation.addCashReserve(400);
+      corporation.addCashReserve(600);
+      corporation.addCashReserve(250);
+      expect(corporation.getTotalCashReserves()).toBe(1250);
+    });
+
+    test('should normalize legacy object-based reserves to a numeric total', () => {
+      const legacyCorp = new Corporation('Legacy Corp', 'Legacy reserves', false, {
+        trade: 400,
+        buildings: 600,
+        stocks: 250
+      });
+      expect(legacyCorp.cashReserves).toBe(1250);
+    });
+  });
+
   describe('calculateTotalValue', () => {
     let universe;
     let stellarObject1;
@@ -158,12 +197,13 @@ describe('Corporation', () => {
       corporation.addStellarObject(1);
       corporation.addShip(10);
       corporation.addGoods('Food', 100);
+      corporation.addCashReserve(500);
 
       const shipValues = { 10: 5000 };
       const goodPrices = { Food: 10 };
       const value = corporation.calculateTotalValue(universe, shipValues, goodPrices);
 
-      expect(value).toBe(16000); // 10000 + 5000 + 1000
+      expect(value).toBe(16500); // 10000 + 5000 + 1000 + 500
     });
 
     test('should handle missing values gracefully', () => {
