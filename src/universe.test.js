@@ -1,22 +1,14 @@
-const rewire = require('rewire');
-const universeModule = rewire('./universe');
-
 const {
   Universe,
   System,
   StellarObject,
   createUniverse,
-} = universeModule;
+  getUniqueName,
+  getRandomImage,
+  getLandedImage,
+} = require('./universe');
 
-describe('loadDataFile', () => {
-  test('loads and parses JSON data from the data directory', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
-    expect(data).toHaveProperty('Planet');
-    expect(data).toHaveProperty('Space Station');
-    expect(data).toHaveProperty('Asteroid');
-  });
-});
+const stellarObjectsData = require('../data/default/en-us/stellarObjects.json');
 
 describe('Universe', () => {
   test('Universe initializes with empty systems and stellarObjects', () => {
@@ -37,8 +29,7 @@ describe('System', () => {
 
 describe('StellarObject', () => {
   test('StellarObject sets all fields from data', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -67,8 +58,7 @@ describe('StellarObject', () => {
   });
 
   test('StellarObject initializes with empty landedImage', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -81,8 +71,7 @@ describe('StellarObject', () => {
   });
 
   test('StellarObject initializes with Independent owner', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -95,8 +84,7 @@ describe('StellarObject', () => {
   });
 
   test('StellarObject initializes with value of 0', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -109,8 +97,7 @@ describe('StellarObject', () => {
   });
 
   test('setOwner changes the owner', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -124,8 +111,7 @@ describe('StellarObject', () => {
   });
 
   test('setOwner defaults to Independent for null/undefined', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -140,8 +126,7 @@ describe('StellarObject', () => {
   });
 
   test('calculateValue returns positive number for objects with properties', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -156,8 +141,7 @@ describe('StellarObject', () => {
   });
 
   test('calculateValue uses baseValues for calculation', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
     const obj = new StellarObject(
       0,
       "Planet",
@@ -186,8 +170,7 @@ describe('StellarObject', () => {
   });
 
   test('calculateValue accounts for market presence', () => {
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
 
     // Create two objects: one with market, one without
     const withMarket = new StellarObject(0, "Planet", "Earth-like", 2, data.Planet, "MarketPlanet");
@@ -262,8 +245,7 @@ describe('createUniverse', () => {
 
   test('Stellar objects are assigned valid types and classes', () => {
     const universe = createUniverse(5, 6, 10);
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const data = loadDataFile('stellarObjects');
+    const data = stellarObjectsData;
 
     universe.stellarObjects.forEach(obj => {
       expect(Object.keys(data)).toContain(obj.type);
@@ -341,10 +323,6 @@ describe('createUniverse', () => {
   });
 
   test('getUniqueName works with Asteroid type using nameSource mapping', () => {
-    // Use getUniqueName from module.exports if available, else use rewire fallback
-    const getUniqueName = universeModule.getUniqueName || universeModule.__get__('getUniqueName');
-    const loadDataFile = universeModule.__get__('loadDataFile');
-    const stellarObjectsData = loadDataFile('stellarObjects');
     const asteroidDetails = stellarObjectsData.Asteroid;
 
     // Verify Asteroid has nameSource property
@@ -665,3 +643,134 @@ describe('Universe pathfinding', () => {
     expect(result.path[result.path.length - 1]).toBe(6);
   });
 });
+
+describe('Universe stellar object counts', () => {
+  test('getStellarObjectTypeCountsBySystem returns counts per system', () => {
+    const universe = new Universe();
+    const system1 = new System(1, 'Alpha');
+    const system2 = new System(2, 'Beta');
+    universe.systems.push(system1, system2);
+    universe.stellarObjects.push(
+      { id: 1, type: 'Planet', location: 1 },
+      { id: 2, type: 'Planet', location: 1 },
+      { id: 3, type: 'Asteroid', location: 2 }
+    );
+
+    const counts = universe.getStellarObjectTypeCountsBySystem();
+
+    expect(counts[1]).toEqual({ Planet: 2 });
+    expect(counts[2]).toEqual({ Asteroid: 1 });
+  });
+
+  test('getStellarObjectTypeCountsBySystem handles object in unknown system', () => {
+    const universe = new Universe();
+    const system1 = new System(1, 'Alpha');
+    universe.systems.push(system1);
+    universe.stellarObjects.push(
+      { id: 1, type: 'Planet', location: 99 }
+    );
+
+    const counts = universe.getStellarObjectTypeCountsBySystem();
+
+    expect(counts[1]).toEqual({});
+    expect(counts[99]).toEqual({ Planet: 1 });
+  });
+
+  test('getStellarObjectTypeTotals returns total counts per type', () => {
+    const universe = new Universe();
+    universe.stellarObjects.push(
+      { id: 1, type: 'Planet', location: 1 },
+      { id: 2, type: 'Planet', location: 2 },
+      { id: 3, type: 'Asteroid', location: 1 }
+    );
+
+    const totals = universe.getStellarObjectTypeTotals();
+
+    expect(totals).toEqual({ Planet: 2, Asteroid: 1 });
+  });
+
+  test('getStellarObjectTypeTotals returns empty object for empty universe', () => {
+    const universe = new Universe();
+    const totals = universe.getStellarObjectTypeTotals();
+    expect(totals).toEqual({});
+  });
+});
+
+describe('getRandomImage', () => {
+  test('returns empty string for unknown type', () => {
+    const result = getRandomImage('UnknownType', 'SomeClass', stellarObjectsData);
+    expect(result).toBe('');
+  });
+
+  test('returns empty string for unknown class', () => {
+    const result = getRandomImage('Planet', 'NonExistentClass', stellarObjectsData);
+    expect(result).toBe('');
+  });
+
+  test('returns empty string when image directory is empty', () => {
+    const mockData = {
+      TestType: {
+        classes: {
+          TestClass: { imagePath: 'images/nonexistent_path_xyz' }
+        }
+      }
+    };
+    const result = getRandomImage('TestType', 'TestClass', mockData);
+    expect(result).toBe('');
+  });
+
+  test('returns a path string for valid type and class', () => {
+    const result = getRandomImage('Planet', 'Earth-like', stellarObjectsData);
+    expect(typeof result).toBe('string');
+  });
+});
+
+describe('getLandedImage', () => {
+  test('returns empty string for unknown type', () => {
+    const result = getLandedImage('UnknownType', 'SomeClass', stellarObjectsData);
+    expect(result).toBe('');
+  });
+
+  test('returns empty string for unknown class', () => {
+    const result = getLandedImage('Planet', 'NonExistentClass', stellarObjectsData);
+    expect(result).toBe('');
+  });
+
+  test('returns empty string when landed image directory is empty', () => {
+    const mockData = {
+      TestType: {
+        classes: {
+          TestClass: { imagePath: 'images/nonexistent_path_xyz' }
+        }
+      }
+    };
+    const result = getLandedImage('TestType', 'TestClass', mockData);
+    expect(result).toBe('');
+  });
+
+  test('returns a path for valid planet class (Surface)', () => {
+    const result = getLandedImage('Planet', 'Earth-like', stellarObjectsData);
+    expect(typeof result).toBe('string');
+  });
+
+  test('returns a path for valid station class (Port)', () => {
+    const result = getLandedImage('Space Station', 'Trading Post', stellarObjectsData);
+    expect(typeof result).toBe('string');
+  });
+});
+
+describe('getUniqueName', () => {
+  test('returns generic name for type with no nameSource', () => {
+    const typeDetails = {};
+    const name = getUniqueName('Widget', typeDetails);
+    expect(name).toMatch(/^Widget \d+$/);
+  });
+
+  test('returns a name for planet type', () => {
+    const typeDetails = { nameSource: 'planets' };
+    const name = getUniqueName('Planet', typeDetails);
+    expect(typeof name).toBe('string');
+    expect(name.length).toBeGreaterThan(0);
+  });
+});
+

@@ -886,4 +886,309 @@ describe('Game Module', () => {
       });
     });
   });
+
+  describe('TakeOff', () => {
+    test('takeOff returns error when not docked or landed', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+      game.player.dockedAt = null;
+      game.player.landedOn = null;
+
+      const result = game.takeOff();
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('Not docked or landed');
+    });
+  });
+
+  describe('ValidateJump', () => {
+    test('validateJump returns invalid when target system does not exist', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+
+      const result = game.validateJump(9999);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe('Target system does not exist');
+    });
+
+    test('validateJump returns invalid when no connection to target', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+      game.player.location = 0;
+      game.universe.systems = [
+        { id: 0, name: 'Alpha', connections: {} },
+        { id: 1, name: 'Beta', connections: {} }
+      ];
+
+      const result = game.validateJump(1);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe('No direct connection to target system');
+    });
+
+    test('validateJump returns invalid when not enough energy', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+      game.player.location = 0;
+      game.universe.systems = [
+        { id: 0, name: 'Alpha', connections: { 1: 5 } },
+        { id: 1, name: 'Beta', connections: { 0: 5 } }
+      ];
+      game.player.shipEnergy = 0;
+      game.player.energyPerJump = 10;
+
+      const result = game.validateJump(1);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe('Not enough energy for jump');
+    });
+
+    test('jumpToSystem returns error when jump is invalid', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+
+      const result = game.jumpToSystem(9999);
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('BuyGood and SellGood', () => {
+    let game;
+
+    beforeEach(() => {
+      const { Universe, System } = require('./universe');
+      const { StellarObject } = require('./stellarObject');
+      const { Market } = require('./market');
+      const fs = require('fs');
+      const path = require('path');
+
+      const universe = new Universe();
+      const system1 = new System(1, 'Test System');
+      universe.systems.push(system1);
+
+      const dataDir = 'data/default/en-us';
+      const stellarObjectsData = JSON.parse(
+        fs.readFileSync(path.join(__dirname, '..', dataDir, 'stellarObjects.json'), 'utf-8')
+      );
+
+      const stellarObject = new StellarObject(
+        1, 'Planet', 'Earth-like', 1, stellarObjectsData.Planet, 'Test Planet', dataDir
+      );
+      universe.stellarObjects.push(stellarObject);
+
+      const settings = {
+        starting_credits: 10000,
+        initial_ship: 'Cargo Hauler',
+        data_directory: dataDir
+      };
+
+      game = new Game(universe, settings);
+      game.initializeGame(createTestPlayerData());
+      game.player.location = 1;
+      game.player.landedOn = 1;
+      game.market.initializeMarkets();
+
+      // Set up controlled inventory
+      stellarObject.marketState.inventory = { wheat: 100 };
+    });
+
+    test('buyGood delegates to market and succeeds', () => {
+      const result = game.buyGood(1, 'wheat', 5);
+      expect(result.success).toBe(true);
+    });
+
+    test('buyGood delegates to market and fails when not available', () => {
+      const result = game.buyGood(1, 'wheat', 999);
+      expect(result.success).toBe(false);
+    });
+
+    test('sellGood delegates to market and succeeds', () => {
+      game.player.cargo.wheat = 10;
+      const result = game.sellGood(1, 'wheat', 5);
+      expect(result.success).toBe(true);
+    });
+
+    test('sellGood delegates to market and fails when no cargo', () => {
+      const result = game.sellGood(1, 'wheat', 5);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('LoadPassengers and UnloadPassengers', () => {
+    let game;
+    let stellarObject;
+
+    beforeEach(() => {
+      const { Universe, System } = require('./universe');
+      const { StellarObject } = require('./stellarObject');
+      const fs = require('fs');
+      const path = require('path');
+
+      const universe = new Universe();
+      const system1 = new System(1, 'Test System');
+      universe.systems.push(system1);
+
+      const dataDir = 'data/default/en-us';
+      const stellarObjectsData = JSON.parse(
+        fs.readFileSync(path.join(__dirname, '..', dataDir, 'stellarObjects.json'), 'utf-8')
+      );
+
+      stellarObject = new StellarObject(
+        1, 'Planet', 'Earth-like', 1, stellarObjectsData.Planet, 'Test Planet', dataDir
+      );
+      stellarObject.population = { current: 500000, limit: 1000000, growthRate: 2 };
+      universe.stellarObjects.push(stellarObject);
+
+      const settings = {
+        starting_credits: 10000,
+        initial_ship: 'Cargo Hauler',
+        data_directory: dataDir
+      };
+
+      game = new Game(universe, settings);
+      game.initializeGame(createTestPlayerData());
+      game.player.location = 1;
+      game.player.landedOn = 1;
+    });
+
+    test('loadPassengers fails when stellar object not found', () => {
+      const result = game.loadPassengers(999, 10);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Stellar object not found');
+    });
+
+    test('loadPassengers fails when population is too low', () => {
+      stellarObject.population = { current: 100, limit: 1000000, growthRate: 2 };
+      const result = game.loadPassengers(1, 10);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('too low');
+    });
+
+    test('loadPassengers fails when requesting more than available', () => {
+      const result = game.loadPassengers(1, 999999);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('passengers available');
+    });
+
+    test('loadPassengers succeeds with valid conditions', () => {
+      const result = game.loadPassengers(1, 10);
+      expect(result.success).toBe(true);
+      expect(game.player.cargo.passengers).toBe(10);
+    });
+
+    test('loadPassengers fails when insufficient cargo space', () => {
+      game.player.cargo.wheat = 10000; // Fill cargo
+      const result = game.loadPassengers(1, 10);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('cargo space');
+    });
+
+    test('unloadPassengers fails when not at correct location', () => {
+      game.player.cargo.passengers = 10;
+      game.player.dockedAt = null;
+      game.player.landedOn = null;
+
+      const result = game.unloadPassengers(1, 10);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('docked or landed');
+    });
+
+    test('unloadPassengers fails when stellar object not found', () => {
+      game.player.cargo.passengers = 10;
+      game.player.landedOn = 999; // Set player at location 999 (which doesn't exist)
+      const result = game.unloadPassengers(999, 10);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Stellar object not found');
+    });
+
+    test('unloadPassengers fails when no passengers on board', () => {
+      const result = game.unloadPassengers(1, 5);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('No passengers in cargo');
+    });
+
+    test('unloadPassengers fails with invalid count', () => {
+      game.player.cargo.passengers = 10;
+      const result = game.unloadPassengers(1, 0);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Invalid passenger count');
+    });
+
+    test('unloadPassengers fails when trying to unload more than carrying', () => {
+      game.player.cargo.passengers = 5;
+      const result = game.unloadPassengers(1, 10);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('only have 5');
+    });
+
+    test('unloadPassengers fails when population limit reached', () => {
+      stellarObject.population = { current: 999990, limit: 1000000, growthRate: 2 };
+      game.player.cargo.passengers = 20;
+      const result = game.unloadPassengers(1, 20);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('only accept');
+    });
+
+    test('unloadPassengers succeeds and removes passengers entry when count reaches 0', () => {
+      game.player.cargo.passengers = 10;
+      const result = game.unloadPassengers(1, 10);
+      expect(result.success).toBe(true);
+      expect(game.player.cargo.passengers).toBeUndefined();
+    });
+
+    test('unloadPassengers succeeds partially', () => {
+      game.player.cargo.passengers = 20;
+      const result = game.unloadPassengers(1, 10);
+      expect(result.success).toBe(true);
+      expect(game.player.cargo.passengers).toBe(10);
+    });
+  });
+
+  describe('CalculateCargoUsed and RechargeShipEnergy', () => {
+    test('calculateCargoUsed delegates to market', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+
+      const result = game.calculateCargoUsed();
+      expect(typeof result).toBe('number');
+    });
+
+    test('rechargeShipEnergy adds energy up to max', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+      game.player.shipMaxEnergy = 100;
+      game.player.shipEnergy = 50;
+      game.player.energyRecharge = 10;
+
+      game.rechargeShipEnergy();
+
+      expect(game.player.shipEnergy).toBe(60);
+    });
+
+    test('rechargeShipEnergy does not exceed max energy', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+      game.player.shipMaxEnergy = 100;
+      game.player.shipEnergy = 95;
+      game.player.energyRecharge = 10;
+
+      game.rechargeShipEnergy();
+
+      expect(game.player.shipEnergy).toBe(100);
+    });
+
+    test('rechargeShipEnergy does nothing when at max energy', () => {
+      const game = new Game(mockUniverse, mockSettings);
+      game.initializeGame(createTestPlayerData());
+      game.player.shipMaxEnergy = 100;
+      game.player.shipEnergy = 100;
+      game.player.energyRecharge = 10;
+
+      game.rechargeShipEnergy();
+
+      expect(game.player.shipEnergy).toBe(100);
+    });
+  });
 });

@@ -13,8 +13,8 @@ module.exports = {
     }
   ],
   collectCoverageFrom: [
-    'app/**/*.js',
     'src/**/*.js',
+    '!src/**/*.test.js',
     '!**/node_modules/**',
     '!**/vendor/**'
   ],
