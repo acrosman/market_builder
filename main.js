@@ -5,7 +5,7 @@ const os = require('os');
 const { app, BrowserWindow, ipcMain, dialog } = electron;
 const { createUniverse } = require('./src/universe');
 const { Game } = require('./src/game');  // Add this line
-const { configureLogger, createLogger } = require('./src/logger');
+const { configureLogger, createLogger, normalizeRendererLogScope } = require('./src/logger');
 
 // Developer Dependencies.
 const isDev = !app.isPackaged;
@@ -151,28 +151,6 @@ function openNewGameWindow() {
 ipcMain.on('open-new-game', openNewGameWindow);
 
 const validRendererLogLevels = new Set(['debug', 'info', 'warn', 'error']);
-
-/**
- * Validate and normalize renderer logger scope.
- * @param {unknown} scope - The scope provided by renderer log payload.
- * @returns {string|null} The normalized scope if valid, otherwise null.
- */
-function normalizeRendererLogScope(scope) {
-  if (typeof scope !== 'string') {
-    return null;
-  }
-
-  const normalizedScope = scope.trim();
-  if (normalizedScope.length === 0 || normalizedScope.length > 50) {
-    return null;
-  }
-
-  if (!/^[a-zA-Z0-9._-]+$/.test(normalizedScope)) {
-    return null;
-  }
-
-  return normalizedScope;
-}
 
 ipcMain.on('renderer-log', (event, payload = {}) => {
   const { level, scope = 'renderer', args = [] } = payload;

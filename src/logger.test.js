@@ -17,7 +17,7 @@ jest.mock('electron-log', () => ({
 }));
 
 const electronLog = require('electron-log');
-const { configureLogger, createLogger } = require('./logger');
+const { configureLogger, createLogger, normalizeRendererLogScope } = require('./logger');
 
 describe('logger', () => {
   beforeEach(() => {
@@ -65,5 +65,22 @@ describe('logger', () => {
     expect(electronLog.info).toHaveBeenCalledWith('[TestScope]', 'info message');
     expect(electronLog.warn).toHaveBeenCalledWith('[TestScope]', 'warn message');
     expect(electronLog.error).toHaveBeenCalledWith('[TestScope]', 'error message');
+  });
+
+  test('normalizeRendererLogScope accepts valid scopes', () => {
+    expect(normalizeRendererLogScope('interface')).toBe('interface');
+    expect(normalizeRendererLogScope('ui.modal_manager')).toBe('ui.modal_manager');
+  });
+
+  test('normalizeRendererLogScope rejects invalid scope types and lengths', () => {
+    expect(normalizeRendererLogScope(42)).toBeNull();
+    expect(normalizeRendererLogScope('')).toBeNull();
+    expect(normalizeRendererLogScope('x'.repeat(51))).toBeNull();
+  });
+
+  test('normalizeRendererLogScope rejects multiline and unsafe content', () => {
+    expect(normalizeRendererLogScope('line1\nline2')).toBeNull();
+    expect(normalizeRendererLogScope('scope with spaces')).toBeNull();
+    expect(normalizeRendererLogScope('scope:colon')).toBeNull();
   });
 });

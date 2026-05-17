@@ -43,7 +43,30 @@ function createLogger(scope) {
   };
 }
 
+/**
+ * Validate and normalize renderer logger scope.
+ * @param {unknown} scope - The scope provided by renderer log payload.
+ * @returns {string|null} The normalized scope if valid, otherwise null.
+ */
+function normalizeRendererLogScope(scope) {
+  if (typeof scope !== 'string') {
+    return null;
+  }
+
+  const normalizedScope = scope.trim();
+  if (normalizedScope.length === 0 || normalizedScope.length > 50) {
+    return null;
+  }
+
+  if (!/^[a-zA-Z0-9._-]+$/.test(normalizedScope)) {
+    return null;
+  }
+
+  return normalizedScope;
+}
+
 module.exports = {
   configureLogger,
-  createLogger
+  createLogger,
+  normalizeRendererLogScope
 };
