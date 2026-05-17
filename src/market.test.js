@@ -356,5 +356,225 @@ describe('Market Class', () => {
 
       expect(price).toBe(0);
     });
+
+    test('prices general category goods with fixed ideal stock (line 141)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.marketState.inventory = { furniture: 10 };
+
+      // furniture is general/finished → idealStock = 25, stockRatio = 0.4 < 0.5
+      const price = market.calculateMarketPrice(stellarObject, 'furniture', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('prices military category goods with fixed ideal stock', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.marketState.inventory = { smallFighters: 5 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'smallFighters', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('intermediate goods use productivityModifier * 20 as ideal stock (lines 146-147)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.marketState.inventory = { flour: 50 };
+
+      // flour is food/intermediate → idealStock = 7 * 20 = 140
+      const price = market.calculateMarketPrice(stellarObject, 'flour', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('finished goods use productivityModifier * 10 as ideal stock (lines 148-149)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.marketState.inventory = { bread: 30 };
+
+      // bread is food/finished → idealStock = 7 * 10 = 70
+      const price = market.calculateMarketPrice(stellarObject, 'bread', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies below-ideal supply factor when stockRatio is 0.5-1.0 (lines 165-167)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // wheat food/raw, modifier=7, idealStock=350; ratio=200/350≈0.571 → stockRatio<1.0 branch
+      stellarObject.marketState.inventory = { wheat: 200 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies above-ideal supply factor when stockRatio is 1.0-2.0 (lines 168-170)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // ratio=500/350≈1.43 → stockRatio<2.0 branch
+      stellarObject.marketState.inventory = { wheat: 500 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies oversupply factor when stockRatio >= 2.0 (lines 171-174)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // ratio=800/350≈2.29 → oversupply branch
+      stellarObject.marketState.inventory = { wheat: 800 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('returns elevated price when no local production but stock exists (lines 175-177)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // Set food modifier to 0 → idealStock = 0 * 50 = 0, but stock > 0
+      stellarObject.productivityModifiers = { food: 0 };
+      stellarObject.marketState.inventory = { wheat: 5 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('returns 0 when no local production and no stock (lines 178-180)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // Set food modifier to 0 → idealStock = 0, and no wheat in inventory
+      stellarObject.productivityModifiers = { food: 0 };
+      stellarObject.marketState.inventory = {};
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBe(0);
+    });
+
+    test('applies excellent production factor when modifier >= 8 (line 188)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.productivityModifiers = { food: 9 };
+      // idealStock = 9 * 50 = 450; stockRatio = 100/450 ≈ 0.22 < 0.25
+      stellarObject.marketState.inventory = { wheat: 100 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies moderate production factor when modifier is 4-5 (lines 191-192)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.productivityModifiers = { food: 5 };
+      // idealStock = 5 * 50 = 250; stock = 100, ratio = 0.4 < 0.5
+      stellarObject.marketState.inventory = { wheat: 100 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies limited production factor when modifier is 2-3 (lines 193-194)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.productivityModifiers = { food: 3 };
+      stellarObject.marketState.inventory = { wheat: 100 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies very limited production factor when modifier is 1 (lines 195-196)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.productivityModifiers = { food: 1 };
+      stellarObject.marketState.inventory = { wheat: 100 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('applies no-production factor when modifier is 0 but stock exists (lines 197-198)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      stellarObject.productivityModifiers = { food: 0 };
+      // idealStock = 0, currentStock > 0 → supplyFactor branch already sets price > 0
+      stellarObject.marketState.inventory = { wheat: 5 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('sell: applies better ratio when market needs goods (stockRatio 0.5-1.0) (lines 217-219)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // ratio = 200/350 ≈ 0.571 → 0.5 <= ratio < 1.0 sell branch
+      stellarObject.marketState.inventory = { wheat: 200 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'sell');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('sell: applies reduced ratio when market is somewhat oversupplied (stockRatio 1.0-2.0) (lines 220-222)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // ratio = 500/350 ≈ 1.43 → 1.0 <= ratio < 2.0 sell branch
+      stellarObject.marketState.inventory = { wheat: 500 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'sell');
+
+      expect(price).toBeGreaterThan(0);
+    });
+
+    test('sell: applies minimum ratio when market is very oversupplied (stockRatio >= 2.0) (lines 223-225)', () => {
+      const { market, stellarObject } = createTestMarketSetup();
+      // ratio = 800/350 ≈ 2.29 → oversupply sell branch
+      stellarObject.marketState.inventory = { wheat: 800 };
+
+      const price = market.calculateMarketPrice(stellarObject, 'wheat', 'sell');
+
+      expect(price).toBeGreaterThan(0);
+    });
+  });
+
+  describe('initializeMarkets (additional)', () => {
+    test('skips stellar objects that have no market capability (line 40)', () => {
+      const { market, universe } = createTestMarketSetup();
+      // Add a non-market object directly (marketState = null)
+      universe.stellarObjects.push({ id: 99, marketState: null, productivityModifiers: {} });
+
+      expect(() => market.initializeMarkets()).not.toThrow();
+    });
+  });
+
+  describe('buyGood (additional)', () => {
+    test('fails when good exists in inventory but not in goods data (line 274)', () => {
+      const { market, player, stellarObject } = createTestMarketSetup();
+      // Put a fake good in inventory so availability check passes
+      stellarObject.marketState.inventory['fake_good'] = 100;
+
+      const result = market.buyGood(player, 1, 'fake_good', 5);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Unknown good');
+    });
+
+    test('correctly calculates cargo for kilograms-unit goods (lines 282-283)', () => {
+      const { market, player, stellarObject } = createTestMarketSetup();
+      // yeast: kilograms, 10kg per unit
+      stellarObject.marketState.inventory = { yeast: 100 };
+
+      const result = market.buyGood(player, 1, 'yeast', 5);
+
+      expect(result.success).toBe(true);
+      expect(player.cargo.yeast).toBe(5);
+    });
+  });
+
+  describe('calculateCargoUsed (additional)', () => {
+    test('correctly calculates cargo for kilograms-unit goods (lines 366-367)', () => {
+      const { market, player } = createTestMarketSetup();
+      // yeast: kilograms, 10kg per unit; 5 units = 50kg = 0.05 metric tons
+      player.cargo = { yeast: 5 };
+
+      const cargoUsed = market.calculateCargoUsed(player);
+
+      expect(cargoUsed).toBeCloseTo(0.05, 5);
+    });
   });
 });

@@ -13,13 +13,15 @@ module.exports = {
     }
   ],
   collectCoverageFrom: [
+    'app/**/*.js',
     'src/**/*.js',
+    '!app/**/*.test.js',
     '!src/**/*.test.js',
     '!**/node_modules/**',
     '!**/vendor/**'
   ],
   coverageThreshold: {
-    global: {
+    './src/': {
       lines: 91
     }
   }
