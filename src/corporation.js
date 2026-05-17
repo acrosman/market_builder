@@ -8,33 +8,42 @@ class Corporation {
    * @param {string} name - The name of the corporation
    * @param {string} description - Description of the corporation
    * @param {boolean} isPlayerOwned - Whether this corporation is owned by the player
-   * @param {Object} cashReserves - Initial cash reserves by category
+   * @param {number} cashReserves - Initial fungible cash reserves
    */
-  constructor(name, description, isPlayerOwned = false, cashReserves = {}) {
+  constructor(name, description, isPlayerOwned = false, cashReserves = 0) {
     this.name = name;
     this.description = description;
     this.isPlayerOwned = isPlayerOwned;
     this.stellarObjects = []; // Array of stellar object IDs owned by this corporation
     this.ships = []; // Array of ship IDs owned by this corporation
     this.goods = {}; // Object mapping good names to quantities
-    this.cashReserves = {
-      trade: 0,
-      buildings: 0,
-      planets: 0,
-      stocks: 0,
-      ships: 0,
-      operations: 0,
-      ...cashReserves
-    };
+    this.cashReserves = Corporation.normalizeCashReserves(cashReserves);
   }
 
   /**
-   * Check whether a reserve category is valid
-   * @param {string} category - Reserve category to validate
-   * @returns {boolean} True when category is supported
+   * Convert reserve input to a fungible numeric amount
+   * Numeric input is used directly when finite and non-negative.
+   * Object input is summed across numeric positive properties.
+   * Negative, non-finite, and invalid values are ignored and default to 0.
+   * @param {number|Object} cashReserves - Reserve value to normalize
+   * @returns {number} Numeric reserve amount
    */
-  isValidCashReserveCategory(category) {
-    return typeof category === 'string' && Object.prototype.hasOwnProperty.call(this.cashReserves, category);
+  static normalizeCashReserves(cashReserves) {
+    if (typeof cashReserves === 'number' && Number.isFinite(cashReserves) && cashReserves >= 0) {
+      return cashReserves;
+    }
+
+    if (cashReserves && typeof cashReserves === 'object') {
+      const total = Object.values(cashReserves).reduce((sum, amount) => {
+        if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) {
+          return sum + amount;
+        }
+        return sum;
+      }, 0);
+      return total;
+    }
+
+    return 0;
   }
 
   /**
@@ -109,44 +118,41 @@ class Corporation {
   }
 
   /**
-   * Adds cash to a specific reserve category
-   * @param {string} category - Reserve category to credit
+   * Adds cash to corporation reserves
    * @param {number} amount - Amount to add
    * @returns {boolean} True if successful, false otherwise
    */
-  addCashReserve(category, amount) {
-    if (!this.isValidCashReserveCategory(category) || typeof amount !== 'number' || amount <= 0) {
+  addCashReserve(amount) {
+    if (typeof amount !== 'number' || amount <= 0) {
       return false;
     }
-    this.cashReserves[category] += amount;
+    this.cashReserves += amount;
     return true;
   }
 
   /**
-   * Spends cash from a specific reserve category
-   * @param {string} category - Reserve category to debit
+   * Spends cash from corporation reserves
    * @param {number} amount - Amount to spend
    * @returns {boolean} True if successful, false when insufficient funds or invalid input
    */
-  spendCashReserve(category, amount) {
+  spendCashReserve(amount) {
     if (
       typeof amount !== 'number' ||
       amount <= 0 ||
-      !this.isValidCashReserveCategory(category) ||
-      this.cashReserves[category] < amount
+      this.cashReserves < amount
     ) {
       return false;
     }
-    this.cashReserves[category] -= amount;
+    this.cashReserves -= amount;
     return true;
   }
 
   /**
-   * Gets total corporation cash reserves across all categories
+   * Gets total corporation fungible cash reserves
    * @returns {number} Total reserve amount
    */
   getTotalCashReserves() {
-    return Object.values(this.cashReserves).reduce((total, amount) => total + amount, 0);
+    return this.cashReserves;
   }
 
   /**
@@ -200,7 +206,7 @@ class Corporation {
       ships: [...this.ships],
       goods: { ...this.goods },
       goodTypes: Object.keys(this.goods).length,
-      cashReserves: { ...this.cashReserves },
+      cashReserves: this.cashReserves,
       totalCashReserves: this.getTotalCashReserves()
     };
   }

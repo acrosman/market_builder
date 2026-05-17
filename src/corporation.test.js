@@ -19,14 +19,7 @@ describe('Corporation', () => {
       expect(corporation.stellarObjects).toEqual([]);
       expect(corporation.ships).toEqual([]);
       expect(corporation.goods).toEqual({});
-      expect(corporation.cashReserves).toEqual({
-        trade: 0,
-        buildings: 0,
-        planets: 0,
-        stocks: 0,
-        ships: 0,
-        operations: 0
-      });
+      expect(corporation.cashReserves).toBe(0);
     });
 
     test('should default isPlayerOwned to false', () => {
@@ -128,37 +121,40 @@ describe('Corporation', () => {
   });
 
   describe('cash reserve management', () => {
-    test('should add and spend cash reserves by category', () => {
-      expect(corporation.addCashReserve('trade', 1000)).toBe(true);
-      expect(corporation.cashReserves.trade).toBe(1000);
+    test('should add and spend fungible cash reserves', () => {
+      expect(corporation.addCashReserve(1000)).toBe(true);
+      expect(corporation.cashReserves).toBe(1000);
 
-      expect(corporation.spendCashReserve('trade', 250)).toBe(true);
-      expect(corporation.cashReserves.trade).toBe(750);
+      expect(corporation.spendCashReserve(250)).toBe(true);
+      expect(corporation.cashReserves).toBe(750);
     });
 
     test('should fail to spend more than available cash reserves', () => {
-      corporation.addCashReserve('ships', 100);
-      expect(corporation.spendCashReserve('ships', 200)).toBe(false);
-      expect(corporation.cashReserves.ships).toBe(100);
-    });
-
-    test('should reject unknown reserve categories', () => {
-      expect(corporation.addCashReserve('unknown', 50)).toBe(false);
-      expect(corporation.spendCashReserve('unknown', 10)).toBe(false);
-      expect(corporation.cashReserves.unknown).toBeUndefined();
+      corporation.addCashReserve(100);
+      expect(corporation.spendCashReserve(200)).toBe(false);
+      expect(corporation.cashReserves).toBe(100);
     });
 
     test('should reject zero-value add and spend operations', () => {
-      expect(corporation.addCashReserve('trade', 0)).toBe(false);
-      expect(corporation.spendCashReserve('trade', 0)).toBe(false);
-      expect(corporation.cashReserves.trade).toBe(0);
+      expect(corporation.addCashReserve(0)).toBe(false);
+      expect(corporation.spendCashReserve(0)).toBe(false);
+      expect(corporation.cashReserves).toBe(0);
     });
 
-    test('should calculate total cash reserves across all categories', () => {
-      corporation.addCashReserve('trade', 400);
-      corporation.addCashReserve('buildings', 600);
-      corporation.addCashReserve('stocks', 250);
+    test('should calculate total fungible cash reserves', () => {
+      corporation.addCashReserve(400);
+      corporation.addCashReserve(600);
+      corporation.addCashReserve(250);
       expect(corporation.getTotalCashReserves()).toBe(1250);
+    });
+
+    test('should normalize legacy object-based reserves to a numeric total', () => {
+      const legacyCorp = new Corporation('Legacy Corp', 'Legacy reserves', false, {
+        trade: 400,
+        buildings: 600,
+        stocks: 250
+      });
+      expect(legacyCorp.cashReserves).toBe(1250);
     });
   });
 
@@ -201,7 +197,7 @@ describe('Corporation', () => {
       corporation.addStellarObject(1);
       corporation.addShip(10);
       corporation.addGoods('Food', 100);
-      corporation.addCashReserve('operations', 500);
+      corporation.addCashReserve(500);
 
       const shipValues = { 10: 5000 };
       const goodPrices = { Food: 10 };

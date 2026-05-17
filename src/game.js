@@ -40,7 +40,7 @@ class Game {
       playerData.corporation?.name || 'Unknown Corp',
       playerData.corporation?.description || 'A trading company',
       true,  // isPlayerOwned
-      playerData.corporation?.cashReserves || {}
+      playerData.corporation?.cashReserves || 0
     );
     this.corporations.push(playerCorp);
     this.player.corporation = playerCorp;
@@ -221,7 +221,7 @@ class Game {
         description: this.player.corporation?.description || '',
         value: corporationValue,
         stellarObjects: this.player.corporation?.stellarObjects || [],
-        cashReserves: { ...(this.player.corporation?.cashReserves || {}) },
+        cashReserves: this.player.corporation?.cashReserves || 0,
         totalCashReserves: this.player.corporation?.getTotalCashReserves?.() || 0
       }
     };
@@ -708,7 +708,7 @@ class Game {
           corpData.name,
           corpData.description,
           corpData.isPlayerOwned,
-          corpData.cashReserves || {}
+          corpData.cashReserves || 0
         );
         corp.stellarObjects = corpData.stellarObjects || [];
         corp.ships = corpData.ships || [];

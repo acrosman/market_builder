@@ -288,14 +288,7 @@ describe('Game Module', () => {
       expect(state.corporation.description).toBe('A test corporation');
       expect(typeof state.corporation.value).toBe('number');
       expect(state.corporation.value).toBeGreaterThanOrEqual(0);
-      expect(state.corporation.cashReserves).toEqual({
-        trade: 0,
-        buildings: 0,
-        planets: 0,
-        stocks: 0,
-        ships: 0,
-        operations: 0
-      });
+      expect(state.corporation.cashReserves).toBe(0);
       expect(state.corporation.totalCashReserves).toBe(0);
     });
 
@@ -852,14 +845,14 @@ describe('Game Module', () => {
       test('should save and restore player corporation with stellar objects', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.corporation.addCashReserve('trade', 7500);
+        game.player.corporation.addCashReserve(7500);
 
         // Verify corporation has stellar objects before save
         expect(game.player.corporation).toBeDefined();
         expect(game.player.corporation.stellarObjects.length).toBeGreaterThan(0);
         const originalCorpName = game.player.corporation.name;
         const originalStellarObjects = [...game.player.corporation.stellarObjects];
-        const originalCashReserves = { ...game.player.corporation.cashReserves };
+        const originalCashReserves = game.player.corporation.cashReserves;
 
         // Save and load
         const saveData = game.getSaveData();
@@ -879,6 +872,17 @@ describe('Game Module', () => {
         expect(loadedGame.corporations).toBeDefined();
         expect(loadedGame.corporations.length).toBeGreaterThan(0);
         expect(loadedGame.corporations[0].name).toBe(originalCorpName);
+      });
+
+      test('should normalize legacy object-based corporation reserves on load', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const saveData = game.getSaveData();
+        saveData.corporations[0].cashReserves = { trade: 300, buildings: 200 };
+
+        const loadedGame = Game.loadGame(saveData);
+        expect(loadedGame.player.corporation.cashReserves).toBe(500);
       });
     });
   });
