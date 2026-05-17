@@ -17,5 +17,10 @@ module.exports = {
     'src/**/*.js',
     '!**/node_modules/**',
     '!**/vendor/**'
-  ]
+  ],
+  coverageThreshold: {
+    global: {
+      lines: 91
+    }
+  }
 };
