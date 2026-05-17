@@ -326,3 +326,44 @@ describe('get-universe-map-data IPC handler', () => {
     expect(result).toBeNull();
   });
 });
+
+describe('renderer-log scope validation', () => {
+  /**
+   * Validate and normalize renderer logger scope.
+   * @param {unknown} scope - The scope provided by renderer log payload.
+   * @returns {string|null} The normalized scope if valid, otherwise null.
+   */
+  const normalizeRendererLogScope = (scope) => {
+    if (typeof scope !== 'string') {
+      return null;
+    }
+
+    const normalizedScope = scope.trim();
+    if (normalizedScope.length === 0 || normalizedScope.length > 50) {
+      return null;
+    }
+
+    if (!/^[a-zA-Z0-9._-]+$/.test(normalizedScope)) {
+      return null;
+    }
+
+    return normalizedScope;
+  };
+
+  test('accepts valid renderer logger scope', () => {
+    expect(normalizeRendererLogScope('interface')).toBe('interface');
+    expect(normalizeRendererLogScope('ui.modal_manager')).toBe('ui.modal_manager');
+  });
+
+  test('rejects invalid scope types and lengths', () => {
+    expect(normalizeRendererLogScope(42)).toBeNull();
+    expect(normalizeRendererLogScope('')).toBeNull();
+    expect(normalizeRendererLogScope('x'.repeat(51))).toBeNull();
+  });
+
+  test('rejects multiline and unsafe scope content', () => {
+    expect(normalizeRendererLogScope('line1\nline2')).toBeNull();
+    expect(normalizeRendererLogScope('scope with spaces')).toBeNull();
+    expect(normalizeRendererLogScope('scope:colon')).toBeNull();
+  });
+});

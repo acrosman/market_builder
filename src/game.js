@@ -70,7 +70,7 @@ class Game {
       logger.debug('[DEBUG initializeGame] Assigned Farm World to corporation');
       logger.debug('[DEBUG initializeGame] Corporation stellar objects:', playerCorp.stellarObjects);
     } else {
-      logger.debug('[DEBUG initializeGame] WARNING: No Farm World found outside system 1!');
+      logger.warn('[DEBUG initializeGame] WARNING: No Farm World found outside system 1!');
     }
 
     // Create NPCs (one trader per system for now)
