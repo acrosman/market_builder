@@ -77,7 +77,7 @@
 
       _gameModal.classList.add('visible');
     } catch (error) {
-      console.error('Error loading modal:', error);
+      window.logger.error('Error loading modal:', error);
     }
   }
 
@@ -107,7 +107,7 @@
         textEl.textContent = message;
       }
     } catch (error) {
-      console.error('Error loading error message template:', error);
+      window.logger.error('Error loading error message template:', error);
       const p = document.createElement('p');
       p.className = 'error-message';
       p.textContent = message;
@@ -167,7 +167,7 @@
       const baseValue = ships[shipType]?.value || 0;
       return Math.floor(baseValue * 0.9);
     } catch (error) {
-      console.error('Error getting ship value:', error);
+      window.logger.error('Error getting ship value:', error);
       return 0;
     }
   }
@@ -629,7 +629,7 @@
 
     if (!allSystems || !Array.isArray(allSystems) || allSystems.length === 0) {
       _addMessage('message:jump_planner.no_systems_data');
-      console.error('[DEBUG openJumpPlanner] allSystems:', allSystems);
+      window.logger.error('[DEBUG openJumpPlanner] allSystems:', allSystems);
       return;
     }
 
@@ -638,7 +638,7 @@
 
       document.getElementById('calculate-route-btn').addEventListener('click', async () => {
         const destinationId = parseInt(document.getElementById('destination-system').value);
-        console.log('[DEBUG calculate-route] destinationId:', destinationId, 'currentSystemId:', currentSystemId);
+        window.logger.debug('[DEBUG calculate-route] destinationId:', destinationId, 'currentSystemId:', currentSystemId);
 
         const routeDisplay = document.getElementById('route-display');
 
@@ -662,7 +662,7 @@
           start: currentSystemId,
           destination: destinationId
         });
-        console.log('[DEBUG calculate-route] result:', result);
+        window.logger.debug('[DEBUG calculate-route] result:', result);
 
         if (!result.success) {
           await displayErrorMessage(routeDisplay, result.reason);

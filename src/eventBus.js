@@ -12,6 +12,9 @@
  *   onGameEnd(data) { ... }
  * }
  */
+const { createLogger } = require('./logger');
+const logger = createLogger('EventBus');
+
 class EventBus {
   constructor() {
     this.listeners = new Map();
@@ -124,7 +127,7 @@ class EventBus {
         try {
           callback(data);
         } catch (error) {
-          console.error(`Error in event listener for ${eventName}:`, error);
+          logger.error(`Error in event listener for ${eventName}:`, error);
         }
       });
     }
@@ -137,7 +140,7 @@ class EventBus {
         try {
           subscriber[methodName](data);
         } catch (error) {
-          console.error(`Error in subscriber method ${methodName} for ${eventName}:`, error);
+          logger.error(`Error in subscriber method ${methodName} for ${eventName}:`, error);
         }
       });
     }

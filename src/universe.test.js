@@ -192,14 +192,6 @@ describe('createUniverse', () => {
     const universe = createUniverse(5, 6, 3);
     expect(universe.systems.length).toBe(5);
 
-    // Debug: Log what objects were created
-    console.log('Stellar objects created:', universe.stellarObjects.map(obj => ({
-      id: obj.id,
-      type: obj.type,
-      className: obj.className,
-      location: obj.location
-    })));
-
     expect(universe.stellarObjects.length).toBe(3);
   });
 
@@ -773,4 +765,3 @@ describe('getUniqueName', () => {
     expect(name.length).toBeGreaterThan(0);
   });
 });
-

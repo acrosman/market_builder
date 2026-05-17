@@ -58,14 +58,12 @@ describe('interface.js (integration)', () => {
   });
 
   test('clicking load-game-btn handles invoke rejection gracefully', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => { });
     mockApi.invoke.mockRejectedValue(new Error('dialog error'));
     document.getElementById('load-game-btn').click();
     await new Promise(r => setTimeout(r, 0));
-    expect(consoleSpy).toHaveBeenCalledWith('Error opening load game dialog:', expect.any(Error));
+    expect(window.logger.error).toHaveBeenCalledWith('Error opening load game dialog:', expect.any(Error));
     expect(alertSpy).toHaveBeenCalledWith('Error opening file dialog');
-    consoleSpy.mockRestore();
     alertSpy.mockRestore();
   });
 });

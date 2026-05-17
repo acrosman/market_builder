@@ -149,24 +149,20 @@ describe('modalManager', () => {
 
     test('logs error and returns when fetch fails', async () => {
       global.fetch.mockResolvedValue({ ok: false });
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       await modalManager.loadModal('Test', './modals/not-found.html');
 
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(window.logger.error).toHaveBeenCalled();
       const modal = document.getElementById('game-modal');
       expect(modal.classList.contains('visible')).toBe(false);
-      consoleSpy.mockRestore();
     });
 
     test('logs error when fetch throws', async () => {
       global.fetch.mockRejectedValue(new Error('Network error'));
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       await modalManager.loadModal('Test', './modals/test.html');
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(window.logger.error).toHaveBeenCalled();
     });
   });
 
@@ -190,14 +186,13 @@ describe('modalManager', () => {
       const container = document.createElement('div');
       document.body.appendChild(container);
       global.fetch.mockRejectedValue(new Error('fail'));
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       await modalManager.displayErrorMessage(container, 'Error text');
 
       const p = container.querySelector('p.error-message');
       expect(p).not.toBeNull();
       expect(p.textContent).toBe('Error text');
-      consoleSpy.mockRestore();
+      expect(window.logger.error).toHaveBeenCalled();
     });
   });
 
@@ -913,7 +908,6 @@ describe('modalManager', () => {
       mockApi.getUniverseState.mockResolvedValue({ stellarObjects: [] });
       // Simulate error from getGameData
       mockApi.getGameData.mockRejectedValue(new Error('Ship data not found'));
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       await modalManager.openCorporationStatusModal();
 
@@ -921,7 +915,7 @@ describe('modalManager', () => {
       if (shipValueEl) {
         expect(shipValueEl.textContent).toBe('0');
       }
-      consoleSpy.mockRestore();
+      expect(window.logger.error).toHaveBeenCalled();
     });
   });
 });

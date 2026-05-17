@@ -5,12 +5,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createLogger } = require('./src/logger');
 
 describe('get-game-messages IPC handler', () => {
   let messagesData;
   let getGameMessages;
 
   beforeEach(() => {
+    const logger = createLogger('main.test');
+
     // Load the actual game messages file
     const messagesPath = path.join(__dirname, 'data', 'default', 'en-us', 'game_messages.json');
     messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
@@ -37,7 +40,7 @@ describe('get-game-messages IPC handler', () => {
         // Return all messages if no key specified
         return messagesData;
       } catch (error) {
-        console.error('Error loading game messages:', error);
+        logger.error('Error loading game messages:', error);
         return null;
       }
     };

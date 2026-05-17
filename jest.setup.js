@@ -9,3 +9,14 @@ if (typeof global.TextEncoder === 'undefined') {
 if (typeof global.TextDecoder === 'undefined') {
   global.TextDecoder = require('util').TextDecoder;
 }
+
+beforeEach(() => {
+  if (typeof window !== 'undefined') {
+    window.logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn()
+    };
+  }
+});
