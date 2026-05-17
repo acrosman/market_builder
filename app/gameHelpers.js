@@ -43,9 +43,23 @@
     });
   }
 
+  /**
+   * Load an HTML template file and return its text contents.
+   * @param {string} templatePath - Relative template path.
+   * @returns {Promise<string>} Template HTML as text.
+   */
+  async function loadTemplate(templatePath) {
+    const response = await fetch(templatePath);
+    if (!response.ok) {
+      throw new Error(`Failed to load template: ${templatePath}`);
+    }
+    return response.text();
+  }
+
   const api = {
     calculateCargoMass,
-    replaceMessageVariables
+    replaceMessageVariables,
+    loadTemplate
   };
 
   if (typeof window !== 'undefined') {

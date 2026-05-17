@@ -66,12 +66,7 @@
    */
   async function loadModal(title, contentFile, onLoad) {
     try {
-      const response = await fetch(contentFile);
-      if (!response.ok) {
-        console.error(`Failed to load modal content: ${contentFile}`);
-        return;
-      }
-      const html = await response.text();
+      const html = await window.gameHelpers.loadTemplate(contentFile);
 
       _modalTitle.textContent = title;
       _modalBody.innerHTML = html;
@@ -105,8 +100,7 @@
    */
   async function displayErrorMessage(container, message) {
     try {
-      const response = await fetch('./templates/error-message.html');
-      const template = await response.text();
+      const template = await window.gameHelpers.loadTemplate('./templates/error-message.html');
       container.innerHTML = template;
       const textEl = document.getElementById('error-message-text');
       if (textEl) {
@@ -198,7 +192,7 @@
       }
 
       const universeState = await _api.getUniverseState();
-      const assetItemTemplate = await fetch('./templates/asset-item.html').then(r => r.text());
+      const assetItemTemplate = await window.gameHelpers.loadTemplate('./templates/asset-item.html');
 
       const planetsList = document.getElementById('corp-planets-list');
       if (corporation.stellarObjects && corporation.stellarObjects.length > 0) {
@@ -292,24 +286,7 @@
 
       let cargoUsed = 0;
       const cargo = playerState.cargo || {};
-
-      for (const [goodName, quantity] of Object.entries(cargo)) {
-        if (goodName === 'passengers') continue;
-        const good = goodsData[goodName];
-        if (good && good.finishedMass) {
-          const mass = good.finishedMass.mass;
-          const units = good.finishedMass.units;
-          if (units === 'metric tons') {
-            cargoUsed += mass * quantity;
-          } else if (units === 'kilograms') {
-            cargoUsed += (mass * quantity) / 1000;
-          }
-        }
-      }
-
-      if (cargo.passengers) {
-        cargoUsed += cargo.passengers / 10;
-      }
+      cargoUsed = window.gameHelpers.calculateCargoMass(cargo, goodsData);
 
       const cargoCapacity = shipData.cargoCapacity;
 
@@ -326,7 +303,7 @@
           noGoods.textContent = 'No goods available for purchase.';
           goodsToBuyDiv.appendChild(noGoods);
         } else {
-          const tradeItemTemplate = await fetch('./templates/trade-item.html').then(r => r.text());
+          const tradeItemTemplate = await window.gameHelpers.loadTemplate('./templates/trade-item.html');
           for (const [goodName, quantity] of Object.entries(inventory)) {
             if (quantity > 0) {
               const good = goodsData[goodName];
@@ -374,7 +351,7 @@
         emptyCargo.textContent = 'Your cargo is empty.';
         goodsToSellDiv.appendChild(emptyCargo);
       } else {
-        const tradeItemTemplate = await fetch('./templates/trade-item.html').then(r => r.text());
+        const tradeItemTemplate = await window.gameHelpers.loadTemplate('./templates/trade-item.html');
         for (const [goodName, quantity] of Object.entries(cargo)) {
           if (goodName === 'passengers') continue;
           if (quantity > 0) {
@@ -692,8 +669,7 @@
           return;
         }
 
-        const response = await fetch('./modals/jump-route-display.html');
-        const template = await response.text();
+        const template = await window.gameHelpers.loadTemplate('./modals/jump-route-display.html');
         document.getElementById('route-display').innerHTML = template;
 
         const route = result.route;
@@ -912,7 +888,7 @@
       return;
     }
 
-    const template = await fetch('./templates/system-details.html').then(r => r.text());
+    const template = await window.gameHelpers.loadTemplate('./templates/system-details.html');
     detailsDiv.innerHTML = template;
 
     document.getElementById('system-name').textContent = system.name;
@@ -933,7 +909,7 @@
     objectsList.innerHTML = '';
 
     if (systemObjects.length > 0) {
-      const itemTemplate = await fetch('./templates/stellar-object-item.html').then(r => r.text());
+      const itemTemplate = await window.gameHelpers.loadTemplate('./templates/stellar-object-item.html');
       systemObjects.forEach(obj => {
         const itemDiv = document.createElement('div');
         itemDiv.innerHTML = itemTemplate;

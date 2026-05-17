@@ -121,7 +121,7 @@ document.addEventListener(
      */
     async function displayStellarObjectProperties(obj) {
       try {
-        const template = await fetch('./templates/stellar-object-properties.html').then(r => r.text());
+        const template = await window.gameHelpers.loadTemplate('./templates/stellar-object-properties.html');
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = template;
         const propertiesElement = tempDiv.firstElementChild;
@@ -222,8 +222,7 @@ document.addEventListener(
       const objectsList = objects.map(obj => `${obj.type} (${obj.className})`).join(', ');
 
       try {
-        const response = await fetch('./templates/location-status.html');
-        const template = await response.text();
+        const template = await window.gameHelpers.loadTemplate('./templates/location-status.html');
         locationStatus.innerHTML = template;
 
         document.getElementById('system-name').textContent = system.name;
@@ -317,8 +316,7 @@ document.addEventListener(
       }
 
       try {
-        const response = await fetch('./templates/ship-status.html');
-        const template = await response.text();
+        const template = await window.gameHelpers.loadTemplate('./templates/ship-status.html');
         shipStatus.innerHTML = template;
 
         document.getElementById('ship-type').textContent = shipType;

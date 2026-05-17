@@ -1,4 +1,5 @@
 const modalManager = require('./modalManager');
+const gameHelpers = require('./gameHelpers');
 
 describe('modalManager', () => {
   let mockApi;
@@ -42,11 +43,13 @@ describe('modalManager', () => {
     modalManager.init(mockContext);
 
     global.fetch = jest.fn();
+    window.gameHelpers = gameHelpers;
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     document.body.innerHTML = '';
+    delete window.gameHelpers;
   });
 
   describe('init', () => {

@@ -46,8 +46,7 @@
       } else {
         _addMessage('message:navigation.jump_failed', { reason: result.reason });
       }
-      _enableAllButtons();
-      setCommandInputBusy(false);
+      _finishAction();
     });
 
     _api.receive('dock-result', async (result) => {
@@ -61,8 +60,7 @@
       } else {
         _addMessage('message:navigation.dock_failed', { reason: result.reason });
       }
-      _enableAllButtons();
-      setCommandInputBusy(false);
+      _finishAction();
     });
 
     _api.receive('land-result', async (result) => {
@@ -77,8 +75,7 @@
       } else {
         _addMessage('message:navigation.land_failed', { reason: result.reason });
       }
-      _enableAllButtons();
-      setCommandInputBusy(false);
+      _finishAction();
     });
 
     _api.receive('takeoff-result', async (result) => {
@@ -89,8 +86,7 @@
       } else {
         _addMessage('message:navigation.takeoff_failed', { reason: result.reason });
       }
-      _enableAllButtons();
-      setCommandInputBusy(false);
+      _finishAction();
     });
   }
 
@@ -101,6 +97,31 @@
     document.querySelectorAll('.action-btn').forEach(btn => {
       btn.disabled = false;
     });
+  }
+
+  /**
+   * Disable all action buttons while an operation is in progress.
+   */
+  function _disableAllButtons() {
+    document.querySelectorAll('.action-btn').forEach(btn => {
+      btn.disabled = true;
+    });
+  }
+
+  /**
+   * Apply the busy state for command-driven actions.
+   */
+  function _startAction() {
+    _disableAllButtons();
+    setCommandInputBusy(true);
+  }
+
+  /**
+   * Clear busy state after command-driven actions complete.
+   */
+  function _finishAction() {
+    _enableAllButtons();
+    setCommandInputBusy(false);
   }
 
   /**
@@ -176,8 +197,7 @@
    */
   function handleJump(targetSystemId) {
     _addMessage('message:navigation.jumping', { systemId: targetSystemId });
-    document.querySelectorAll('.action-btn').forEach(btn => { btn.disabled = true; });
-    setCommandInputBusy(true);
+    _startAction();
     _api.send('jump-to-system', targetSystemId);
   }
 
@@ -188,9 +208,7 @@
    */
   function handleDock(objectId, objectName) {
     _addMessage('message:navigation.docking_request', { objectName });
-    document.querySelectorAll('.action-btn').forEach(btn => { btn.disabled = true; });
-    document.querySelectorAll('#jump-buttons .action-btn').forEach(btn => { btn.disabled = true; });
-    setCommandInputBusy(true);
+    _startAction();
     _api.send('dock-at-station', objectId);
   }
 
@@ -201,9 +219,7 @@
    */
   function handleLand(objectId, objectName) {
     _addMessage('message:navigation.landing_request', { objectName });
-    document.querySelectorAll('.action-btn').forEach(btn => { btn.disabled = true; });
-    document.querySelectorAll('#jump-buttons .action-btn').forEach(btn => { btn.disabled = true; });
-    setCommandInputBusy(true);
+    _startAction();
     const numericObjectId = typeof objectId === 'string' ? parseInt(objectId, 10) : objectId;
     _api.send('land-on-surface', numericObjectId);
   }
@@ -213,8 +229,7 @@
    */
   function handleTakeOff() {
     _addMessage('message:navigation.taking_off');
-    document.querySelectorAll('.action-btn').forEach(btn => { btn.disabled = true; });
-    setCommandInputBusy(true);
+    _startAction();
     _api.send('take-off');
   }
 
@@ -284,8 +299,7 @@
     _addMessage('message:jump_planner.sequence_start', { destinationId: route[route.length - 1] });
     _addMessage('message:jump_planner.route_display', { route: route.join(' → ') });
 
-    document.querySelectorAll('.action-btn').forEach(btn => { btn.disabled = true; });
-    setCommandInputBusy(true);
+    _startAction();
 
     for (let i = 1; i < route.length; i++) {
       const targetSystemId = route[i];
@@ -307,8 +321,7 @@
           systemId: targetSystemId,
           reason: result.reason
         });
-        _enableAllButtons();
-        setCommandInputBusy(false);
+        _finishAction();
         return;
       }
 
@@ -322,8 +335,7 @@
     }
 
     _addMessage('message:jump_planner.sequence_complete', { destinationId: route[route.length - 1] });
-    _enableAllButtons();
-    setCommandInputBusy(false);
+    _finishAction();
   }
 
   /**

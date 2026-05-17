@@ -1,4 +1,4 @@
-const { calculateCargoMass, replaceMessageVariables } = require('./gameHelpers');
+const { calculateCargoMass, replaceMessageVariables, loadTemplate } = require('./gameHelpers');
 
 describe('gameHelpers', () => {
   describe('calculateCargoMass', () => {
@@ -97,6 +97,30 @@ describe('gameHelpers', () => {
     test('does not replace partial token syntax', () => {
       expect(replaceMessageVariables('no {braces here', { braces: 'X' }))
         .toBe('no {braces here');
+    });
+  });
+
+  describe('loadTemplate', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('returns template text when fetch succeeds', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: jest.fn().mockResolvedValue('<div>template</div>')
+      });
+
+      await expect(loadTemplate('./templates/example.html')).resolves.toBe('<div>template</div>');
+      expect(global.fetch).toHaveBeenCalledWith('./templates/example.html');
+    });
+
+    test('throws when fetch response is not ok', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, text: jest.fn() });
+
+      await expect(loadTemplate('./templates/missing.html'))
+        .rejects
+        .toThrow('Failed to load template: ./templates/missing.html');
     });
   });
 });

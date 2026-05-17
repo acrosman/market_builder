@@ -3,6 +3,8 @@
  * Tests the DOMContentLoaded initialization and core coordinator functions
  */
 
+const gameHelpers = require('./gameHelpers');
+
 function buildFullDom() {
   document.body.innerHTML = `
     <div id="game-console"></div>
@@ -127,6 +129,7 @@ async function loadGameJs() {
   window.commandParser = { parse: jest.fn() };
   window.gameHelpers = {
     calculateCargoMass: jest.fn().mockReturnValue(0),
+    loadTemplate: gameHelpers.loadTemplate,
     replaceMessageVariables: jest.fn((msg, vars) => {
       return msg.replace(/\{(\w+)\}/g, (match, key) =>
         vars[key] !== undefined ? String(vars[key]) : match
