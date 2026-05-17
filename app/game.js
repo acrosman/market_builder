@@ -1025,8 +1025,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('corp-description').textContent = corporation.description;
       document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
       const cashReserves = corporation.cashReserves || {};
-      const totalCashReserves = corporation.totalCashReserves ||
-        Object.values(cashReserves).reduce((total, amount) => total + amount, 0);
+      const totalCashReserves = corporation.totalCashReserves || 0;
 
       const cashTotalElement = document.getElementById('corp-cash-total');
       if (cashTotalElement) {

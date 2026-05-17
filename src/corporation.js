@@ -130,7 +130,6 @@ class Corporation {
    */
   spendCashReserve(category, amount) {
     if (
-      !category ||
       typeof amount !== 'number' ||
       amount <= 0 ||
       !this.isValidCashReserveCategory(category) ||
