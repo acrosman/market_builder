@@ -11,11 +11,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loadGameBtn = document.getElementById('load-game-btn');
   const playerStatusBtn = document.getElementById('player-status-btn');
   const gameSettingsBtn = document.getElementById('game-settings-btn');
+  const commandParser = window.commandParser;
+
+  const commandAliases = {
+    l: 'land',
+    d: 'dock',
+    j: 'jump planner',
+    s: 'save game'
+  };
 
   // Store current location state for access in other functions
   let currentLocationState = null;
   let currentDockedAt = null;
   let currentLandedOn = null;
+  let isProcessingInputCommand = false;
 
   // Update location display
   async function updateLocationDisplay() {
@@ -400,11 +409,223 @@ document.addEventListener('DOMContentLoaded', async () => {
   addMessage('message:ui.welcome');
   addMessage('message:ui.help_prompt');
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && input.value.trim()) {
-      addMessage("> " + input.value.trim());
-      // TODO: Send command to game engine and display response
+  /**
+   * Enable or disable command input while an action is in progress.
+   * @param {boolean} isBusy - True when command input should be disabled.
+   */
+  function setCommandInputBusy(isBusy) {
+    input.disabled = isBusy;
+  }
+
+  /**
+   * Return buttons that are command-addressable from the game console.
+   * @returns {HTMLButtonElement[]} List of command buttons.
+   */
+  function getCommandButtons() {
+    const selectors = [
+      '#jump-planner-btn',
+      '#universe-map-btn',
+      '#save-game-btn',
+      '#load-game-btn',
+      '#player-status-btn',
+      '#game-settings-btn',
+      '#jump-buttons .action-btn',
+      '#local-buttons .action-btn'
+    ];
+
+    return selectors.flatMap((selector) => Array.from(document.querySelectorAll(selector)));
+  }
+
+  /**
+   * Click a button from command input if it is available.
+   * @param {HTMLButtonElement|null} button - Button to execute.
+   * @returns {boolean} True when a matching button was found.
+   */
+  function executeCommandButton(button) {
+    if (!button) {
+      return false;
+    }
+
+    const commandLabel = button.textContent.trim();
+    if (button.disabled) {
+      addMessage('message:commands.unavailable', { command: commandLabel });
+      return true;
+    }
+
+    button.click();
+    return true;
+  }
+
+  /**
+   * Execute the first available local action button by action name.
+   * @param {string} actionName - Local action dataset name.
+   * @returns {boolean} True if a matching local action exists.
+   */
+  function executeLocalActionShortcut(actionName) {
+    const localButtons = Array.from(document.querySelectorAll('#local-buttons .action-btn'))
+      .filter((button) => button.dataset.action === actionName);
+
+    if (localButtons.length === 0) {
+      addMessage('message:commands.no_action_available', { action: actionName });
+      return true;
+    }
+
+    const availableButton = localButtons.find((button) => !button.disabled) || localButtons[0];
+    return executeCommandButton(availableButton);
+  }
+
+  /**
+   * Resolve a localized message string for command prompts.
+   * @param {string} messageKey - Message key in game_messages.json.
+   * @param {Object} vars - Variables used to replace tokens.
+   * @param {string} fallback - Fallback text if message lookup fails.
+   * @returns {Promise<string>} Resolved message text.
+   */
+  async function resolveMessageText(messageKey, vars = {}, fallback = '') {
+    try {
+      const message = await window.api.invoke('get-game-messages', messageKey);
+      if (typeof message !== 'string') {
+        return fallback;
+      }
+
+      return message.replace(/\{(\w+)\}/g, (match, variable) => {
+        return vars[variable] !== undefined ? vars[variable] : match;
+      });
+    } catch (error) {
+      console.error('Error resolving message text:', error);
+      return fallback;
+    }
+  }
+
+  /**
+   * Offer route calculation and jump sequence to a destination system.
+   * @param {number} destinationId - Destination system ID.
+   */
+  async function offerRouteAndJump(destinationId) {
+    const locationState = await window.api.getLocationState();
+    if (!locationState) {
+      return;
+    }
+
+    if (locationState.playerState?.dockedAt != null || locationState.playerState?.landedOn != null) {
+      addMessage('message:commands.takeoff_required');
+      return;
+    }
+
+    const currentSystemId = locationState.playerState.location;
+    if (destinationId === currentSystemId) {
+      addMessage('message:commands.already_here', { systemId: destinationId });
+      return;
+    }
+
+    const allSystems = await window.api.invoke('get-all-systems');
+    const destinationExists = Array.isArray(allSystems) && allSystems.some((system) => system.id === destinationId);
+    if (!destinationExists) {
+      addMessage('message:commands.system_not_found', { systemId: destinationId });
+      return;
+    }
+
+    const routeResult = await window.api.invoke('calculate-jump-route', {
+      start: currentSystemId,
+      destination: destinationId
+    });
+
+    if (!routeResult.success) {
+      addMessage('message:commands.route_failed', { reason: routeResult.reason });
+      return;
+    }
+
+    const routeJumps = routeResult.route.length - 1;
+    const confirmPrompt = await resolveMessageText(
+      'commands.route_confirm_prompt',
+      {
+        destinationId,
+        jumps: routeJumps,
+        cost: routeResult.cost
+      },
+      `Plot route to System ${destinationId} (${routeJumps} jumps, ${routeResult.cost} ticks) and start jump sequence?`
+    );
+
+    if (!window.confirm(confirmPrompt)) {
+      addMessage('message:commands.route_cancelled', { systemId: destinationId });
+      return;
+    }
+
+    closeModal();
+    executeJumpSequence(routeResult.route);
+  }
+
+  /**
+   * Execute a typed command from the game console input.
+   * @param {string} rawCommand - Raw command text from the input field.
+   */
+  async function executeInputCommand(rawCommand) {
+    const normalizedCommand = commandParser.normalizeCommandText(rawCommand);
+    if (!normalizedCommand) {
+      return;
+    }
+
+    const numericSystemId = commandParser.parseNumericSystemId(normalizedCommand);
+    if (numericSystemId !== null) {
+      await offerRouteAndJump(numericSystemId);
+      return;
+    }
+
+    const canonicalCommand = commandParser.applyAlias(normalizedCommand, commandAliases);
+    const jumpTargetSystemId = commandParser.parseJumpSystemId(canonicalCommand);
+    if (jumpTargetSystemId !== null) {
+      const directJumpButton = document.querySelector(`#jump-buttons .action-btn[data-target-system="${jumpTargetSystemId}"]`);
+      if (!executeCommandButton(directJumpButton)) {
+        await offerRouteAndJump(jumpTargetSystemId);
+      }
+      return;
+    }
+
+    if (canonicalCommand === 'dock') {
+      executeLocalActionShortcut('dock');
+      return;
+    }
+
+    if (canonicalCommand === 'land') {
+      executeLocalActionShortcut('land');
+      return;
+    }
+
+    const commandButtons = getCommandButtons();
+    const exactMatch = commandButtons.find((button) => {
+      return commandParser.normalizeCommandText(button.textContent) === canonicalCommand;
+    });
+    if (executeCommandButton(exactMatch)) {
+      return;
+    }
+
+    const labels = commandButtons.map((button) => button.textContent);
+    const uniqueMatchLabel = commandParser.resolveUniqueFirstWord(canonicalCommand, labels);
+    if (uniqueMatchLabel) {
+      const uniqueMatchButton = commandButtons.find((button) => {
+        return commandParser.normalizeCommandText(button.textContent) === uniqueMatchLabel;
+      });
+
+      if (executeCommandButton(uniqueMatchButton)) {
+        return;
+      }
+    }
+
+    addMessage('message:commands.unknown', { command: rawCommand.trim() });
+  }
+
+  input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && input.value.trim() && !isProcessingInputCommand) {
+      const rawCommand = input.value.trim();
+      addMessage(`> ${rawCommand}`);
       input.value = '';
+
+      isProcessingInputCommand = true;
+      try {
+        await executeInputCommand(rawCommand);
+      } finally {
+        isProcessingInputCommand = false;
+      }
     }
   });
 
@@ -486,6 +707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Disable all action buttons during takeoff
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = true);
+      setCommandInputBusy(true);
       // Send takeoff request to main process
       window.api.send('take-off');
     }
@@ -497,6 +719,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Disable all jump buttons during the jump process
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
+    setCommandInputBusy(true);
 
     // Send jump request to main process
     window.api.send('jump-to-system', targetSystemId);
@@ -515,6 +738,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = false);
+      setCommandInputBusy(false);
     } else {
       // Jump failed
       addMessage(`Jump failed: ${result.reason}`);
@@ -522,6 +746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = false);
+      setCommandInputBusy(false);
     }
   });
 
@@ -541,6 +766,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = false);
+      setCommandInputBusy(false);
     } else {
       // Dock failed
       addMessage(`Docking failed: ${result.reason}`);
@@ -548,6 +774,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = false);
+      setCommandInputBusy(false);
     }
   });
 
@@ -570,6 +797,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = false);
+      setCommandInputBusy(false);
     } else {
       // Land failed
       addMessage(`Landing failed: ${result.reason}`);
@@ -577,6 +805,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Re-enable buttons
       const buttons = document.querySelectorAll('.action-btn');
       buttons.forEach(btn => btn.disabled = false);
+      setCommandInputBusy(false);
     }
   });
 
@@ -593,6 +822,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Re-enable buttons
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = false);
+    setCommandInputBusy(false);
   });
 
   function handleDock(objectId, objectName) {
@@ -601,6 +831,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Disable all action buttons during the docking process
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
+    setCommandInputBusy(true);
 
     // Additionally, disable navigation (jump) buttons immediately
     const jumpButtons = document.querySelectorAll('#jump-buttons .action-btn');
@@ -616,6 +847,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Disable all action buttons during the landing process
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
+    setCommandInputBusy(true);
 
     // Additionally, disable navigation (jump) buttons immediately
     const jumpButtons = document.querySelectorAll('#jump-buttons .action-btn');
@@ -1662,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Disable all action buttons during the sequence
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
+    setCommandInputBusy(true);
 
     // Execute jumps one at a time, skipping the first (current location)
     for (let i = 1; i < route.length; i++) {
@@ -1680,6 +1913,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!result.success) {
         addMessage(`Jump sequence failed at System ${targetSystemId}: ${result.reason}`);
         buttons.forEach(btn => btn.disabled = false);
+        setCommandInputBusy(false);
         return;
       }
 
@@ -1695,5 +1929,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     addMessage('message:jump_planner.sequence_complete', { destinationId: route[route.length - 1] });
     buttons.forEach(btn => btn.disabled = false);
+    setCommandInputBusy(false);
   }
 });
