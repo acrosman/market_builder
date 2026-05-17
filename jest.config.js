@@ -15,6 +15,7 @@ module.exports = {
   collectCoverageFrom: [
     'app/**/*.js',
     'src/**/*.js',
+    '!app/game.js',
     '!app/**/*.test.js',
     '!src/**/*.test.js',
     '!**/node_modules/**',
