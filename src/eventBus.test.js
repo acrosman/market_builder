@@ -157,4 +157,66 @@ describe('EventBus', () => {
       expect(eventBus.listenerCount('non-existent')).toBe(0);
     });
   });
+
+  describe('subscribe()', () => {
+    test('should throw when subscriber is not an object', () => {
+      expect(() => eventBus.subscribe('tick', null)).toThrow('Subscriber must be an object');
+      expect(() => eventBus.subscribe('tick', 'string')).toThrow('Subscriber must be an object');
+    });
+
+    test('should throw when subscriber does not implement required method', () => {
+      const badSubscriber = {};
+      expect(() => eventBus.subscribe('tick', badSubscriber)).toThrow(
+        "Subscriber must implement onTick() method for 'tick' events"
+      );
+    });
+
+    test('should call subscriber method when event is emitted', () => {
+      const subscriber = { onTick: jest.fn() };
+      eventBus.subscribe('tick', subscriber);
+
+      eventBus.emit('tick', { ticks: 1 });
+
+      expect(subscriber.onTick).toHaveBeenCalledWith({ ticks: 1 });
+    });
+
+    test('returned unsubscribe function removes the subscriber', () => {
+      const subscriber = { onTick: jest.fn() };
+      const unsubscribe = eventBus.subscribe('tick', subscriber);
+
+      unsubscribe();
+      eventBus.emit('tick', { ticks: 1 });
+
+      expect(subscriber.onTick).not.toHaveBeenCalled();
+    });
+
+    test('should log error when subscriber method throws', () => {
+      const subscriber = {
+        onTick: jest.fn(() => { throw new Error('subscriber error'); })
+      };
+      console.error = jest.fn();
+
+      eventBus.subscribe('tick', subscriber);
+      eventBus.emit('tick', { ticks: 1 });
+
+      expect(console.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('unsubscribe()', () => {
+    test('should remove a subscriber', () => {
+      const subscriber = { onTick: jest.fn() };
+      eventBus.subscribe('tick', subscriber);
+
+      eventBus.unsubscribe('tick', subscriber);
+      eventBus.emit('tick', { ticks: 1 });
+
+      expect(subscriber.onTick).not.toHaveBeenCalled();
+    });
+
+    test('should not throw when event has no subscribers', () => {
+      const subscriber = { onTick: jest.fn() };
+      expect(() => eventBus.unsubscribe('tick', subscriber)).not.toThrow();
+    });
+  });
 });

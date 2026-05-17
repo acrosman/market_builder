@@ -15,6 +15,10 @@ module.exports = {
   collectCoverageFrom: [
     'app/**/*.js',
     'src/**/*.js',
+    // app/game.js excluded pending refactor (too large to test in scope of this PR)
+    '!app/game.js',
+    '!app/**/*.test.js',
+    '!src/**/*.test.js',
     '!**/node_modules/**',
     '!**/vendor/**'
   ],
