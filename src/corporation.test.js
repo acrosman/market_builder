@@ -145,6 +145,13 @@ describe('Corporation', () => {
     test('should reject unknown reserve categories', () => {
       expect(corporation.addCashReserve('unknown', 50)).toBe(false);
       expect(corporation.spendCashReserve('unknown', 10)).toBe(false);
+      expect(corporation.cashReserves.unknown).toBeUndefined();
+    });
+
+    test('should reject zero-value add and spend operations', () => {
+      expect(corporation.addCashReserve('trade', 0)).toBe(false);
+      expect(corporation.spendCashReserve('trade', 0)).toBe(false);
+      expect(corporation.cashReserves.trade).toBe(0);
     });
 
     test('should calculate total cash reserves across all categories', () => {

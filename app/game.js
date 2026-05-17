@@ -1024,8 +1024,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('corp-name').textContent = corporation.name;
       document.getElementById('corp-description').textContent = corporation.description;
       document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
-      const cashReserves = corporation.cashReserves || {};
-      const totalCashReserves = corporation.totalCashReserves || 0;
+      const cashReserves = corporation.cashReserves;
+      const totalCashReserves = corporation.totalCashReserves;
 
       const cashTotalElement = document.getElementById('corp-cash-total');
       if (cashTotalElement) {
@@ -1044,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       Object.entries(reserveFields).forEach(([category, elementId]) => {
         const reserveElement = document.getElementById(elementId);
         if (reserveElement) {
-          reserveElement.textContent = (cashReserves[category] || 0).toLocaleString();
+          reserveElement.textContent = cashReserves[category].toLocaleString();
         }
       });
 
