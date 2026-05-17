@@ -331,3 +331,113 @@ describe('New Game Form', () => {
     });
   });
 });
+
+describe('New Game Module Integration', () => {
+  let receiveHandlers;
+
+  function setupD3Mock() {
+    const chain = () => ({
+      attr: jest.fn(function () { return this; }),
+      style: jest.fn(function () { return this; }),
+      call: jest.fn(function () { return this; }),
+      append: jest.fn(function () { return chain(); }),
+      insert: jest.fn(function () { return chain(); }),
+      selectAll: jest.fn(function () { return chain(); }),
+      remove: jest.fn(function () { return this; }),
+      data: jest.fn(function () { return this; }),
+      join: jest.fn(function () { return chain(); }),
+      on: jest.fn(function () { return this; }),
+      text: jest.fn(function () { return this; }),
+      transition: jest.fn(function () { return chain(); }),
+      duration: jest.fn(function () { return this; }),
+      node: jest.fn(() => ({ getBBox: jest.fn(() => ({ x: 0, y: 0, width: 100, height: 100 })) }))
+    });
+
+    global.d3 = {
+      select: jest.fn(() => chain()),
+      scaleOrdinal: jest.fn(() => {
+        const scale = jest.fn(() => '#111');
+        scale.domain = jest.fn(function () { return scale; });
+        scale.range = jest.fn(function () { return scale; });
+        return scale;
+      }),
+      schemeCategory10: ['#111', '#222', '#333'],
+      forceSimulation: jest.fn(() => ({
+        force: jest.fn(function () { return this; }),
+        on: jest.fn(function () { return this; })
+      })),
+      forceLink: jest.fn(() => ({ id: jest.fn(function () { return this; }), distance: jest.fn(function () { return this; }) })),
+      forceManyBody: jest.fn(() => ({ strength: jest.fn(function () { return this; }) })),
+      forceCenter: jest.fn(() => ({})),
+      zoom: jest.fn(() => ({ scaleExtent: jest.fn(function () { return this; }), on: jest.fn(function () { return this; }) })),
+      zoomIdentity: { translate: jest.fn(function () { return this; }), scale: jest.fn(function () { return this; }) },
+      drag: jest.fn(() => ({ on: jest.fn(function () { return this; }) }))
+    };
+  }
+
+  function loadModule() {
+    jest.resetModules();
+    setupD3Mock();
+    receiveHandlers = {};
+    window.api = {
+      send: jest.fn(),
+      receive: jest.fn((channel, handler) => {
+        receiveHandlers[channel] = handler;
+      })
+    };
+    require('./new_game');
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <form id="new-game-form">
+        <input type="number" name="systemCount" value="10" />
+        <input type="number" name="connectionCount" value="3" />
+        <input type="number" name="stellarObjectCount" value="20" />
+        <button id="generate-btn" type="submit">Generate Universe</button>
+      </form>
+      <button id="close-btn">Close</button>
+      <button id="proceed-btn" style="display:none;">Proceed</button>
+      <div id="universe-diagram"></div>
+      <div class="universe-view"></div>
+      <div class="universe-info"></div>
+    `;
+    jest.spyOn(window, 'close').mockImplementation(() => { });
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    delete window.api;
+    if (window.close && window.close.mockRestore) {
+      window.close.mockRestore();
+    }
+  });
+
+  test('wires the real submit handler and sends create-universe', () => {
+    loadModule();
+
+    document.getElementById('new-game-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(window.api.send).toHaveBeenCalledWith('create-universe', {
+      systemCount: 10,
+      connectionCount: 3,
+      stellarObjectCount: 20
+    });
+    expect(document.getElementById('generate-btn').disabled).toBe(true);
+  });
+
+  test('processes universe-created events and shows proceed button', () => {
+    loadModule();
+
+    receiveHandlers['universe-created']({
+      graph: {
+        systems: [{ id: 1, name: 'Sol', connections: { 2: {} } }, { id: 2, name: 'Alpha', connections: { 1: {} } }],
+        stellarObjects: [{ id: 1, type: 'Planet', location: 1 }]
+      },
+      summary: { typeTotals: { Planet: 1 } }
+    });
+
+    expect(document.getElementById('generate-btn').disabled).toBe(false);
+    expect(document.getElementById('proceed-btn').style.display).toBe('block');
+  });
+});

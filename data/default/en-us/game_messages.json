@@ -22,25 +22,35 @@
     "taking_off": "Taking off...",
     "jumping": "Jumping to System {systemId}...",
     "jump_success": "Jump to {systemName} completed successfully.",
+    "jump_failed": "Jump failed: {reason}",
     "takeoff_success": "Takeoff successful.",
+    "takeoff_failed": "Takeoff failed: {reason}",
     "docking_request": "Requesting docking permission at {objectName}...",
     "landing_request": "Preparing for landing on {objectName}...",
     "dock_success": "Welcome to {objectName}. Docking sequence complete.",
-    "land_success": "Welcome to {objectName}. Landing sequence complete."
+    "dock_failed": "Docking failed: {reason}",
+    "land_success": "Welcome to {objectName}. Landing sequence complete.",
+    "land_failed": "Landing failed: {reason}"
   },
   "save_load": {
     "saving": "Saving game...",
     "save_success": "Game saved successfully. Save file: {savePath}",
+    "save_failed": "Failed to save game: {reason}",
     "loading": "Loading game...",
     "load_recent": "Loading most recent save: {savePath}",
-    "load_success": "Game loaded successfully."
+    "load_success": "Game loaded successfully.",
+    "load_failed": "Failed to load game: {reason}",
+    "load_dialog_error": "Error opening file dialog."
   },
   "jump_planner": {
     "sequence_start": "Starting jump sequence to System {destinationId}...",
     "route_display": "Route: {route}",
     "jump_progress": "Jumping to System {systemId} ({current}/{total})...",
     "arrived": "Arrived at System {systemId}",
-    "sequence_complete": "Jump sequence complete. Arrived at destination: System {destinationId}"
+    "sequence_complete": "Jump sequence complete. Arrived at destination: System {destinationId}",
+    "sequence_failed": "Jump sequence failed at System {systemId}: {reason}",
+    "docked_or_landed": "You cannot plan jumps while docked or landed. Take off first.",
+    "no_systems_data": "Error: Unable to load system data for jump planner."
   },
   "commands": {
     "unknown": "Unknown command: {command}. Try typing a button label, a shortcut like L/D/J/S, or a system number.",

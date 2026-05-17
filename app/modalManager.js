@@ -1,0 +1,982 @@
+(function () {
+  // Context references set during init()
+  let _api;
+  let _addMessage;
+  let _resolveMessageText;
+  let _updateLocationDisplay;
+  let _updateShipStatus;
+  let _displayStellarObjectProperties;
+  let _executeJumpSequence;
+
+  // Modal DOM references cached after init()
+  let _gameModal;
+  let _modalTitle;
+  let _modalBody;
+
+  /**
+   * Initialize the modal manager with shared game context.
+   * Registers close-modal event listeners.
+   * @param {Object} context - Shared game context.
+   * @param {Object} context.api - window.api IPC bridge.
+   * @param {Function} context.addMessage - Display a message in the console.
+   * @param {Function} context.resolveMessageText - Resolve a localized message string.
+   * @param {Function} context.updateLocationDisplay - Refresh the location display.
+   * @param {Function} context.updateShipStatus - Refresh the ship status panel.
+   * @param {Function} context.displayStellarObjectProperties - Display object details.
+   * @param {Function} context.executeJumpSequence - Execute a multi-hop jump sequence.
+   */
+  function init(context) {
+    _api = context.api;
+    _addMessage = context.addMessage;
+    _resolveMessageText = context.resolveMessageText;
+    _updateLocationDisplay = context.updateLocationDisplay;
+    _updateShipStatus = context.updateShipStatus;
+    _displayStellarObjectProperties = context.displayStellarObjectProperties;
+    _executeJumpSequence = context.executeJumpSequence;
+
+    _gameModal = document.getElementById('game-modal');
+    _modalTitle = document.getElementById('modal-title');
+    _modalBody = document.getElementById('modal-body');
+
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    if (modalCloseBtn) {
+      modalCloseBtn.addEventListener('click', closeModal);
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && _gameModal && _gameModal.classList.contains('visible')) {
+        closeModal();
+      }
+    });
+
+    if (_gameModal) {
+      _gameModal.addEventListener('click', (event) => {
+        if (event.target === _gameModal) {
+          closeModal();
+        }
+      });
+    }
+  }
+
+  /**
+   * Load and display a modal with the specified title and content file.
+   * @param {string} title - Title to display in the modal header.
+   * @param {string} contentFile - Path to the HTML content file (relative to app/).
+   * @param {Function} onLoad - Optional callback called after content is loaded.
+   */
+  async function loadModal(title, contentFile, onLoad) {
+    try {
+      const response = await fetch(contentFile);
+      if (!response.ok) {
+        console.error(`Failed to load modal content: ${contentFile}`);
+        return;
+      }
+      const html = await response.text();
+
+      _modalTitle.textContent = title;
+      _modalBody.innerHTML = html;
+
+      if (onLoad && typeof onLoad === 'function') {
+        await onLoad();
+      }
+
+      _gameModal.classList.add('visible');
+    } catch (error) {
+      console.error('Error loading modal:', error);
+    }
+  }
+
+  /**
+   * Close the currently displayed modal.
+   */
+  function closeModal() {
+    _gameModal.classList.remove('visible');
+    _modalBody.innerHTML = '';
+    const modalContent = document.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.classList.remove('wide');
+    }
+  }
+
+  /**
+   * Load and display an error message using the error template.
+   * @param {HTMLElement} container - Container element for the error message.
+   * @param {string} message - Error message text.
+   */
+  async function displayErrorMessage(container, message) {
+    try {
+      const response = await fetch('./templates/error-message.html');
+      const template = await response.text();
+      container.innerHTML = template;
+      const textEl = document.getElementById('error-message-text');
+      if (textEl) {
+        textEl.textContent = message;
+      }
+    } catch (error) {
+      console.error('Error loading error message template:', error);
+      const p = document.createElement('p');
+      p.className = 'error-message';
+      p.textContent = message;
+      container.appendChild(p);
+    }
+  }
+
+  /**
+   * Open the player status modal and populate it with current player data.
+   */
+  async function openPlayerStatusModal() {
+    await loadModal('Player Status', './modals/player-status.html', async () => {
+      const locationState = await _api.getLocationState();
+      if (!locationState) return;
+
+      const playerState = locationState.playerState;
+      const goodsData = await _api.invoke('get-goods-data');
+
+      const cargoDisplay = Object.keys(playerState.cargo).length > 0
+        ? Object.entries(playerState.cargo)
+          .map(([good, quantity]) => {
+            if (good === 'passengers') return `Passengers: ${quantity}`;
+            const goodData = goodsData[good];
+            const displayName = goodData?.label || good;
+            return `${displayName}: ${quantity}`;
+          })
+          .join(', ')
+        : 'Empty';
+
+      document.getElementById('stat-name').textContent = playerState.name;
+      document.getElementById('stat-credits').textContent = playerState.credits.toLocaleString();
+      document.getElementById('stat-ship').textContent = playerState.ship;
+      document.getElementById('stat-energy').textContent = `${playerState.shipEnergy}/${playerState.shipMaxEnergy}`;
+      document.getElementById('stat-cargo').textContent = cargoDisplay;
+      document.getElementById('stat-jumps').textContent = playerState.stats.jumps;
+      document.getElementById('stat-trades').textContent = playerState.stats.trades;
+      document.getElementById('stat-profit').textContent = playerState.stats.profit.toLocaleString();
+      document.getElementById('stat-corporation-name').textContent = playerState.corporation.name;
+      document.getElementById('stat-corporation-description').textContent = playerState.corporation.description;
+      document.getElementById('stat-corporation-value').textContent = playerState.corporation.value.toLocaleString();
+
+      const corpStatusBtn = document.getElementById('btn-corporation-status');
+      if (corpStatusBtn) {
+        corpStatusBtn.addEventListener('click', openCorporationStatusModal);
+      }
+    });
+  }
+
+  /**
+   * Get the depreciated value of a ship by its type (10% depreciation applied).
+   * @param {string} shipType - The type/name of the ship.
+   * @returns {Promise<number>} Depreciated ship value.
+   */
+  async function getShipValue(shipType) {
+    try {
+      const ships = await _api.getGameData('ships');
+      const baseValue = ships[shipType]?.value || 0;
+      return Math.floor(baseValue * 0.9);
+    } catch (error) {
+      console.error('Error getting ship value:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Open the corporation status modal and populate it with corporation assets.
+   */
+  async function openCorporationStatusModal() {
+    await loadModal('Corporation Status', './modals/corporation-status.html', async () => {
+      const locationState = await _api.getLocationState();
+      if (!locationState) return;
+
+      const playerState = locationState.playerState;
+      const corporation = playerState.corporation;
+
+      document.getElementById('corp-name').textContent = corporation.name;
+      document.getElementById('corp-description').textContent = corporation.description;
+      document.getElementById('corp-value').textContent = corporation.value.toLocaleString();
+      const cashTotalElement = document.getElementById('corp-cash-total');
+      if (cashTotalElement) {
+        cashTotalElement.textContent = corporation.totalCashReserves.toLocaleString();
+      }
+
+      const universeState = await _api.getUniverseState();
+      const assetItemTemplate = await fetch('./templates/asset-item.html').then(r => r.text());
+
+      const planetsList = document.getElementById('corp-planets-list');
+      if (corporation.stellarObjects && corporation.stellarObjects.length > 0) {
+        planetsList.innerHTML = '';
+        const items = corporation.stellarObjects
+          .map(objId => universeState.stellarObjects.find(obj => obj.id === objId))
+          .filter(Boolean);
+
+        if (items.length > 0) {
+          items.forEach(stellarObj => {
+            const div = document.createElement('div');
+            div.innerHTML = assetItemTemplate;
+            const item = div.firstElementChild;
+            item.querySelector('#asset-name').textContent = stellarObj.name;
+            item.querySelector('#asset-class').textContent = `(${stellarObj.className})`;
+            item.querySelector('#asset-location').textContent = `System: ${stellarObj.location}`;
+            item.querySelector('#asset-value').textContent = stellarObj.value.toLocaleString();
+            planetsList.appendChild(item);
+          });
+        } else {
+          const p = document.createElement('p');
+          p.textContent = 'No planets owned';
+          planetsList.appendChild(p);
+        }
+      } else {
+        const p = document.createElement('p');
+        p.textContent = 'No planets owned';
+        planetsList.appendChild(p);
+      }
+
+      const shipsList = document.getElementById('corp-ships-list');
+      shipsList.innerHTML = '';
+      const shipDiv = document.createElement('div');
+      shipDiv.innerHTML = assetItemTemplate;
+      const shipItem = shipDiv.firstElementChild;
+      shipItem.querySelector('#asset-name').textContent = playerState.ship;
+      shipItem.querySelector('#asset-class').textContent = '';
+      shipItem.querySelector('#asset-location').textContent = `Location: System ${playerState.system}`;
+      shipItem.querySelector('#asset-value').textContent = (await getShipValue(playerState.ship)).toLocaleString();
+      shipsList.appendChild(shipItem);
+
+      const backBtn = document.getElementById('btn-player-status');
+      if (backBtn) {
+        backBtn.addEventListener('click', openPlayerStatusModal);
+      }
+    });
+  }
+
+  /**
+   * Open the trade modal for buying/selling goods and loading passengers.
+   * @param {Object} stellarObject - The stellar object to trade with.
+   */
+  async function openTradeModal(stellarObject) {
+    await loadModal('Trade', './modals/trade.html', async () => {
+      const modalContent = document.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.classList.add('wide');
+      }
+
+      /**
+       * Display an error message in the trade modal.
+       * @param {string} message - Error message to display.
+       */
+      function showTradeError(message) {
+        const errorDiv = document.getElementById('trade-error');
+        if (errorDiv) {
+          errorDiv.textContent = message;
+          errorDiv.classList.remove('hidden');
+        }
+      }
+
+      /**
+       * Hide the error message in the trade modal.
+       */
+      function hideTradeError() {
+        const errorDiv = document.getElementById('trade-error');
+        if (errorDiv) {
+          errorDiv.classList.add('hidden');
+        }
+      }
+
+      const locationState = await _api.getLocationState();
+      if (!locationState) return;
+
+      const playerState = locationState.playerState;
+      const shipsData = await _api.invoke('get-ships-data');
+      const shipData = shipsData[playerState.ship];
+      const goodsData = await _api.invoke('get-goods-data');
+
+      document.getElementById('trade-location-name').textContent = stellarObject.name;
+
+      let cargoUsed = 0;
+      const cargo = playerState.cargo || {};
+
+      for (const [goodName, quantity] of Object.entries(cargo)) {
+        if (goodName === 'passengers') continue;
+        const good = goodsData[goodName];
+        if (good && good.finishedMass) {
+          const mass = good.finishedMass.mass;
+          const units = good.finishedMass.units;
+          if (units === 'metric tons') {
+            cargoUsed += mass * quantity;
+          } else if (units === 'kilograms') {
+            cargoUsed += (mass * quantity) / 1000;
+          }
+        }
+      }
+
+      if (cargo.passengers) {
+        cargoUsed += cargo.passengers / 10;
+      }
+
+      const cargoCapacity = shipData.cargoCapacity;
+
+      document.getElementById('cargo-used').textContent = cargoUsed.toFixed(2);
+      document.getElementById('cargo-capacity').textContent = cargoCapacity;
+
+      const goodsToBuyDiv = document.getElementById('goods-to-buy');
+      goodsToBuyDiv.innerHTML = '';
+
+      if (stellarObject.marketState && stellarObject.marketState.inventory) {
+        const inventory = stellarObject.marketState.inventory;
+        if (Object.keys(inventory).length === 0) {
+          const noGoods = document.createElement('p');
+          noGoods.textContent = 'No goods available for purchase.';
+          goodsToBuyDiv.appendChild(noGoods);
+        } else {
+          const tradeItemTemplate = await fetch('./templates/trade-item.html').then(r => r.text());
+          for (const [goodName, quantity] of Object.entries(inventory)) {
+            if (quantity > 0) {
+              const good = goodsData[goodName];
+              const price = await _api.invoke('get-market-price', {
+                stellarObjectId: stellarObject.id,
+                goodName,
+                priceType: 'buy'
+              }) || good.value;
+              const displayName = good.label || goodName;
+
+              const goodDiv = document.createElement('div');
+              goodDiv.innerHTML = tradeItemTemplate;
+              const container = goodDiv.firstElementChild;
+
+              container.querySelector('#good-name').textContent = displayName;
+              container.querySelector('#good-quantity').textContent = `Available: ${quantity}`;
+              container.querySelector('#good-price').textContent = `Price: ${price} cr/unit`;
+
+              const input = container.querySelector('#trade-quantity-input');
+              input.max = quantity;
+              input.setAttribute('data-good', goodName);
+              input.setAttribute('data-action', 'buy');
+
+              const btn = container.querySelector('#trade-btn');
+              btn.textContent = 'Buy';
+              btn.setAttribute('data-good', goodName);
+              btn.setAttribute('data-price', price);
+              btn.setAttribute('data-action', 'buy');
+
+              goodsToBuyDiv.appendChild(container);
+            }
+          }
+        }
+      } else {
+        const noMarket = document.createElement('p');
+        noMarket.textContent = 'No market available.';
+        goodsToBuyDiv.appendChild(noMarket);
+      }
+
+      const goodsToSellDiv = document.getElementById('goods-to-sell');
+      goodsToSellDiv.innerHTML = '';
+
+      if (Object.keys(cargo).filter(k => k !== 'passengers').length === 0) {
+        const emptyCargo = document.createElement('p');
+        emptyCargo.textContent = 'Your cargo is empty.';
+        goodsToSellDiv.appendChild(emptyCargo);
+      } else {
+        const tradeItemTemplate = await fetch('./templates/trade-item.html').then(r => r.text());
+        for (const [goodName, quantity] of Object.entries(cargo)) {
+          if (goodName === 'passengers') continue;
+          if (quantity > 0) {
+            const good = goodsData[goodName];
+            const price = await _api.invoke('get-market-price', {
+              stellarObjectId: stellarObject.id,
+              goodName,
+              priceType: 'sell'
+            }) || good.value;
+            const displayName = good.label || goodName;
+
+            const goodDiv = document.createElement('div');
+            goodDiv.innerHTML = tradeItemTemplate;
+            const container = goodDiv.firstElementChild;
+
+            container.querySelector('#good-name').textContent = displayName;
+            container.querySelector('#good-quantity').textContent = `In Cargo: ${quantity}`;
+            container.querySelector('#good-price').textContent = `Price: ${price} cr/unit`;
+
+            const input = container.querySelector('#trade-quantity-input');
+            input.max = quantity;
+            input.setAttribute('data-good', goodName);
+            input.setAttribute('data-action', 'sell');
+
+            const btn = container.querySelector('#trade-btn');
+            btn.textContent = 'Sell';
+            btn.setAttribute('data-good', goodName);
+            btn.setAttribute('data-price', price);
+            btn.setAttribute('data-action', 'sell');
+
+            goodsToSellDiv.appendChild(container);
+          }
+        }
+      }
+
+      document.querySelectorAll('.trade-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          hideTradeError();
+
+          const goodName = btn.dataset.good;
+          const price = parseFloat(btn.dataset.price);
+          const action = btn.dataset.action;
+          const input = btn.parentElement.querySelector('.trade-quantity');
+          const quantity = parseInt(input.value);
+
+          if (quantity <= 0) {
+            showTradeError('Please enter a quantity greater than 0.');
+            return;
+          }
+
+          const result = await _api.invoke('trade-goods', {
+            action,
+            goodName,
+            quantity,
+            price,
+            stellarObjectId: stellarObject.id
+          });
+
+          if (result.success) {
+            _addMessage(result.message);
+            closeModal();
+            await _updateLocationDisplay();
+            await _updateShipStatus();
+          } else {
+            showTradeError(result.message);
+          }
+        });
+      });
+
+      const population = stellarObject.population;
+      const passengerInfo = document.getElementById('passenger-info');
+      const passengerControls = document.getElementById('passenger-controls');
+      const noPassengersInfo = document.getElementById('no-passengers-info');
+
+      const populationPercent = (population.current / population.limit) * 100;
+      let availablePassengers = 0;
+
+      if (populationPercent < 25) {
+        availablePassengers = 0;
+      } else {
+        const willingPercent = ((populationPercent - 25) / 75) * 50;
+        availablePassengers = Math.floor((population.current * willingPercent) / 100);
+      }
+
+      if (availablePassengers === 0) {
+        passengerInfo.textContent = 'No passengers seeking transport at this time.';
+        passengerControls.classList.add('hidden');
+        noPassengersInfo.textContent = population.current < (population.limit * 0.25)
+          ? 'Population is too low. People are not willing to leave.'
+          : 'No passengers available.';
+      } else {
+        passengerInfo.textContent = `${availablePassengers.toLocaleString()} passengers seeking transport.`;
+        passengerControls.classList.remove('hidden');
+        noPassengersInfo.textContent = '';
+
+        const passengerInput = document.getElementById('passenger-count');
+        const passengerCargoInfo = document.getElementById('passenger-cargo-info');
+
+        const availableCargoSpace = cargoCapacity - cargoUsed;
+        const maxPassengersFromCargo = Math.floor(availableCargoSpace * 10);
+        const maxPassengers = Math.min(availablePassengers, maxPassengersFromCargo);
+
+        passengerInput.max = maxPassengers;
+        passengerInput.value = 0;
+
+        passengerInput.addEventListener('input', () => {
+          const count = parseInt(passengerInput.value) || 0;
+          const cargoNeeded = (count / 10).toFixed(2);
+          passengerCargoInfo.textContent = `(${cargoNeeded} tons)`;
+        });
+
+        document.getElementById('load-passengers-btn').addEventListener('click', async () => {
+          hideTradeError();
+
+          const count = parseInt(passengerInput.value);
+
+          if (count <= 0) {
+            showTradeError('Please enter a number of passengers to load.');
+            return;
+          }
+
+          const result = await _api.invoke('load-passengers', {
+            stellarObjectId: stellarObject.id,
+            passengerCount: count
+          });
+
+          if (result.success) {
+            _addMessage(result.message);
+            closeModal();
+            await _updateLocationDisplay();
+            await _updateShipStatus();
+          } else {
+            showTradeError(result.message);
+          }
+        });
+      }
+
+      const passengersInCargo = cargo.passengers || 0;
+      const passengersInCargoSection = document.getElementById('passengers-in-cargo-section');
+
+      if (passengersInCargo > 0) {
+        passengersInCargoSection.classList.remove('hidden');
+
+        const passengersInCargoInfo = document.getElementById('passengers-in-cargo-info');
+        passengersInCargoInfo.textContent = `You have ${passengersInCargo.toLocaleString()} passengers on board.`;
+
+        const unloadPassengerInput = document.getElementById('unload-passenger-count');
+        const unloadPassengerCargoInfo = document.getElementById('unload-passenger-cargo-info');
+
+        const availablePopulationSpace = population.limit - population.current;
+        const maxUnloadPassengers = Math.min(passengersInCargo, availablePopulationSpace);
+
+        unloadPassengerInput.max = maxUnloadPassengers;
+        unloadPassengerInput.value = 0;
+
+        unloadPassengerInput.addEventListener('input', () => {
+          const count = parseInt(unloadPassengerInput.value) || 0;
+          const cargoFreed = (count / 10).toFixed(2);
+          unloadPassengerCargoInfo.textContent = `(frees ${cargoFreed} tons)`;
+        });
+
+        document.getElementById('unload-passengers-btn').addEventListener('click', async () => {
+          hideTradeError();
+
+          const count = Math.floor(unloadPassengerInput.valueAsNumber);
+
+          if (isNaN(count) || count <= 0) {
+            showTradeError('Please enter a valid number of passengers to unload.');
+            return;
+          }
+
+          const result = await _api.invoke('unload-passengers', {
+            stellarObjectId: stellarObject.id,
+            passengerCount: count
+          });
+
+          if (result.success) {
+            _addMessage(result.message);
+            closeModal();
+            await _updateLocationDisplay();
+            await _updateShipStatus();
+          } else {
+            showTradeError(result.message);
+          }
+        });
+
+        document.getElementById('unload-all-passengers-btn').addEventListener('click', async () => {
+          hideTradeError();
+
+          const result = await _api.invoke('unload-passengers', {
+            stellarObjectId: stellarObject.id,
+            passengerCount: maxUnloadPassengers
+          });
+
+          if (result.success) {
+            _addMessage(result.message);
+            closeModal();
+            await _updateLocationDisplay();
+            await _updateShipStatus();
+          } else {
+            showTradeError(result.message);
+          }
+        });
+      } else {
+        passengersInCargoSection.classList.add('hidden');
+      }
+    });
+  }
+
+  /**
+   * Open the universe map modal and display the universe visualization.
+   */
+  async function openUniverseMapModal() {
+    await loadModal('Universe Map', './modals/universe-map.html', async () => {
+      const modalContent = document.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.classList.add('wide');
+      }
+
+      const mapData = await _api.getUniverseMapData();
+      if (!mapData) return;
+
+      const { systems, stellarObjects, exploredSystems } = mapData;
+
+      const systemType = {};
+      systems.forEach(sys => {
+        const objs = stellarObjects.filter(obj => obj.location === sys.id);
+        if (objs.length > 0) {
+          const typeCounts = {};
+          objs.forEach(obj => { typeCounts[obj.type] = (typeCounts[obj.type] || 0) + 1; });
+          systemType[sys.id] = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0][0];
+        } else {
+          systemType[sys.id] = null;
+        }
+      });
+
+      const nodes = systems.map(sys => ({
+        id: sys.id,
+        name: sys.name,
+        type: systemType[sys.id],
+        explored: exploredSystems.includes(sys.id)
+      }));
+
+      const linkSet = new Set();
+      systems.forEach(sys => {
+        Object.keys(sys.connections).forEach(connId => {
+          const numConnId = Number(connId);
+          const key = [Math.min(sys.id, numConnId), Math.max(sys.id, numConnId)].join('-');
+          linkSet.add(key);
+        });
+      });
+      const links = Array.from(linkSet).map(key => {
+        const [source, target] = key.split('-').map(Number);
+        return { source, target };
+      });
+
+      renderUniverseMap(nodes, links, systems, stellarObjects, exploredSystems);
+    });
+  }
+
+  /**
+   * Open the jump planner modal for planning multi-hop routes.
+   */
+  async function openJumpPlanner() {
+    const locationState = await _api.getLocationState();
+    if (!locationState) return;
+
+    if (locationState.playerState?.dockedAt != null || locationState.playerState?.landedOn != null) {
+      _addMessage('message:jump_planner.docked_or_landed');
+      return;
+    }
+
+    const allSystems = await _api.invoke('get-all-systems');
+    const currentSystemId = locationState.playerState.location;
+
+    if (!allSystems || !Array.isArray(allSystems) || allSystems.length === 0) {
+      _addMessage('message:jump_planner.no_systems_data');
+      console.error('[DEBUG openJumpPlanner] allSystems:', allSystems);
+      return;
+    }
+
+    await loadModal('Jump Planner', './modals/jump-planner.html', async () => {
+      document.getElementById('current-system-display').textContent = `System ${currentSystemId}`;
+
+      document.getElementById('calculate-route-btn').addEventListener('click', async () => {
+        const destinationId = parseInt(document.getElementById('destination-system').value);
+        console.log('[DEBUG calculate-route] destinationId:', destinationId, 'currentSystemId:', currentSystemId);
+
+        const routeDisplay = document.getElementById('route-display');
+
+        if (isNaN(destinationId) || destinationId < 1) {
+          await displayErrorMessage(routeDisplay, 'Please enter a valid system ID.');
+          return;
+        }
+
+        if (destinationId === currentSystemId) {
+          await displayErrorMessage(routeDisplay, 'You are already at this system.');
+          return;
+        }
+
+        const systemExists = allSystems.some(sys => sys.id === destinationId);
+        if (!systemExists) {
+          await displayErrorMessage(routeDisplay, 'System ID does not exist.');
+          return;
+        }
+
+        const result = await _api.invoke('calculate-jump-route', {
+          start: currentSystemId,
+          destination: destinationId
+        });
+        console.log('[DEBUG calculate-route] result:', result);
+
+        if (!result.success) {
+          await displayErrorMessage(routeDisplay, result.reason);
+          return;
+        }
+
+        const response = await fetch('./modals/jump-route-display.html');
+        const template = await response.text();
+        document.getElementById('route-display').innerHTML = template;
+
+        const route = result.route;
+        const routeText = route.map((id, idx) => {
+          if (idx === 0) return `System ${id} (current)`;
+          if (idx === route.length - 1) return `System ${id} (destination)`;
+          return `System ${id}`;
+        }).join(' → ');
+
+        document.getElementById('route-path').textContent = routeText;
+        document.getElementById('route-jumps').textContent = route.length - 1;
+        document.getElementById('route-tick-cost').textContent = result.cost;
+        document.getElementById('route-energy-required').textContent = result.energyRequired;
+        document.getElementById('route-energy-available').textContent = result.currentEnergy;
+
+        if (result.energyRequired > result.currentEnergy) {
+          document.getElementById('route-energy-warning').hidden = false;
+          document.getElementById('confirm-jump-route-btn').disabled = true;
+        }
+
+        document.getElementById('confirm-jump-route-btn')?.addEventListener('click', () => {
+          closeModal();
+          _executeJumpSequence(route);
+        });
+
+        document.getElementById('cancel-jump-route-btn')?.addEventListener('click', () => {
+          closeModal();
+        });
+      });
+    });
+  }
+
+  /**
+   * Render the universe map with D3.js force simulation.
+   * @param {Array} nodes - Array of system nodes.
+   * @param {Array} links - Array of connections between systems.
+   * @param {Array} systems - Full system data.
+   * @param {Array} stellarObjects - All stellar objects.
+   * @param {Array} exploredSystems - List of explored system IDs.
+   */
+  function renderUniverseMap(nodes, links, systems, stellarObjects, exploredSystems) {
+    const diagramElement = document.getElementById('universe-map-diagram');
+    const width = diagramElement.clientWidth || 600;
+    const height = diagramElement.clientHeight || 500;
+
+    const types = Array.from(new Set(stellarObjects.map(obj => obj.type)));
+    const color = d3.scaleOrdinal()
+      .domain(types)
+      .range(d3.schemeCategory10);
+
+    d3.select('#universe-map-diagram').selectAll('*').remove();
+
+    const svg = d3.select('#universe-map-diagram')
+      .append('svg')
+      .attr('class', 'universe-svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('width', '100%')
+      .style('height', '100%');
+
+    const container = svg.append('g');
+
+    const zoom = d3.zoom()
+      .scaleExtent([0.2, 5])
+      .on('zoom', (event) => {
+        container.attr('transform', event.transform);
+      });
+
+    svg.call(zoom);
+
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.3);
+      });
+    }
+
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 0.7);
+      });
+    }
+
+    if (zoomResetBtn) {
+      zoomResetBtn.addEventListener('click', () => {
+        const bounds = container.node().getBBox();
+        const dx = bounds.width;
+        const dy = bounds.height;
+        const x = bounds.x + bounds.width / 2;
+        const y = bounds.y + bounds.height / 2;
+        const scale = 0.9 / Math.max(dx / width, dy / height);
+        const translate = [width / 2 - scale * x, height / 2 - scale * y];
+        svg.transition()
+          .duration(750)
+          .call(zoom.transform, d3.zoomIdentity
+            .translate(translate[0], translate[1])
+            .scale(scale));
+      });
+    }
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(50))
+      .force('charge', d3.forceManyBody().strength(-120))
+      .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const link = container.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('class', 'universe-link');
+
+    const node = container.append('g')
+      .selectAll('circle')
+      .data(nodes)
+      .join('circle')
+      .attr('class', 'universe-node')
+      .attr('r', 8)
+      .attr('fill', d => {
+        if (!d.explored) return '#666';
+        return d.type ? color(d.type) : '#888';
+      })
+      .attr('stroke', d => d.explored ? '#fff' : '#333')
+      .attr('stroke-width', 2)
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        showSystemDetails(d, systems, stellarObjects, exploredSystems);
+      })
+      .call(drag(simulation));
+
+    const label = container.append('g')
+      .selectAll('text')
+      .data(nodes)
+      .join('text')
+      .attr('class', 'universe-label')
+      .attr('dy', -12)
+      .text(d => d.name)
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        showSystemDetails(d, systems, stellarObjects, exploredSystems);
+      });
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y);
+
+      label
+        .attr('x', d => d.x)
+        .attr('y', d => d.y);
+    });
+
+    setTimeout(() => {
+      const bounds = container.node().getBBox();
+      const dx = bounds.width;
+      const dy = bounds.height;
+      const x = bounds.x + bounds.width / 2;
+      const y = bounds.y + bounds.height / 2;
+      const scale = 0.9 / Math.max(dx / width, dy / height);
+      const translate = [width / 2 - scale * x, height / 2 - scale * y];
+      svg.transition()
+        .duration(750)
+        .call(zoom.transform, d3.zoomIdentity
+          .translate(translate[0], translate[1])
+          .scale(scale));
+    }, 100);
+
+    /**
+     * Create D3 drag behavior for simulation nodes.
+     * @param {Object} simulation - D3 force simulation.
+     * @returns {Object} D3 drag behavior.
+     */
+    function drag(simulation) {
+      function dragStarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+      function dragEnded(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+      return d3.drag()
+        .on('start', dragStarted)
+        .on('drag', dragged)
+        .on('end', dragEnded);
+    }
+  }
+
+  /**
+   * Display details about a clicked system in the map sidebar.
+   * @param {Object} systemNode - The clicked system node.
+   * @param {Array} systems - Full system data.
+   * @param {Array} stellarObjects - All stellar objects.
+   * @param {Array} exploredSystems - List of explored system IDs.
+   */
+  async function showSystemDetails(systemNode, systems, stellarObjects, exploredSystems) {
+    const detailsDiv = document.getElementById('system-details');
+    const system = systems.find(s => s.id === systemNode.id);
+
+    if (!system) {
+      detailsDiv.textContent = 'System not found';
+      return;
+    }
+
+    const template = await fetch('./templates/system-details.html').then(r => r.text());
+    detailsDiv.innerHTML = template;
+
+    document.getElementById('system-name').textContent = system.name;
+
+    if (!exploredSystems.includes(system.id)) {
+      document.getElementById('system-status').textContent = 'Unexplored';
+      document.getElementById('unexplored-message').classList.remove('hidden');
+      document.getElementById('explored-content').classList.add('hidden');
+      return;
+    }
+
+    document.getElementById('system-status').textContent = 'Explored';
+    document.getElementById('unexplored-message').classList.add('hidden');
+    document.getElementById('explored-content').classList.remove('hidden');
+
+    const systemObjects = stellarObjects.filter(obj => obj.location === system.id);
+    const objectsList = document.getElementById('stellar-objects-list');
+    objectsList.innerHTML = '';
+
+    if (systemObjects.length > 0) {
+      const itemTemplate = await fetch('./templates/stellar-object-item.html').then(r => r.text());
+      systemObjects.forEach(obj => {
+        const itemDiv = document.createElement('div');
+        itemDiv.innerHTML = itemTemplate;
+        const item = itemDiv.firstElementChild;
+
+        item.querySelector('#object-name').textContent = obj.name;
+        item.querySelector('#object-type').textContent = obj.type;
+        item.querySelector('#object-class').textContent = obj.className;
+        item.querySelector('#object-owner').textContent = obj.owner ? `Owner: ${obj.owner}` : 'Independent';
+
+        objectsList.appendChild(item);
+      });
+    } else {
+      const noObjects = document.createElement('p');
+      noObjects.textContent = 'No stellar objects in this system';
+      objectsList.appendChild(noObjects);
+    }
+
+    const connections = Object.keys(system.connections)
+      .map(id => `System ${id}`)
+      .join(', ');
+    document.getElementById('system-connections').textContent = connections || 'None';
+  }
+
+  const api = {
+    init,
+    loadModal,
+    closeModal,
+    displayErrorMessage,
+    openPlayerStatusModal,
+    openCorporationStatusModal,
+    openTradeModal,
+    openUniverseMapModal,
+    openJumpPlanner,
+    renderUniverseMap,
+    showSystemDetails
+  };
+
+  if (typeof window !== 'undefined') {
+    window.modalManager = api;
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  }
+})();
