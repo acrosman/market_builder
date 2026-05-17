@@ -21,7 +21,7 @@ module.exports = {
     '!**/vendor/**'
   ],
   coverageThreshold: {
-    './src/': {
+    global: {
       lines: 91
     }
   }
