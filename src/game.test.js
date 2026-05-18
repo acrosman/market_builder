@@ -884,6 +884,24 @@ describe('Game Module', () => {
         const loadedGame = Game.loadGame(saveData);
         expect(loadedGame.player.corporation.cashReserves).toBe(500);
       });
+
+      test('should allow jumping after loading a saved game', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.universe.systems = [
+          { id: 0, name: 'Alpha', connections: { 1: 3 } },
+          { id: 1, name: 'Beta', connections: { 0: 3 } }
+        ];
+
+        const saveData = game.getSaveData();
+        const loadedGame = Game.loadGame(saveData);
+        const result = loadedGame.jumpToSystem(1);
+
+        expect(result.success).toBe(true);
+        expect(loadedGame.player).toBeInstanceOf(Player);
+        expect(loadedGame.player.location).toBe(1);
+      });
     });
   });
 
