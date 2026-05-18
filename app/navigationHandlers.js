@@ -366,7 +366,7 @@
       jumpButtons.appendChild(button);
     });
 
-    console.log('[DEBUG updateAvailableActions] Objects in current system:', locationState.objects.map(obj => ({ id: obj.id, name: obj.name, type: obj.type, className: obj.className })));
+    window.logger.debug('[DEBUG updateAvailableActions] Objects in current system:', locationState.objects.map(obj => ({ id: obj.id, name: obj.name, type: obj.type, className: obj.className })));
 
     if (isDocked || isLanded) {
       const currentObjectId = isDocked ? locationState.playerState.dockedAt : locationState.playerState.landedOn;
@@ -398,7 +398,7 @@
           dockButton.addEventListener('click', () => handleDock(obj.id, obj.name));
           localButtons.appendChild(dockButton);
         } else if (obj.type === 'Planet' || obj.type === 'Asteroid') {
-          console.log('[DEBUG updateAvailableActions] Creating land button for:', { id: obj.id, name: obj.name, type: obj.type, className: obj.className });
+          window.logger.debug('[DEBUG updateAvailableActions] Creating land button for:', { id: obj.id, name: obj.name, type: obj.type, className: obj.className });
           const landButton = document.createElement('button');
           landButton.className = 'action-btn';
           landButton.dataset.action = 'land';

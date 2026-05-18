@@ -1,3 +1,14 @@
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn()
+};
+
+jest.mock('./logger', () => ({
+  createLogger: jest.fn(() => mockLogger)
+}));
+
 const { EventBus } = require('./eventBus');
 
 describe('EventBus', () => {
@@ -5,6 +16,10 @@ describe('EventBus', () => {
 
   beforeEach(() => {
     eventBus = new EventBus();
+    mockLogger.debug.mockClear();
+    mockLogger.info.mockClear();
+    mockLogger.warn.mockClear();
+    mockLogger.error.mockClear();
   });
 
   describe('on() and emit()', () => {
@@ -52,8 +67,6 @@ describe('EventBus', () => {
       });
       const listener2 = jest.fn();
 
-      console.error = jest.fn(); // Suppress error output
-
       eventBus.on('test-event', listener1);
       eventBus.on('test-event', listener2);
 
@@ -61,7 +74,7 @@ describe('EventBus', () => {
 
       expect(listener1).toHaveBeenCalled();
       expect(listener2).toHaveBeenCalled();
-      expect(console.error).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 
@@ -194,12 +207,11 @@ describe('EventBus', () => {
       const subscriber = {
         onTick: jest.fn(() => { throw new Error('subscriber error'); })
       };
-      console.error = jest.fn();
 
       eventBus.subscribe('tick', subscriber);
       eventBus.emit('tick', { ticks: 1 });
 
-      expect(console.error).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 

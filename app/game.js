@@ -58,7 +58,7 @@ document.addEventListener(
               addMessage('');
             }
           } catch (error) {
-            console.error('Error loading messages:', error);
+            window.logger.error('Error loading messages:', error);
             addMessage('Error: Unable to load game messages.');
           }
         })();
@@ -79,7 +79,7 @@ document.addEventListener(
               addMessage(processedMessage);
             }
           } catch (error) {
-            console.error('Error loading message:', error);
+            window.logger.error('Error loading message:', error);
             addMessage('Error: Unable to load message.');
           }
         })();
@@ -110,7 +110,7 @@ document.addEventListener(
         }
         return window.gameHelpers.replaceMessageVariables(message, vars);
       } catch (error) {
-        console.error('Error resolving message text:', error);
+        window.logger.error('Error resolving message text:', error);
         return fallback;
       }
     }
@@ -195,7 +195,7 @@ document.addEventListener(
         consoleDiv.appendChild(propertiesElement);
         consoleDiv.scrollTop = consoleDiv.scrollHeight;
       } catch (error) {
-        console.error('Error displaying stellar object properties:', error);
+        window.logger.error('Error displaying stellar object properties:', error);
         addMessage('Error: Unable to display object properties.');
       }
     }
@@ -210,9 +210,9 @@ document.addEventListener(
       currentDockedAt = locationState.playerState?.dockedAt ?? null;
       currentLandedOn = locationState.playerState?.landedOn ?? null;
 
-      console.log('[DEBUG updateLocationDisplay] currentDockedAt:', currentDockedAt);
-      console.log('[DEBUG updateLocationDisplay] currentLandedOn:', currentLandedOn);
-      console.log('[DEBUG updateLocationDisplay] locationState.playerState:', locationState.playerState);
+      window.logger.debug('[DEBUG updateLocationDisplay] currentDockedAt:', currentDockedAt);
+      window.logger.debug('[DEBUG updateLocationDisplay] currentLandedOn:', currentLandedOn);
+      window.logger.debug('[DEBUG updateLocationDisplay] locationState.playerState:', locationState.playerState);
 
       const system = locationState.system;
       if (!system) return;
@@ -254,7 +254,7 @@ document.addEventListener(
           locationPopulationEl.classList.add('hidden');
         }
       } catch (error) {
-        console.error('Error loading location status template:', error);
+        window.logger.error('Error loading location status template:', error);
         locationStatus.textContent = `System: ${system.name}`;
       }
 
@@ -262,13 +262,13 @@ document.addEventListener(
       if (currentDockedAt !== null || currentLandedOn !== null) {
         const objectId = currentDockedAt !== null ? currentDockedAt : currentLandedOn;
         const object = objects.find(obj => obj.id === objectId);
-        console.log('[DEBUG updateLocationDisplay] Landed/Docked object:', object);
-        console.log('[DEBUG updateLocationDisplay] Object landedImage:', object?.landedImage);
+        window.logger.debug('[DEBUG updateLocationDisplay] Landed/Docked object:', object);
+        window.logger.debug('[DEBUG updateLocationDisplay] Object landedImage:', object?.landedImage);
         if (object && object.landedImage) {
           imageToShow = object.landedImage;
         }
       }
-      console.log('[DEBUG updateLocationDisplay] Final imageToShow:', imageToShow);
+      window.logger.debug('[DEBUG updateLocationDisplay] Final imageToShow:', imageToShow);
 
       if (imageToShow) {
         const adjustedPath = imageToShow.startsWith('data/') ? `../${imageToShow}` : imageToShow;
@@ -331,7 +331,7 @@ document.addEventListener(
         document.getElementById('ship-energy').textContent = playerState.shipEnergy;
         document.getElementById('ship-max-energy').textContent = playerState.shipMaxEnergy;
       } catch (error) {
-        console.error('Error loading ship status template:', error);
+        window.logger.error('Error loading ship status template:', error);
         shipStatus.textContent = `Ship: ${shipType}`;
       }
     }
@@ -427,7 +427,7 @@ document.addEventListener(
           window.api.send('load-game', result.filePath);
         }
       } catch (error) {
-        console.error('Error opening load game dialog:', error);
+        window.logger.error('Error opening load game dialog:', error);
         addMessage('message:save_load.load_dialog_error');
       }
     });

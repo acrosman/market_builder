@@ -5,6 +5,9 @@ const { EventBus } = require('./eventBus');
 const { Player } = require('./player');
 const { NPC } = require('./npc');
 const { Market } = require('./market');
+const { createLogger } = require('./logger');
+
+const logger = createLogger('Game');
 
 /**
  * Main game state manager
@@ -49,25 +52,25 @@ class Game {
     this.initializeStellarObjects();
 
     // Find a Farm World planet (not in system 1) and assign it to the player's corporation
-    console.log('[DEBUG initializeGame] Looking for Farm World...');
-    console.log('[DEBUG initializeGame] Total stellar objects:', this.universe.stellarObjects.length);
+    logger.debug('[DEBUG initializeGame] Looking for Farm World...');
+    logger.debug('[DEBUG initializeGame] Total stellar objects:', this.universe.stellarObjects.length);
     const planets = this.universe.stellarObjects.filter(obj => obj.type === 'Planet');
-    console.log('[DEBUG initializeGame] Planets:', planets.map(p => ({ id: p.id, className: p.className, location: p.location })));
+    logger.debug('[DEBUG initializeGame] Planets:', planets.map(p => ({ id: p.id, className: p.className, location: p.location })));
 
     const farmPlanet = this.universe.stellarObjects.find(obj =>
       obj.type === 'Planet' &&
       obj.className === 'Farm World' &&
       obj.location !== 1
     );
-    console.log('[DEBUG initializeGame] Farm World found:', farmPlanet ? { id: farmPlanet.id, location: farmPlanet.location } : 'NONE');
+    logger.debug('[DEBUG initializeGame] Farm World found:', farmPlanet ? { id: farmPlanet.id, location: farmPlanet.location } : 'NONE');
 
     if (farmPlanet) {
       farmPlanet.setOwner(playerCorp.name);
       playerCorp.addStellarObject(farmPlanet.id);
-      console.log('[DEBUG initializeGame] Assigned Farm World to corporation');
-      console.log('[DEBUG initializeGame] Corporation stellar objects:', playerCorp.stellarObjects);
+      logger.debug('[DEBUG initializeGame] Assigned Farm World to corporation');
+      logger.debug('[DEBUG initializeGame] Corporation stellar objects:', playerCorp.stellarObjects);
     } else {
-      console.log('[DEBUG initializeGame] WARNING: No Farm World found outside system 1!');
+      logger.warn('[WARN initializeGame] No Farm World found outside system 1!');
     }
 
     // Create NPCs (one trader per system for now)
@@ -360,11 +363,11 @@ class Game {
   landOnPlanet(objectId) {
 
     // Debug: Log objectId, found object, and location types/values
-    console.log('[DEBUG] landOnPlanet called with objectId:', objectId);
+    logger.debug('[DEBUG] landOnPlanet called with objectId:', objectId);
     const object = this.universe.stellarObjects.find(obj => obj.id === objectId);
-    console.log('[DEBUG] Found object:', object);
-    console.log('[DEBUG] object.location:', object && object.location, '(', object && typeof object.location, ')');
-    console.log('[DEBUG] player.location:', this.player.location, '(', typeof this.player.location, ')');
+    logger.debug('[DEBUG] Found object:', object);
+    logger.debug('[DEBUG] object.location:', object && object.location, '(', object && typeof object.location, ')');
+    logger.debug('[DEBUG] player.location:', this.player.location, '(', typeof this.player.location, ')');
     if (!object) {
       return { success: false, reason: "Planet does not exist" };
     }
@@ -390,7 +393,7 @@ class Game {
     this.advanceTicks(1, 'land');
 
     // Debug: Confirm player state after landing
-    console.log('[DEBUG] After landing, player.landedOn:', this.player.landedOn, 'player.dockedAt:', this.player.dockedAt);
+    logger.debug('[DEBUG] After landing, player.landedOn:', this.player.landedOn, 'player.dockedAt:', this.player.dockedAt);
 
     return {
       success: true,

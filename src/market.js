@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { createLogger } = require('./logger');
+
+const logger = createLogger('Market');
 
 /**
  * Market manager for handling trading and pricing in the game
@@ -116,7 +119,7 @@ class Market {
    * @returns {number} Calculated price per unit
    */
   calculateMarketPrice(stellarObject, goodName, priceType = 'buy') {
-    console.log('[DEBUG calculateMarketPrice] stellarObject:', stellarObject?.id, 'goodName:', goodName, 'priceType:', priceType);
+    logger.debug('[DEBUG calculateMarketPrice] stellarObject:', stellarObject?.id, 'goodName:', goodName, 'priceType:', priceType);
     const dataDir = this.settings.data_directory || 'data/default/en-us';
     const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
     const good = goodsData[goodName];
@@ -132,7 +135,7 @@ class Market {
 
     // Determine production capability for this good
     const productivityModifier = stellarObject.productivityModifiers?.[category] || 0;
-    console.log('[DEBUG calculateMarketPrice] baseValue:', baseValue, 'currentStock:', currentStock, 'productivityModifier:', productivityModifier);
+    logger.debug('[DEBUG calculateMarketPrice] baseValue:', baseValue, 'currentStock:', currentStock, 'productivityModifier:', productivityModifier);
 
     // Calculate ideal stock levels based on productivity and good type
     let idealStock = 0;
@@ -201,7 +204,7 @@ class Market {
 
     // Calculate final buy price
     let finalPrice = Math.round(baseValue * supplyFactor * productionFactor);
-    console.log('[DEBUG calculateMarketPrice] supplyFactor:', supplyFactor, 'productionFactor:', productionFactor, 'finalPrice:', finalPrice);
+    logger.debug('[DEBUG calculateMarketPrice] supplyFactor:', supplyFactor, 'productionFactor:', productionFactor, 'finalPrice:', finalPrice);
 
     // For selling to the market, players get 50-80% of the buy price
     if (priceType === 'sell') {
@@ -229,7 +232,7 @@ class Market {
       finalPrice = Math.round(finalPrice * sellRatio);
     }
 
-    console.log('[DEBUG calculateMarketPrice] FINAL PRICE:', finalPrice, 'for', goodName, priceType);
+    logger.debug('[DEBUG calculateMarketPrice] FINAL PRICE:', finalPrice, 'for', goodName, priceType);
     return Math.max(1, finalPrice); // Minimum price of 1 credit
   }
 

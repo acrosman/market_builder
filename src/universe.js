@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const { StellarObject } = require('./stellarObject');
+const { createLogger } = require('./logger');
+
+const logger = createLogger('Universe');
 
 /**
  * Get list of image files from a directory
@@ -12,7 +15,7 @@ function getImagesFromDirectory(imageDir, dataDir = 'data/default/en-us') {
   try {
     const fullPath = path.join(__dirname, '..', dataDir, imageDir);
     if (!fs.existsSync(fullPath)) {
-      console.warn(`Image directory not found: ${imageDir}`);
+      logger.warn(`Image directory not found: ${imageDir}`);
       return [];
     }
     const files = fs.readdirSync(fullPath);
@@ -20,7 +23,7 @@ function getImagesFromDirectory(imageDir, dataDir = 'data/default/en-us') {
       .filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file))
       .map(file => path.join(imageDir, file).replace(/\\/g, '/'));
   } catch (error) {
-    console.error(`Error reading image directory ${imageDir}:`, error);
+    logger.error(`Error reading image directory ${imageDir}:`, error);
     return [];
   }
 }
@@ -180,20 +183,20 @@ class System {
 function getRandomImage(type, className, stellarObjectsData, dataDir = 'data/default/en-us') {
   const typeData = stellarObjectsData[type];
   if (!typeData || !typeData.classes) {
-    console.warn(`No type data found for: ${type}`);
+    logger.warn(`No type data found for: ${type}`);
     return '';
   }
 
   const classData = typeData.classes[className];
   if (!classData || !classData.imagePath) {
-    console.warn(`No image path found for type: ${type}, class: ${className}`);
+    logger.warn(`No image path found for type: ${type}, class: ${className}`);
     return '';
   }
 
   const imageDir = classData.imagePath;
   const imageList = getImagesFromDirectory(imageDir, dataDir);
   if (imageList.length === 0) {
-    console.warn(`No images found in directory: ${imageDir}`);
+    logger.warn(`No images found in directory: ${imageDir}`);
     return '';
   }
 
@@ -212,13 +215,13 @@ function getRandomImage(type, className, stellarObjectsData, dataDir = 'data/def
 function getLandedImage(type, className, stellarObjectsData, dataDir = 'data/default/en-us') {
   const typeData = stellarObjectsData[type];
   if (!typeData || !typeData.classes) {
-    console.warn(`No type data found for: ${type}`);
+    logger.warn(`No type data found for: ${type}`);
     return '';
   }
 
   const classData = typeData.classes[className];
   if (!classData || !classData.imagePath) {
-    console.warn(`No image path found for type: ${type}, class: ${className}`);
+    logger.warn(`No image path found for type: ${type}, class: ${className}`);
     return '';
   }
 
@@ -228,7 +231,7 @@ function getLandedImage(type, className, stellarObjectsData, dataDir = 'data/def
 
   const imageList = getImagesFromDirectory(imageDir, dataDir);
   if (imageList.length === 0) {
-    console.warn(`No landed images found in directory: ${imageDir}`);
+    logger.warn(`No landed images found in directory: ${imageDir}`);
     return '';
   }
 

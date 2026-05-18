@@ -17,6 +17,13 @@ describe('Main Menu Interface', () => {
       invoke: jest.fn()
     };
 
+    window.logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn()
+    };
+
     // Clear all mocks
     jest.clearAllMocks();
   });
@@ -24,6 +31,7 @@ describe('Main Menu Interface', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     delete window.api;
+    delete window.logger;
   });
 
   describe('New Game Button', () => {
@@ -61,7 +69,7 @@ describe('Main Menu Interface', () => {
             window.api.send('load-game', result.filePath);
           }
         } catch (error) {
-          console.error('Error opening load game dialog:', error);
+          window.logger.error('Error opening load game dialog:', error);
         }
       });
 
@@ -92,7 +100,7 @@ describe('Main Menu Interface', () => {
             window.api.send('load-game', result.filePath);
           }
         } catch (error) {
-          console.error('Error opening load game dialog:', error);
+          window.logger.error('Error opening load game dialog:', error);
         }
       });
 
@@ -104,8 +112,6 @@ describe('Main Menu Interface', () => {
     });
 
     test('should handle errors when opening load game dialog', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
       window.api.invoke.mockRejectedValueOnce(new Error('Failed to open dialog'));
 
       const loadGameBtn = document.getElementById('load-game-btn');
@@ -116,7 +122,7 @@ describe('Main Menu Interface', () => {
             window.api.send('load-game', result.filePath);
           }
         } catch (error) {
-          console.error('Error opening load game dialog:', error);
+          window.logger.error('Error opening load game dialog:', error);
         }
       });
 
@@ -124,12 +130,10 @@ describe('Main Menu Interface', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(window.api.invoke).toHaveBeenCalledWith('open-load-game-dialog');
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(window.logger.error).toHaveBeenCalledWith(
         'Error opening load game dialog:',
         expect.any(Error)
       );
-
-      consoleErrorSpy.mockRestore();
     });
   });
 });

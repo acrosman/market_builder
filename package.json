@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "d3": "^7.9.0",
+    "electron-log": "^5.4.4",
     "uuid": "^8"
   },
   "author": "Aaron Crosman",

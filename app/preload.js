@@ -1,6 +1,42 @@
 // Preload script.
 const { contextBridge, ipcRenderer } = require('electron');
 
+const validRendererLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+
+/**
+ * Convert unsupported values (like Error instances) to serializable payloads.
+ * @param {*} value - Input value to serialize.
+ * @returns {*} Serialized value.
+ */
+function serializeLogValue(value) {
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack
+    };
+  }
+
+  return value;
+}
+
+/**
+ * Send a renderer log payload to the main process logger.
+ * @param {string} level - Log level.
+ * @param {Array<*>} args - Log arguments.
+ */
+function sendRendererLog(level, args) {
+  if (!validRendererLogLevels.has(level)) {
+    throw new Error(`Invalid renderer log level: ${level}`);
+  }
+
+  ipcRenderer.send('renderer-log', {
+    level,
+    scope: 'ui',
+    args: args.map(serializeLogValue)
+  });
+}
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object.
 // Big hat tip: https://stackoverflow.com/a/59814127/24215.
@@ -83,4 +119,11 @@ contextBridge.exposeInMainWorld('api', {
     // Add more data types as needed
     return null;
   }
+});
+
+contextBridge.exposeInMainWorld('logger', {
+  debug: (...args) => sendRendererLog('debug', args),
+  info: (...args) => sendRendererLog('info', args),
+  warn: (...args) => sendRendererLog('warn', args),
+  error: (...args) => sendRendererLog('error', args)
 });

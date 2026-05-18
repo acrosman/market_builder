@@ -5,9 +5,12 @@ const os = require('os');
 const { app, BrowserWindow, ipcMain, dialog } = electron;
 const { createUniverse } = require('./src/universe');
 const { Game } = require('./src/game');  // Add this line
+const { configureLogger, createLogger, normalizeRendererLogScope } = require('./src/logger');
 
 // Developer Dependencies.
 const isDev = !app.isPackaged;
+configureLogger({ isDevelopment: isDev });
+const logger = createLogger('main');
 
 // Load game settings
 const gameSettingsPath = path.join(__dirname, 'data', 'default', 'en-us', 'game_settings.json');
@@ -15,7 +18,7 @@ let gameSettings = {};
 try {
   gameSettings = JSON.parse(fs.readFileSync(gameSettingsPath, 'utf-8'));
 } catch (error) {
-  console.error('Error loading game settings:', error);
+  logger.error('Error loading game settings:', error);
   gameSettings = {
     initial_ship: "Shuttle",
     food_per_person: 1
@@ -146,6 +149,31 @@ function openNewGameWindow() {
 }
 
 ipcMain.on('open-new-game', openNewGameWindow);
+
+const validRendererLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+
+ipcMain.on('renderer-log', (event, payload = {}) => {
+  const { level, scope = 'renderer', args = [] } = payload;
+
+  if (!validRendererLogLevels.has(level)) {
+    logger.warn('Rejected renderer log with invalid level:', level);
+    return;
+  }
+
+  if (!Array.isArray(args)) {
+    logger.warn('Rejected renderer log with non-array args');
+    return;
+  }
+
+  const normalizedScope = normalizeRendererLogScope(scope);
+  if (normalizedScope === null) {
+    logger.warn('Rejected renderer log with invalid scope');
+    return;
+  }
+
+  const rendererLogger = createLogger(`renderer:${normalizedScope}`);
+  rendererLogger[level](...args);
+});
 
 let currentUniverse = null;
 let currentGame = null;  // Add this line to track the current game
@@ -302,7 +330,7 @@ ipcMain.handle('get-game-messages', (event, messageKey) => {
     // Return all messages if no key specified
     return messagesData;
   } catch (error) {
-    console.error('Error loading game messages:', error);
+    logger.error('Error loading game messages:', error);
     return null;
   }
 });
@@ -310,30 +338,30 @@ ipcMain.handle('get-game-messages', (event, messageKey) => {
 // Handle get-all-systems request from renderer
 ipcMain.handle('get-all-systems', () => {
   if (!currentGame) {
-    console.error('[DEBUG get-all-systems] currentGame is not initialized');
+    logger.error('[DEBUG get-all-systems] currentGame is not initialized');
     return [];
   }
   if (!currentGame.universe) {
-    console.error('[DEBUG get-all-systems] currentGame.universe is not initialized');
+    logger.error('[DEBUG get-all-systems] currentGame.universe is not initialized');
     return [];
   }
   if (!currentGame.universe.systems) {
-    console.error('[DEBUG get-all-systems] currentGame.universe.systems is not initialized');
+    logger.error('[DEBUG get-all-systems] currentGame.universe.systems is not initialized');
     return [];
   }
-  console.log('[DEBUG get-all-systems] Returning', currentGame.universe.systems.length, 'systems');
+  logger.debug('[DEBUG get-all-systems] Returning', currentGame.universe.systems.length, 'systems');
   return currentGame.universe.systems.map(sys => ({ id: sys.id, name: sys.name }));
 });
 
 // Handle calculate-jump-route request from renderer
 ipcMain.handle('calculate-jump-route', (event, { start, destination }) => {
-  console.log('[DEBUG calculate-jump-route] start:', start, 'destination:', destination);
+  logger.debug('[DEBUG calculate-jump-route] start:', start, 'destination:', destination);
   if (!currentGame) {
     return { success: false, reason: 'No active game' };
   }
 
   const route = currentGame.universe.findShortestPath(start, destination);
-  console.log('[DEBUG calculate-jump-route] route result:', route);
+  logger.debug('[DEBUG calculate-jump-route] route result:', route);
 
   if (!route) {
     return { success: false, reason: 'No route found between systems' };
@@ -440,7 +468,7 @@ ipcMain.on('save-game', (event) => {
 
     event.reply('save-game-result', { success: true, savePath: saveFilePath });
   } catch (error) {
-    console.error('Error saving game:', error);
+    logger.error('Error saving game:', error);
     event.reply('save-game-result', { success: false, reason: "Error saving game" });
   }
 });
@@ -457,7 +485,7 @@ ipcMain.on('get-save-files', (event) => {
       .map(file => path.join(savePath, file));
     event.reply('save-files-list', files);
   } catch (error) {
-    console.error('Error getting save files:', error);
+    logger.error('Error getting save files:', error);
     event.reply('save-files-list', []);
   }
 });
@@ -497,7 +525,7 @@ ipcMain.on('load-game', (event, saveFilePath) => {
     // Open the game window to start playing
     openGameWindow();
   } catch (error) {
-    console.error('Error loading game:', error);
+    logger.error('Error loading game:', error);
     event.reply('load-game-result', { success: false, reason: "Error loading game" });
   }
 });
@@ -526,12 +554,12 @@ ipcMain.handle('get-market-price', (event, { stellarObjectId, goodName, priceTyp
     // Find the stellar object
     const stellarObject = currentGame.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
     if (!stellarObject) {
-      console.error('Stellar object not found:', stellarObjectId);
+      logger.error('Stellar object not found:', stellarObjectId);
       return null;
     }
     return currentGame.calculateMarketPrice(stellarObject, goodName, priceType);
   } catch (error) {
-    console.error('Error calculating market price:', error);
+    logger.error('Error calculating market price:', error);
     return null;
   }
 });

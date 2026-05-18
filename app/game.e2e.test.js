@@ -559,7 +559,7 @@ describe('Game UI End-to-End Smoke Tests', () => {
                 addMessageFn(message);
               }
             } catch (error) {
-              console.error('Error loading message:', error);
+              window.logger.error('Error loading message:', error);
               addMessageFn('Error: Unable to load message.');
             }
           })();
