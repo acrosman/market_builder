@@ -26,8 +26,15 @@ describe('preload.js (integration)', () => {
     const electron = require('electron');
     ipcRenderer = electron.ipcRenderer;
     // Extract the api and logger objects exposed via contextBridge.exposeInMainWorld(...)
-    api = electron.contextBridge.exposeInMainWorld.mock.calls.find(call => call[0] === 'api')[1];
-    logger = electron.contextBridge.exposeInMainWorld.mock.calls.find(call => call[0] === 'logger')[1];
+    const apiExposeCall = electron.contextBridge.exposeInMainWorld.mock.calls.find(call => call[0] === 'api');
+    const loggerExposeCall = electron.contextBridge.exposeInMainWorld.mock.calls.find(call => call[0] === 'logger');
+
+    if (!apiExposeCall || !loggerExposeCall) {
+      throw new Error('Expected preload to expose both api and logger bridges');
+    }
+
+    api = apiExposeCall[1];
+    logger = loggerExposeCall[1];
   });
 
   beforeEach(() => {
@@ -186,24 +193,24 @@ describe('preload.js (integration)', () => {
     });
 
     test('sends renderer logs with expected level and scope', () => {
-      logger.debug('d');
-      logger.info('i');
-      logger.warn('w');
+      logger.debug('debug message');
+      logger.info('info message');
+      logger.warn('warn message');
 
       expect(ipcRenderer.send).toHaveBeenNthCalledWith(1, 'renderer-log', {
         level: 'debug',
         scope: 'ui',
-        args: ['d']
+        args: ['debug message']
       });
       expect(ipcRenderer.send).toHaveBeenNthCalledWith(2, 'renderer-log', {
         level: 'info',
         scope: 'ui',
-        args: ['i']
+        args: ['info message']
       });
       expect(ipcRenderer.send).toHaveBeenNthCalledWith(3, 'renderer-log', {
         level: 'warn',
         scope: 'ui',
-        args: ['w']
+        args: ['warn message']
       });
     });
 
