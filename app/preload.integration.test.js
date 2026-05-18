@@ -17,6 +17,7 @@ jest.mock('electron', () => ({
 
 describe('preload.js (integration)', () => {
   let api;
+  let logger;
   let ipcRenderer;
 
   beforeAll(() => {
@@ -24,8 +25,9 @@ describe('preload.js (integration)', () => {
     require('./preload');
     const electron = require('electron');
     ipcRenderer = electron.ipcRenderer;
-    // Extract the api object exposed via contextBridge.exposeInMainWorld('api', {...})
-    api = electron.contextBridge.exposeInMainWorld.mock.calls[0][1];
+    // Extract the api and logger objects exposed via contextBridge.exposeInMainWorld(...)
+    api = electron.contextBridge.exposeInMainWorld.mock.calls.find(call => call[0] === 'api')[1];
+    logger = electron.contextBridge.exposeInMainWorld.mock.calls.find(call => call[0] === 'logger')[1];
   });
 
   beforeEach(() => {
@@ -171,6 +173,56 @@ describe('preload.js (integration)', () => {
       const result = api.getGameData('unknown-type');
       expect(result).toBeNull();
       expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logger bridge', () => {
+    test('exposes logger object in main world', () => {
+      expect(logger).toBeDefined();
+      expect(typeof logger.debug).toBe('function');
+      expect(typeof logger.info).toBe('function');
+      expect(typeof logger.warn).toBe('function');
+      expect(typeof logger.error).toBe('function');
+    });
+
+    test('sends renderer logs with expected level and scope', () => {
+      logger.debug('d');
+      logger.info('i');
+      logger.warn('w');
+
+      expect(ipcRenderer.send).toHaveBeenNthCalledWith(1, 'renderer-log', {
+        level: 'debug',
+        scope: 'ui',
+        args: ['d']
+      });
+      expect(ipcRenderer.send).toHaveBeenNthCalledWith(2, 'renderer-log', {
+        level: 'info',
+        scope: 'ui',
+        args: ['i']
+      });
+      expect(ipcRenderer.send).toHaveBeenNthCalledWith(3, 'renderer-log', {
+        level: 'warn',
+        scope: 'ui',
+        args: ['w']
+      });
+    });
+
+    test('serializes Error objects before sending log payload', () => {
+      const error = new Error('Boom');
+      logger.error('message', error);
+
+      expect(ipcRenderer.send).toHaveBeenCalledWith('renderer-log', {
+        level: 'error',
+        scope: 'ui',
+        args: [
+          'message',
+          expect.objectContaining({
+            name: 'Error',
+            message: 'Boom',
+            stack: expect.any(String)
+          })
+        ]
+      });
     });
   });
 });
