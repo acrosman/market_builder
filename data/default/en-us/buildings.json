@@ -217,7 +217,7 @@
       "mining": 0,
       "recycling": 0,
       "waterPurification": 0,
-      "airPurification": 0,
+      "airPurification": 1,
       "buildCost": {
          "ticks": 2,
          "credits": 500,
@@ -234,6 +234,132 @@
          },
          "goods": {
             "chemicals": 5
+         }
+      }
+   },
+   "Recycling Center": {
+      "value": 14000,
+      "image": "images/buildings/recycling_center.jpg",
+      "storage": 100,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 12,
+      "waterPurification": 2,
+      "airPurification": 2,
+      "buildCost": {
+         "ticks": 28,
+         "credits": 3200,
+         "goods": {
+            "metal": 220,
+            "chemicals": 80
+         }
+      },
+      "operationCosts": {
+         "staff": 45,
+         "energy": 65,
+         "pollution": {
+            "water": 0,
+            "air": 0
+         },
+         "goods": {
+            "chemicals": 8
+         }
+      }
+   },
+   "Water Treatment Plant": {
+      "value": 13000,
+      "image": "images/buildings/water_treatment_plant.jpg",
+      "storage": 0,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 15,
+      "airPurification": 0,
+      "buildCost": {
+         "ticks": 24,
+         "credits": 2600,
+         "goods": {
+            "metal": 180,
+            "chemicals": 100
+         }
+      },
+      "operationCosts": {
+         "staff": 30,
+         "energy": 55,
+         "pollution": {
+            "water": 0,
+            "air": 0
+         },
+         "goods": {
+            "chemicals": 6
+         }
+      }
+   },
+   "Atmospheric Scrubber": {
+      "value": 13000,
+      "image": "images/buildings/atmospheric_scrubber.jpg",
+      "storage": 0,
+      "energyStorage": 0,
+      "shieldsMaxCharge": 0,
+      "shieldsChargeRate": 0,
+      "shieldsChargeEnergy": 0,
+      "cannonBurstOutput": [
+         0,
+         0
+      ],
+      "cannonBurstEnergy": 0,
+      "bankSavings": 0,
+      "bankLoans": 0,
+      "manufactorUnits": 0,
+      "manufactorGoods": [],
+      "farming": 0,
+      "mining": 0,
+      "recycling": 0,
+      "waterPurification": 0,
+      "airPurification": 15,
+      "buildCost": {
+         "ticks": 24,
+         "credits": 2600,
+         "goods": {
+            "metal": 180,
+            "chemicals": 100
+         }
+      },
+      "operationCosts": {
+         "staff": 30,
+         "energy": 55,
+         "pollution": {
+            "water": 0,
+            "air": 0
+         },
+         "goods": {
+            "chemicals": 6
          }
       }
    },
