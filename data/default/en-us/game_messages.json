@@ -27,10 +27,13 @@
     "takeoff_failed": "Takeoff failed: {reason}",
     "docking_request": "Requesting docking permission at {objectName}...",
     "landing_request": "Preparing for landing on {objectName}...",
+    "build_request": "Starting construction of {buildingType}...",
     "dock_success": "Welcome to {objectName}. Docking sequence complete.",
     "dock_failed": "Docking failed: {reason}",
     "land_success": "Welcome to {objectName}. Landing sequence complete.",
-    "land_failed": "Landing failed: {reason}"
+    "land_failed": "Landing failed: {reason}",
+    "build_success": "{buildingType} queued for construction ({ticks} ticks).",
+    "build_failed": "Construction failed: {reason}"
   },
   "save_load": {
     "saving": "Saving game...",
@@ -53,7 +56,7 @@
     "no_systems_data": "Error: Unable to load system data for jump planner."
   },
   "commands": {
-    "unknown": "Unknown command: {command}. Try typing a button label, a shortcut like L/D/J/S, or a system number.",
+    "unknown": "Unknown command: {command}. Try typing a button label, a shortcut like L/D/B/J/S, or a system number.",
     "unavailable": "That action is currently unavailable: {command}",
     "no_action_available": "No available action found for: {action}",
     "takeoff_required": "You cannot plot a jump route while docked or landed. Take off first.",

@@ -195,6 +195,176 @@ class Game {
   }
 
   /**
+   * Get the stellar object where the player is currently docked/landed.
+   * @returns {Object|null} Current local stellar object, or null in space
+   */
+  getCurrentLocalObject() {
+    const objectId = this.player.dockedAt ?? this.player.landedOn;
+    if (objectId === null || objectId === undefined) {
+      return null;
+    }
+    return this.universe.stellarObjects.find(obj => obj.id === objectId) || null;
+  }
+
+  /**
+   * Check if the player directly controls a stellar object.
+   * @param {Object} stellarObject - Stellar object to check
+   * @returns {boolean} True if controlled by player or player's corporation
+   */
+  isObjectControlledByPlayer(stellarObject) {
+    if (!stellarObject || !this.player) {
+      return false;
+    }
+    if (stellarObject.owner === this.player.name) {
+      return true;
+    }
+    const corporationName = this.player.corporation?.name;
+    return Boolean(corporationName && stellarObject.owner === corporationName);
+  }
+
+  /**
+   * Check whether a building is supported by the object's capabilities.
+   * @param {Object} stellarObject - Target stellar object
+   * @param {Object} buildingData - Building definition from buildings.json
+   * @returns {boolean} True if supported
+   */
+  isBuildingSupportedByObject(stellarObject, buildingData) {
+    if (!stellarObject?.capabilities?.buildings || !buildingData) {
+      return false;
+    }
+
+    const hasShields =
+      (buildingData.shieldsMaxCharge || 0) > 0 ||
+      (buildingData.shieldsChargeRate || 0) > 0 ||
+      (buildingData.shieldsChargeEnergy || 0) > 0;
+
+    if (hasShields && !stellarObject.capabilities.shields) {
+      return false;
+    }
+
+    const cannonOutput = Array.isArray(buildingData.cannonBurstOutput)
+      ? Math.max(...buildingData.cannonBurstOutput)
+      : 0;
+    const hasCannons = cannonOutput > 0 || (buildingData.cannonBurstEnergy || 0) > 0;
+
+    if (hasCannons && !stellarObject.capabilities.cannons) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Load building definitions from configured data directory.
+   * @returns {Object} Building definitions keyed by type
+   */
+  getBuildingsData() {
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    const buildingsPath = path.join(__dirname, '..', dataDir, 'buildings.json');
+    return JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
+  }
+
+  /**
+   * Get buildings that can currently be built at the player's local object.
+   * @returns {Object[]} List of build options
+   */
+  getBuildableBuildingsAtCurrentLocation() {
+    const stellarObject = this.getCurrentLocalObject();
+    if (!stellarObject || !this.isObjectControlledByPlayer(stellarObject)) {
+      return [];
+    }
+
+    const buildingsData = this.getBuildingsData();
+    const availableGoods = stellarObject.marketState?.inventory || {};
+    const availableCredits = Number(stellarObject.buildingCredits || 0);
+
+    return Object.entries(buildingsData)
+      .filter(([buildingType, buildingData]) => {
+        if (!this.isBuildingSupportedByObject(stellarObject, buildingData)) {
+          return false;
+        }
+
+        const buildCost = buildingData.buildCost || {};
+        const requiredCredits = Number(buildCost.credits || 0);
+        const requiredGoods = buildCost.goods || {};
+
+        if (availableCredits < requiredCredits) {
+          return false;
+        }
+
+        return Object.entries(requiredGoods).every(([goodName, quantity]) => {
+          return (availableGoods[goodName] || 0) >= quantity;
+        });
+      })
+      .map(([buildingType, buildingData]) => ({
+        type: buildingType,
+        buildCost: buildingData.buildCost
+      }));
+  }
+
+  /**
+   * Queue construction of a building at the player's current local object.
+   * @param {string} buildingType - Building type from buildings.json
+   * @returns {Object} Build result
+   */
+  buildBuildingAtCurrentLocation(buildingType) {
+    const stellarObject = this.getCurrentLocalObject();
+    if (!stellarObject) {
+      return { success: false, reason: 'You must be docked or landed to build' };
+    }
+
+    if (!this.isObjectControlledByPlayer(stellarObject)) {
+      return { success: false, reason: 'You do not control this stellar object' };
+    }
+
+    const buildingsData = this.getBuildingsData();
+    const buildingData = buildingsData[buildingType];
+    if (!buildingData) {
+      return { success: false, reason: 'Unknown building type' };
+    }
+
+    if (!this.isBuildingSupportedByObject(stellarObject, buildingData)) {
+      return { success: false, reason: `${buildingType} is not supported here` };
+    }
+
+    const buildCost = buildingData.buildCost || {};
+    const requiredCredits = Number(buildCost.credits || 0);
+    const requiredGoods = buildCost.goods || {};
+    const availableCredits = Number(stellarObject.buildingCredits || 0);
+    const availableGoods = stellarObject.marketState?.inventory || {};
+
+    if (availableCredits < requiredCredits) {
+      return { success: false, reason: 'Insufficient building credits at this location' };
+    }
+
+    for (const [goodName, quantity] of Object.entries(requiredGoods)) {
+      if ((availableGoods[goodName] || 0) < quantity) {
+        return { success: false, reason: `Insufficient ${goodName} at this location` };
+      }
+    }
+
+    const queued = stellarObject.addBuilding(buildingType, buildingsData);
+    if (!queued) {
+      return { success: false, reason: 'Building limit reached or cannot construct building' };
+    }
+
+    stellarObject.buildingCredits = availableCredits - requiredCredits;
+    Object.entries(requiredGoods).forEach(([goodName, quantity]) => {
+      availableGoods[goodName] -= quantity;
+      if (availableGoods[goodName] <= 0) {
+        delete availableGoods[goodName];
+      }
+    });
+
+    return {
+      success: true,
+      objectId: stellarObject.id,
+      buildingType,
+      ticksRemaining: buildingData.buildCost?.ticks || 0
+    };
+  }
+
+  /**
    * Get the current state of the player
    * @returns {Object} Player state information
    */

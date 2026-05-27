@@ -88,6 +88,19 @@
       }
       _finishAction();
     });
+
+    _api.receive('build-result', async (result) => {
+      if (result.success) {
+        _addMessage('message:navigation.build_success', {
+          buildingType: result.buildingType,
+          ticks: result.ticksRemaining
+        });
+        await _updateLocationDisplay();
+      } else {
+        _addMessage('message:navigation.build_failed', { reason: result.reason });
+      }
+      _finishAction();
+    });
   }
 
   /**
@@ -234,6 +247,16 @@
   }
 
   /**
+   * Request construction of a building at current local object.
+   * @param {string} buildingType - Building type to construct.
+   */
+  function handleBuild(buildingType) {
+    _addMessage('message:navigation.build_request', { buildingType });
+    _startAction();
+    _api.send('construct-building', buildingType);
+  }
+
+  /**
    * Validate a destination, calculate route, prompt for confirmation, then jump.
    * @param {number} destinationId - Destination system ID.
    */
@@ -343,8 +366,9 @@
    * Creates jump buttons for connected systems and dock/land/trade/takeoff
    * buttons based on available objects and player status.
    * @param {Object} locationState - Current location state from the game.
+   * @param {Object[]} buildableBuildings - Build options for the current local object.
    */
-  function updateAvailableActions(locationState) {
+  function updateAvailableActions(locationState, buildableBuildings = []) {
     const jumpButtons = document.getElementById('jump-buttons');
     const localButtons = document.getElementById('local-buttons');
 
@@ -379,6 +403,18 @@
         tradeButton.textContent = 'Trade';
         tradeButton.addEventListener('click', () => _openTradeModal(currentObject));
         localButtons.appendChild(tradeButton);
+      }
+
+      if (Array.isArray(buildableBuildings)) {
+        buildableBuildings.forEach((building) => {
+          const buildButton = document.createElement('button');
+          buildButton.className = 'action-btn';
+          buildButton.dataset.action = 'build';
+          buildButton.dataset.buildingType = building.type;
+          buildButton.textContent = `Build ${building.type}`;
+          buildButton.addEventListener('click', () => handleBuild(building.type));
+          localButtons.appendChild(buildButton);
+        });
       }
 
       const takeOffButton = document.createElement('button');
@@ -449,6 +485,11 @@
       return;
     }
 
+    if (canonicalCommand === 'build') {
+      executeLocalActionShortcut('build');
+      return;
+    }
+
     const commandButtons = getCommandButtons();
     const exactMatch = commandButtons.find((button) => {
       return _commandParser.normalizeCommandText(button.textContent) === canonicalCommand;
@@ -481,6 +522,7 @@
     handleDock,
     handleLand,
     handleTakeOff,
+    handleBuild,
     offerRouteAndJump,
     executeJumpSequence,
     updateAvailableActions,

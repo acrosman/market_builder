@@ -612,6 +612,128 @@ describe('Game Module', () => {
         expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
       });
     });
+
+    describe('Building Construction', () => {
+      function createBuildableObject(overrides = {}) {
+        const baseObject = {
+          id: 100,
+          type: 'Planet',
+          className: 'Earth-like',
+          name: 'Build World',
+          location: 0,
+          owner: 'Test Corp',
+          capabilities: { buildings: true, market: true, shields: true, cannons: true },
+          buildingLimit: 10,
+          buildingCredits: 5000,
+          marketState: { inventory: { metal: 200 } },
+          buildings: {},
+          buildingsUnderConstruction: [],
+          addBuilding: function (buildingType, buildingsData) {
+            const buildingInfo = buildingsData[buildingType];
+            if (!buildingInfo || this.buildingsUnderConstruction.length >= this.buildingLimit) {
+              return false;
+            }
+            this.buildingsUnderConstruction.push({
+              type: buildingType,
+              ticksRemaining: buildingInfo.buildCost.ticks
+            });
+            return true;
+          },
+          onTick: function ({ ticks }) {
+            for (let i = this.buildingsUnderConstruction.length - 1; i >= 0; i--) {
+              this.buildingsUnderConstruction[i].ticksRemaining -= ticks;
+              if (this.buildingsUnderConstruction[i].ticksRemaining <= 0) {
+                const finishedType = this.buildingsUnderConstruction[i].type;
+                this.buildings[finishedType] = this.buildings[finishedType] || { count: 0 };
+                this.buildings[finishedType].count += 1;
+                this.buildingsUnderConstruction.splice(i, 1);
+              }
+            }
+          }
+        };
+        return {
+          ...baseObject,
+          ...overrides,
+          capabilities: { ...baseObject.capabilities, ...(overrides.capabilities || {}) }
+        };
+      }
+
+      test('returns buildable buildings when docked at controlled object with resources', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject();
+        game.universe.stellarObjects = [object];
+        game.player.dockedAt = object.id;
+
+        const options = game.getBuildableBuildingsAtCurrentLocation();
+
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.some(opt => opt.type === 'Mine')).toBe(true);
+      });
+
+      test('buildBuildingAtCurrentLocation rejects when player does not control object', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({ owner: 'Rival Corp' });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        const result = game.buildBuildingAtCurrentLocation('Mine');
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('You do not control this stellar object');
+      });
+
+      test('buildBuildingAtCurrentLocation queues construction and deducts local resources', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({
+          buildingCredits: 600,
+          marketState: { inventory: { metal: 20 } }
+        });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        const result = game.buildBuildingAtCurrentLocation('Mine');
+
+        expect(result.success).toBe(true);
+        expect(result.ticksRemaining).toBe(10);
+        expect(object.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 10 }]);
+        expect(object.buildingCredits).toBe(100);
+        expect(object.marketState.inventory.metal).toBe(10);
+      });
+
+      test('building completion only happens after required tick cost has elapsed', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({
+          buildingCredits: 2000,
+          marketState: { inventory: { metal: 200 } }
+        });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        const result = game.buildBuildingAtCurrentLocation('Mine');
+        expect(result.success).toBe(true);
+        expect(object.buildingsUnderConstruction[0].ticksRemaining).toBe(10);
+
+        object.onTick({ ticks: 9 });
+        expect(object.buildings.Mine).toBeUndefined();
+        expect(object.buildingsUnderConstruction).toHaveLength(1);
+
+        object.onTick({ ticks: 1 });
+        expect(object.buildings.Mine.count).toBe(1);
+        expect(object.buildingsUnderConstruction).toHaveLength(0);
+      });
+    });
   });
 
   describe('Time Tick System', () => {

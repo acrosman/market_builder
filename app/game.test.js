@@ -385,7 +385,7 @@ describe('game.js coordinator', () => {
       await ctx.updateLocationDisplay();
 
       expect(document.getElementById('system-name').textContent).toBe('Alpha System');
-      expect(window.navigationHandlers.updateAvailableActions).toHaveBeenCalledWith(locationState);
+      expect(window.navigationHandlers.updateAvailableActions).toHaveBeenCalledWith(locationState, []);
     });
 
     test('shows system image when in space', async () => {

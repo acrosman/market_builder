@@ -544,6 +544,25 @@ ipcMain.handle('get-goods-data', () => {
   return goodsData;
 });
 
+// Handle get-buildable-buildings request from renderer
+ipcMain.handle('get-buildable-buildings', () => {
+  if (!currentGame) {
+    return [];
+  }
+  return currentGame.getBuildableBuildingsAtCurrentLocation();
+});
+
+// Handle construct-building request from renderer
+ipcMain.on('construct-building', (event, buildingType) => {
+  if (!currentGame) {
+    event.reply('build-result', { success: false, reason: 'No active game' });
+    return;
+  }
+
+  const result = currentGame.buildBuildingAtCurrentLocation(buildingType);
+  event.reply('build-result', result);
+});
+
 // Handle get-market-price request from renderer
 ipcMain.handle('get-market-price', (event, { stellarObjectId, goodName, priceType }) => {
   if (!currentGame) {

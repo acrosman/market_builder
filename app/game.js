@@ -17,6 +17,7 @@ document.addEventListener(
     const commandAliases = {
       l: 'land',
       d: 'dock',
+      b: 'build',
       j: 'jump planner',
       s: 'save game'
     };
@@ -281,7 +282,8 @@ document.addEventListener(
         if (noImagePlaceholder) noImagePlaceholder.style.display = 'block';
       }
 
-      window.navigationHandlers.updateAvailableActions(locationState);
+      const buildableBuildings = await window.api.invoke('get-buildable-buildings');
+      window.navigationHandlers.updateAvailableActions(locationState, buildableBuildings || []);
     }
 
     /**
