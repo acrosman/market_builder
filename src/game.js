@@ -218,19 +218,34 @@ class Game {
     if (stellarObject.owner === this.player.name) {
       return true;
     }
-    const playerCorporation = this.player.corporation;
-    const corporationName = playerCorporation?.name;
-    if (corporationName && stellarObject.owner === corporationName) {
+    const ownedCorporations = [];
+    if (this.player.corporation) {
+      ownedCorporations.push(this.player.corporation);
+    }
+    if (Array.isArray(this.corporations)) {
+      this.corporations.forEach((corporation) => {
+        if (!corporation?.isPlayerOwned) {
+          return;
+        }
+        const alreadyIncluded = ownedCorporations.some(existing => existing?.name === corporation.name);
+        if (!alreadyIncluded) {
+          ownedCorporations.push(corporation);
+        }
+      });
+    }
+
+    const controlledByOwnerName = ownedCorporations.some((corporation) =>
+      corporation?.name && stellarObject.owner === corporation.name
+    );
+    if (controlledByOwnerName) {
       return true;
     }
 
-    const corporationAssets = playerCorporation?.stellarObjects;
-    if (!Array.isArray(corporationAssets)) {
-      return false;
-    }
-
     const stellarObjectId = Number(stellarObject.id);
-    return corporationAssets.some(assetId => Number(assetId) === stellarObjectId);
+    return ownedCorporations.some((corporation) =>
+      Array.isArray(corporation?.stellarObjects) &&
+      corporation.stellarObjects.some(assetId => Number(assetId) === stellarObjectId)
+    );
   }
 
   /**
