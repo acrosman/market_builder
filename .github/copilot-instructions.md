@@ -1,6 +1,6 @@
 # Copilot / Coding Agent Instructions — Repository Onboarding
 
-You are a skilled JavaScript developer familiar with game development and simulation. Ensure that all existing tests pass and add new tests for any new functionality. Follow the conventions outlined in this document, including code style, architecture patterns, and development workflows. When making changes, always consider the impact on the overall system and maintain consistency with existing code.
+You are a skilled JavaScript developer familiar with game development and simulation. Ensure that all existing tests pass and add new tests for any new functionality. Follow the conventions outlined in this document, including code style, architecture patterns, and development workflows. When making changes, always consider the impact on the overall system and maintain consistency with existing code. When minimal safe edits conflict with broader consistency refactors, prefer the minimal safe edit and add a TODO comment describing the deferred consistency work.
 
 ## Purpose
 
@@ -139,7 +139,9 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
 - **Shared patterns**:
   - Load HTML templates from `app/templates/` or `app/modals/` via shared helpers (`window.gameHelpers.loadTemplate()` in renderer modules)
   - Reuse shared helpers for cross-module utility logic (for example, template loading and cargo mass calculations) instead of re-implementing logic per file
-  - Never embed HTML in JS strings
+  - Available shared helpers in `app/gameHelpers.js`: `loadTemplate(templatePath)`, `calculateCargoMass(cargo, goodsData)`, `replaceMessageVariables(message, vars)`
+  - For new cross-module utility logic, add it to `app/gameHelpers.js` and export it via `window.gameHelpers` instead of duplicating per file
+  - See Code Style: No HTML in JS rule
   - CSS files in `app/css/` (one per page + shared)
   - **Modal pattern**: Fetch from `app/modals/`, create overlay div, append modal content, add close handlers
   - **Data directory pattern**: Thread `dataDir` parameter through constructors (defaults to `data/default/en-us`), use `path.join(__dirname, '..', dataDir, 'file.json')` for file access
@@ -206,6 +208,7 @@ npm run lint       # Check code style
 1. Check [app/preload.js](app/preload.js) - Is channel whitelisted in both `send`/`invoke` validChannels AND `receive`?
 2. Check [main.js](main.js) - Is there a matching `ipcMain.on()` or `ipcMain.handle()`?
 3. Check renderer - Using correct API? `window.api.send()` (fire-and-forget) vs `window.api.invoke()` (returns Promise)
+   - For `window.api.invoke()` calls, always wrap in `try/catch` and surface failures to users via `addMessage('message:error.ipc_failure', { action })` (or an equivalent existing error message key). Do not silently swallow IPC errors.
 4. Console logs: Main process logs in terminal, renderer logs in DevTools
 
 ### Game State Management
@@ -214,6 +217,7 @@ npm run lint       # Check code style
 - Flow: Universe created → Player created → `currentGame = new Game(universe, settings)` → `initializeGame(playerData)`
 - State access: `currentGame.getCurrentLocationState()`, `currentGame.getPlayerState()`
 - Save/load: [main.js](main.js) handles file I/O, serializes game state to JSON in `saves/` directory
+- If save file reading fails or JSON parsing fails during `loadGame()`, do not set `currentGame`; send a dedicated IPC error event (for example `load-game-error`) and have the renderer display an error via `addMessage()`.
 
 ## Project-Specific Conventions
 
@@ -245,7 +249,9 @@ npm run lint       # Check code style
   - ❌ **NEVER**: `addMessage('Error: something went wrong')`
   - ❌ **NEVER**: `element.textContent = 'Click here to continue'`
   - ✅ **ALWAYS**: Load from `game_messages.json` using `addMessage('message:key', { variables })`
-  - Static labels in HTML templates are acceptable (e.g., form labels, button text in templates)
+  - When new user-facing text is needed, add a key to `data/default/en-us/game_messages.json` using dot-notation hierarchy (for example `navigation.new_action`) and `"key": "Text with {tokenName} placeholders"` format
+  - Never use a message key that does not exist in `game_messages.json`
+  - Template HTML should use message keys/placeholders for user-facing text instead of hardcoded literals
   - Exception: System/technical strings for developers (console.log, error handling) are OK
 - **Variable declarations**: `const` for immutable, `let` for mutable (avoid `var`)
 - **Callbacks**: Arrow functions for anonymous functions/callbacks
@@ -253,8 +259,8 @@ npm run lint       # Check code style
 - **Console logging**: Use `[DEBUG functionName]` prefix for debug logs: `console.log('[DEBUG updateLocationDisplay] value:', value)`
 - **Show/hide UI elements**: Use `.hidden` CSS class with `classList.add('hidden')` and `classList.remove('hidden')` - never inline styles
 - **File size and modularity**:
-  - Files over **500 lines** should be reviewed during any touch/update to determine if they can be shortened or split into focused modules.
-  - Files over **1000 lines** must be reviewed and refactored into smaller files unless there is a documented, justified exception.
+  - Files over **500 lines**: before making changes, check whether the file can be split into focused modules; if splitting is safe and in scope, do it. If not, add a top-of-file TODO noting the deferred split.
+  - Files over **1000 lines**: split into smaller modules in the same PR unless the file is generated code or data-only. If splitting is out of scope, add `// REFACTOR-REQUIRED: exceeds 1000 lines` at the top and note it in the PR description.
   - Favor cohesive modules by feature or responsibility to prevent “god files”.
 
 ### Function Documentation
@@ -329,7 +335,7 @@ When modifying code:
 
 ### UI and Content Violations
 
-11. **Don't embed HTML in JavaScript strings** - No `innerHTML` with template literals, string concatenation, `outerHTML`, or `document.write()`
+11. **Don't embed HTML in JavaScript strings** - See Code Style: No HTML in JS rule.
 12. **Don't hardcode user-facing text** - Load from `game_messages.json` via `addMessage()`
 13. **Don't use inline styles for show/hide** - Use `.hidden` CSS class
 14. **Don't break message token replacement** - Ensure tokens match `game_messages.json` format exactly
