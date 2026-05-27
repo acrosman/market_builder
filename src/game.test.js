@@ -673,6 +673,22 @@ describe('Game Module', () => {
         expect(options.some(opt => opt.type === 'Mine')).toBe(true);
       });
 
+      test('returns buildable buildings when landed at corporation asset even if owner label is stale', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({ owner: 'Independent' });
+        game.universe.stellarObjects = [object];
+        game.player.corporation.stellarObjects = [object.id];
+        game.player.landedOn = object.id;
+
+        const options = game.getBuildableBuildingsAtCurrentLocation();
+
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.some(opt => opt.type === 'Mine')).toBe(true);
+      });
+
       test('buildBuildingAtCurrentLocation rejects when player does not control object', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());

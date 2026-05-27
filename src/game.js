@@ -218,8 +218,19 @@ class Game {
     if (stellarObject.owner === this.player.name) {
       return true;
     }
-    const corporationName = this.player.corporation?.name;
-    return Boolean(corporationName && stellarObject.owner === corporationName);
+    const playerCorporation = this.player.corporation;
+    const corporationName = playerCorporation?.name;
+    if (corporationName && stellarObject.owner === corporationName) {
+      return true;
+    }
+
+    const corporationAssets = playerCorporation?.stellarObjects;
+    if (!Array.isArray(corporationAssets)) {
+      return false;
+    }
+
+    const stellarObjectId = Number(stellarObject.id);
+    return corporationAssets.some(assetId => Number(assetId) === stellarObjectId);
   }
 
   /**
