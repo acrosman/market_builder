@@ -217,7 +217,7 @@ npm run lint       # Check code style
 - Flow: Universe created → Player created → `currentGame = new Game(universe, settings)` → `initializeGame(playerData)`
 - State access: `currentGame.getCurrentLocationState()`, `currentGame.getPlayerState()`
 - Save/load: [main.js](main.js) handles file I/O, serializes game state to JSON in `saves/` directory
-- If save file reading fails or JSON parsing fails during `loadGame()`, do not set `currentGame`; send a dedicated IPC error event (for example `load-game-error`) and have the renderer display an error via `addMessage()`.
+- If save file reading fails or JSON parsing fails during `loadGame()`, do not set `currentGame`; send a dedicated IPC error event (for example `load-game-error`) and have the renderer display an error via an existing save/load failure message key in `game_messages.json`.
 
 ## Project-Specific Conventions
 
@@ -249,7 +249,9 @@ npm run lint       # Check code style
   - ❌ **NEVER**: `addMessage('Error: something went wrong')`
   - ❌ **NEVER**: `element.textContent = 'Click here to continue'`
   - ✅ **ALWAYS**: Load from `game_messages.json` using `addMessage('message:key', { variables })`
-  - When new user-facing text is needed, add a key to `data/default/en-us/game_messages.json` using dot-notation hierarchy (for example `navigation.new_action`) and `"key": "Text with {tokenName} placeholders"` format
+  - When new user-facing text is needed:
+    - In `game_messages.json`, add it as a nested object entry (example: `"navigation": { "new_action": "Text with {tokenName} placeholders" }`)
+    - In code, reference that nested path with dot-notation (example: `addMessage('message:navigation.new_action')`; `message:` is a code-level prefix, not part of the JSON key)
   - Never use a message key that does not exist in `game_messages.json`
   - Template HTML should use message keys/placeholders for user-facing text instead of hardcoded literals
   - Exception: System/technical strings for developers (console.log, error handling) are OK
