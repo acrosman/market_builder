@@ -60,4 +60,46 @@ describe('Player Class', () => {
     player.moveTo(3);
     expect(player.location).toBe(3);
   });
+
+  describe('ownership helpers', () => {
+    test('getOwnedCorporations returns player and player-owned corporations without duplicates', () => {
+      const player = new Player('TestPlayer', mockSettings);
+      player.corporation = { name: 'Alpha Corp', stellarObjects: [100] };
+
+      const ownedCorporations = player.getOwnedCorporations([
+        { name: 'Alpha Corp', isPlayerOwned: true, stellarObjects: [100] },
+        { name: 'Beta Corp', isPlayerOwned: true, stellarObjects: [200] },
+        { name: 'Rival Corp', isPlayerOwned: false, stellarObjects: [300] }
+      ]);
+
+      expect(ownedCorporations).toEqual([
+        { name: 'Alpha Corp', stellarObjects: [100] },
+        { name: 'Beta Corp', isPlayerOwned: true, stellarObjects: [200] }
+      ]);
+    });
+
+    test('controlsStellarObject returns true when owner matches a player-owned corporation', () => {
+      const player = new Player('TestPlayer', mockSettings);
+      player.corporation = { name: 'Player Corp', stellarObjects: [] };
+
+      const controlled = player.controlsStellarObject(
+        { id: 500, owner: 'Player Corp' },
+        []
+      );
+
+      expect(controlled).toBe(true);
+    });
+
+    test('controlsStellarObject falls back to corporation asset list for stale owner labels', () => {
+      const player = new Player('TestPlayer', mockSettings);
+      player.corporation = { name: 'Player Corp', stellarObjects: [500] };
+
+      const controlled = player.controlsStellarObject(
+        { id: 500, owner: 'Independent' },
+        []
+      );
+
+      expect(controlled).toBe(true);
+    });
+  });
 });

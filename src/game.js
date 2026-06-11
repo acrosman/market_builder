@@ -207,72 +207,6 @@ class Game {
   }
 
   /**
-   * Get all corporations controlled by the player.
-   * @returns {Object[]} Player-owned corporations
-   * @example
-   * const ownedCorporations = game.getPlayerOwnedCorporations();
-   */
-  getPlayerOwnedCorporations() {
-    const ownedCorporations = [];
-
-    if (this.player?.corporation) {
-      ownedCorporations.push(this.player.corporation);
-    }
-
-    if (!Array.isArray(this.corporations)) {
-      return ownedCorporations;
-    }
-
-    this.corporations.forEach((corporation) => {
-      if (!corporation?.isPlayerOwned) {
-        return;
-      }
-
-      const alreadyIncluded = ownedCorporations.some(existing => existing?.name === corporation.name);
-      if (!alreadyIncluded) {
-        ownedCorporations.push(corporation);
-      }
-    });
-
-    return ownedCorporations;
-  }
-
-  /**
-   * Check if the player controls a stellar object.
-   * @param {Object} stellarObject - Stellar object to check
-   * @returns {boolean} True if controlled by player or player-owned corporation
-   * @example
-   * const controlled = game.isObjectControlledByPlayer(stellarObject);
-   */
-  isObjectControlledByPlayer(stellarObject) {
-    if (!stellarObject || !this.player) {
-      return false;
-    }
-
-    // Direct owner match for player-owned objects.
-    if (stellarObject.owner === this.player.name) {
-      return true;
-    }
-
-    const ownedCorporations = this.getPlayerOwnedCorporations();
-
-    // Owner label match for corporation-owned objects.
-    const controlledByOwnerName = ownedCorporations.some((corporation) =>
-      corporation?.name && stellarObject.owner === corporation.name
-    );
-    if (controlledByOwnerName) {
-      return true;
-    }
-
-    // Fallback for stale owner labels: check corporation asset lists.
-    const stellarObjectId = Number(stellarObject.id);
-    return ownedCorporations.some((corporation) =>
-      Array.isArray(corporation?.stellarObjects) &&
-      corporation.stellarObjects.some(assetId => Number(assetId) === stellarObjectId)
-    );
-  }
-
-  /**
    * Load building definitions from configured data directory.
    * @returns {Object} Building definitions keyed by type
    */
@@ -289,7 +223,8 @@ class Game {
    */
   getBuildableBuildingsForCurrentObject() {
     const stellarObject = this.getCurrentLocalObject();
-    if (!stellarObject || !this.isObjectControlledByPlayer(stellarObject)) {
+    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations) === true;
+    if (!stellarObject || !isControlledByPlayer) {
       return [];
     }
 
@@ -308,7 +243,8 @@ class Game {
       return { success: false, reason: 'You must be docked or landed to build' };
     }
 
-    if (!this.isObjectControlledByPlayer(stellarObject)) {
+    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations) === true;
+    if (!isControlledByPlayer) {
       return { success: false, reason: 'You do not control this stellar object' };
     }
 
