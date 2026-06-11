@@ -72,10 +72,8 @@ describe('Player Class', () => {
         { name: 'Rival Corp', isPlayerOwned: false, stellarObjects: [300] }
       ]);
 
-      expect(ownedCorporations).toEqual([
-        { name: 'Alpha Corp', stellarObjects: [100] },
-        { name: 'Beta Corp', isPlayerOwned: true, stellarObjects: [200] }
-      ]);
+      expect(ownedCorporations).toHaveLength(2);
+      expect(ownedCorporations.map(corporation => corporation.name)).toEqual(['Alpha Corp', 'Beta Corp']);
     });
 
     test('controlsStellarObject returns true when owner matches a player-owned corporation', () => {

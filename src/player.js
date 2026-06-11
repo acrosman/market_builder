@@ -44,9 +44,11 @@ class Player extends Trader {
    */
   getOwnedCorporations(corporations = []) {
     const ownedCorporations = [];
+    const ownedCorporationNames = new Set();
 
     if (this.corporation) {
       ownedCorporations.push(this.corporation);
+      ownedCorporationNames.add(this.corporation?.name);
     }
 
     if (!Array.isArray(corporations)) {
@@ -58,10 +60,12 @@ class Player extends Trader {
         return;
       }
 
-      const alreadyIncluded = ownedCorporations.some(existing => existing?.name === corporation.name);
-      if (!alreadyIncluded) {
-        ownedCorporations.push(corporation);
+      if (ownedCorporationNames.has(corporation.name)) {
+        return;
       }
+
+      ownedCorporationNames.add(corporation.name);
+      ownedCorporations.push(corporation);
     });
 
     return ownedCorporations;
@@ -93,10 +97,17 @@ class Player extends Trader {
     }
 
     const stellarObjectId = Number(stellarObject.id);
-    return ownedCorporations.some((corporation) =>
-      Array.isArray(corporation?.stellarObjects) &&
-      corporation.stellarObjects.some(assetId => Number(assetId) === stellarObjectId)
-    );
+    const controlledStellarObjectIds = new Set();
+
+    ownedCorporations.forEach((corporation) => {
+      if (!Array.isArray(corporation?.stellarObjects)) {
+        return;
+      }
+
+      corporation.stellarObjects.forEach(assetId => controlledStellarObjectIds.add(Number(assetId)));
+    });
+
+    return controlledStellarObjectIds.has(stellarObjectId);
   }
 }
 
