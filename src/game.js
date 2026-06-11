@@ -207,33 +207,56 @@ class Game {
   }
 
   /**
-   * Check if the player directly controls a stellar object.
+   * Get all corporations controlled by the player.
+   * @returns {Object[]} Player-owned corporations
+   * @example
+   * const ownedCorporations = game.getPlayerOwnedCorporations();
+   */
+  getPlayerOwnedCorporations() {
+    const ownedCorporations = [];
+
+    if (this.player?.corporation) {
+      ownedCorporations.push(this.player.corporation);
+    }
+
+    if (!Array.isArray(this.corporations)) {
+      return ownedCorporations;
+    }
+
+    this.corporations.forEach((corporation) => {
+      if (!corporation?.isPlayerOwned) {
+        return;
+      }
+
+      const alreadyIncluded = ownedCorporations.some(existing => existing?.name === corporation.name);
+      if (!alreadyIncluded) {
+        ownedCorporations.push(corporation);
+      }
+    });
+
+    return ownedCorporations;
+  }
+
+  /**
+   * Check if the player controls a stellar object.
    * @param {Object} stellarObject - Stellar object to check
-   * @returns {boolean} True if controlled by player or player's corporation
+   * @returns {boolean} True if controlled by player or player-owned corporation
+   * @example
+   * const controlled = game.isObjectControlledByPlayer(stellarObject);
    */
   isObjectControlledByPlayer(stellarObject) {
     if (!stellarObject || !this.player) {
       return false;
     }
+
+    // Direct owner match for player-owned objects.
     if (stellarObject.owner === this.player.name) {
       return true;
     }
-    const ownedCorporations = [];
-    if (this.player.corporation) {
-      ownedCorporations.push(this.player.corporation);
-    }
-    if (Array.isArray(this.corporations)) {
-      this.corporations.forEach((corporation) => {
-        if (!corporation?.isPlayerOwned) {
-          return;
-        }
-        const alreadyIncluded = ownedCorporations.some(existing => existing?.name === corporation.name);
-        if (!alreadyIncluded) {
-          ownedCorporations.push(corporation);
-        }
-      });
-    }
 
+    const ownedCorporations = this.getPlayerOwnedCorporations();
+
+    // Owner label match for corporation-owned objects.
     const controlledByOwnerName = ownedCorporations.some((corporation) =>
       corporation?.name && stellarObject.owner === corporation.name
     );
@@ -241,43 +264,12 @@ class Game {
       return true;
     }
 
+    // Fallback for stale owner labels: check corporation asset lists.
     const stellarObjectId = Number(stellarObject.id);
     return ownedCorporations.some((corporation) =>
       Array.isArray(corporation?.stellarObjects) &&
       corporation.stellarObjects.some(assetId => Number(assetId) === stellarObjectId)
     );
-  }
-
-  /**
-   * Check whether a building is supported by the object's capabilities.
-   * @param {Object} stellarObject - Target stellar object
-   * @param {Object} buildingData - Building definition from buildings.json
-   * @returns {boolean} True if supported
-   */
-  isBuildingSupportedByObject(stellarObject, buildingData) {
-    if (!stellarObject?.capabilities?.buildings || !buildingData) {
-      return false;
-    }
-
-    const hasShields =
-      (buildingData.shieldsMaxCharge || 0) > 0 ||
-      (buildingData.shieldsChargeRate || 0) > 0 ||
-      (buildingData.shieldsChargeEnergy || 0) > 0;
-
-    if (hasShields && !stellarObject.capabilities.shields) {
-      return false;
-    }
-
-    const cannonOutput = Array.isArray(buildingData.cannonBurstOutput)
-      ? Math.max(...buildingData.cannonBurstOutput)
-      : 0;
-    const hasCannons = cannonOutput > 0 || (buildingData.cannonBurstEnergy || 0) > 0;
-
-    if (hasCannons && !stellarObject.capabilities.cannons) {
-      return false;
-    }
-
-    return true;
   }
 
   /**
@@ -287,7 +279,22 @@ class Game {
   getBuildingsData() {
     const dataDir = this.settings.data_directory || 'data/default/en-us';
     const buildingsPath = path.join(__dirname, '..', dataDir, 'buildings.json');
-    return JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
+    const buildingsData = JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
+    return buildingsData;
+  }
+
+  /**
+   * Get buildings that can be built at the player's current object.
+   * @returns {Object[]} List of build options
+   */
+  getBuildableBuildingsForCurrentObject() {
+    const stellarObject = this.getCurrentLocalObject();
+    if (!stellarObject || !this.isObjectControlledByPlayer(stellarObject)) {
+      return [];
+    }
+
+    const buildingsData = this.getBuildingsData();
+    return stellarObject.getBuildableBuildingOptions(buildingsData);
   }
 
   /**
@@ -295,45 +302,15 @@ class Game {
    * @returns {Object[]} List of build options
    */
   getBuildableBuildingsAtCurrentLocation() {
-    const stellarObject = this.getCurrentLocalObject();
-    if (!stellarObject || !this.isObjectControlledByPlayer(stellarObject)) {
-      return [];
-    }
-
-    const buildingsData = this.getBuildingsData();
-    const availableGoods = stellarObject.marketState?.inventory || {};
-    const availableCredits = Number(stellarObject.buildingCredits || 0);
-
-    return Object.entries(buildingsData)
-      .filter(([buildingType, buildingData]) => {
-        if (!this.isBuildingSupportedByObject(stellarObject, buildingData)) {
-          return false;
-        }
-
-        const buildCost = buildingData.buildCost || {};
-        const requiredCredits = Number(buildCost.credits || 0);
-        const requiredGoods = buildCost.goods || {};
-
-        if (availableCredits < requiredCredits) {
-          return false;
-        }
-
-        return Object.entries(requiredGoods).every(([goodName, quantity]) => {
-          return (availableGoods[goodName] || 0) >= quantity;
-        });
-      })
-      .map(([buildingType, buildingData]) => ({
-        type: buildingType,
-        buildCost: buildingData.buildCost
-      }));
+    return this.getBuildableBuildingsForCurrentObject();
   }
 
   /**
-   * Queue construction of a building at the player's current local object.
+   * Queue construction of a building at the player's current object.
    * @param {string} buildingType - Building type from buildings.json
    * @returns {Object} Build result
    */
-  buildBuildingAtCurrentLocation(buildingType) {
+  buildBuildingAtCurrentObject(buildingType) {
     const stellarObject = this.getCurrentLocalObject();
     if (!stellarObject) {
       return { success: false, reason: 'You must be docked or landed to build' };
@@ -344,50 +321,24 @@ class Game {
     }
 
     const buildingsData = this.getBuildingsData();
-    const buildingData = buildingsData[buildingType];
-    if (!buildingData) {
-      return { success: false, reason: 'Unknown building type' };
+    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData);
+    if (!buildResult.success) {
+      return buildResult;
     }
-
-    if (!this.isBuildingSupportedByObject(stellarObject, buildingData)) {
-      return { success: false, reason: `${buildingType} is not supported here` };
-    }
-
-    const buildCost = buildingData.buildCost || {};
-    const requiredCredits = Number(buildCost.credits || 0);
-    const requiredGoods = buildCost.goods || {};
-    const availableCredits = Number(stellarObject.buildingCredits || 0);
-    const availableGoods = stellarObject.marketState?.inventory || {};
-
-    if (availableCredits < requiredCredits) {
-      return { success: false, reason: 'Insufficient building credits at this location' };
-    }
-
-    for (const [goodName, quantity] of Object.entries(requiredGoods)) {
-      if ((availableGoods[goodName] || 0) < quantity) {
-        return { success: false, reason: `Insufficient ${goodName} at this location` };
-      }
-    }
-
-    const queued = stellarObject.addBuilding(buildingType, buildingsData);
-    if (!queued) {
-      return { success: false, reason: 'Building limit reached or cannot construct building' };
-    }
-
-    stellarObject.buildingCredits = availableCredits - requiredCredits;
-    Object.entries(requiredGoods).forEach(([goodName, quantity]) => {
-      availableGoods[goodName] -= quantity;
-      if (availableGoods[goodName] <= 0) {
-        delete availableGoods[goodName];
-      }
-    });
 
     return {
-      success: true,
-      objectId: stellarObject.id,
-      buildingType,
-      ticksRemaining: buildingData.buildCost?.ticks || 0
+      ...buildResult,
+      objectId: stellarObject.id
     };
+  }
+
+  /**
+   * Queue construction of a building at the player's current local object.
+   * @param {string} buildingType - Building type from buildings.json
+   * @returns {Object} Build result
+   */
+  buildBuildingAtCurrentLocation(buildingType) {
+    return this.buildBuildingAtCurrentObject(buildingType);
   }
 
   /**

@@ -549,7 +549,7 @@ ipcMain.handle('get-buildable-buildings', () => {
   if (!currentGame) {
     return [];
   }
-  return currentGame.getBuildableBuildingsAtCurrentLocation();
+  return currentGame.getBuildableBuildingsForCurrentObject();
 });
 
 // Handle construct-building request from renderer
@@ -559,7 +559,7 @@ ipcMain.on('construct-building', (event, buildingType) => {
     return;
   }
 
-  const result = currentGame.buildBuildingAtCurrentLocation(buildingType);
+  const result = currentGame.buildBuildingAtCurrentObject(buildingType);
   event.reply('build-result', result);
 });
 

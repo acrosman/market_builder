@@ -36,12 +36,18 @@ describe('StellarObject', () => {
     mockBuildingsData = {
       'Shield Generator': {
         buildCost: { ticks: 10, credits: 1000 },
+        isShieldGenerator: true,
         shieldsMaxCharge: 1000,
         shieldsChargeRate: 10
       },
       'Cannon': {
         buildCost: { ticks: 8, credits: 800 },
+        isCannon: true,
         cannonBurstOutput: [50, 100]
+      },
+      'Mine': {
+        buildCost: { ticks: 10, credits: 500, goods: { metal: 10 } },
+        mining: 5
       },
       'Warehouse': {
         buildCost: { ticks: 5, credits: 500 },
@@ -345,6 +351,123 @@ describe('StellarObject', () => {
 
       const result = obj.removeBuilding('Warehouse');
       expect(result).toBe(false);
+    });
+  });
+
+  describe('supportsBuilding and getBuildableBuildingOptions', () => {
+    test('should include supported buildings even when local credits are low', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 0;
+      obj.marketState = { inventory: {} };
+
+      const options = obj.getBuildableBuildingOptions(mockBuildingsData);
+
+      expect(options.some(option => option.type === 'Mine')).toBe(true);
+    });
+
+    test('should exclude shield generators when object lacks shield capability', () => {
+      mockTypeDetails.shields = false;
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      const options = obj.getBuildableBuildingOptions(mockBuildingsData);
+
+      expect(options.some(option => option.type === 'Shield Generator')).toBe(false);
+    });
+
+    test('should exclude cannons when object lacks cannon capability', () => {
+      mockTypeDetails.cannons = false;
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+
+      const options = obj.getBuildableBuildingOptions(mockBuildingsData);
+
+      expect(options.some(option => option.type === 'Cannon')).toBe(false);
+    });
+  });
+
+  describe('constructBuilding', () => {
+    test('should queue construction and deduct local resources', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 600;
+      obj.marketState = { inventory: { metal: 20 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData);
+
+      expect(result.success).toBe(true);
+      expect(result.ticksRemaining).toBe(10);
+      expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 10 }]);
+      expect(obj.buildingCredits).toBe(100);
+      expect(obj.marketState.inventory.metal).toBe(10);
+    });
+
+    test('should fail when local resources are insufficient', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 400;
+      obj.marketState = { inventory: { metal: 5 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData);
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('Insufficient building credits at this location');
+    });
+
+    test('building completion should occur only after required ticks elapse', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 2000;
+      obj.marketState = { inventory: { metal: 200 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData);
+      expect(result.success).toBe(true);
+      expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(10);
+
+      obj.onTick({ ticks: 9 });
+      expect(obj.buildings.Mine).toBeUndefined();
+      expect(obj.buildingsUnderConstruction).toHaveLength(1);
+
+      obj.onTick({ ticks: 1 });
+      expect(obj.buildings.Mine.count).toBe(1);
+      expect(obj.buildingsUnderConstruction).toHaveLength(0);
     });
   });
 
