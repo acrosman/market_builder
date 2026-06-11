@@ -298,14 +298,6 @@ class Game {
   }
 
   /**
-   * Get buildings that can currently be built at the player's local object.
-   * @returns {Object[]} List of build options
-   */
-  getBuildableBuildingsAtCurrentLocation() {
-    return this.getBuildableBuildingsForCurrentObject();
-  }
-
-  /**
    * Queue construction of a building at the player's current object.
    * @param {string} buildingType - Building type from buildings.json
    * @returns {Object} Build result
@@ -330,15 +322,6 @@ class Game {
       ...buildResult,
       objectId: stellarObject.id
     };
-  }
-
-  /**
-   * Queue construction of a building at the player's current local object.
-   * @param {string} buildingType - Building type from buildings.json
-   * @returns {Object} Build result
-   */
-  buildBuildingAtCurrentLocation(buildingType) {
-    return this.buildBuildingAtCurrentObject(buildingType);
   }
 
   /**

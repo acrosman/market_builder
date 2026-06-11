@@ -185,6 +185,7 @@ class StellarObject {
    * Check whether this object can support a building type.
    * @param {Object} buildingData - Building definition from buildings.json
    * @returns {boolean} True when this object supports the building
+   * Uses explicit type flags (`isShieldGenerator`, `isCannon`) in building data.
    * @example
    * const canBuild = obj.supportsBuilding(buildingsData['Mine']);
    */
