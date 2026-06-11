@@ -223,7 +223,7 @@ class Game {
    */
   getBuildableBuildingsForCurrentObject() {
     const stellarObject = this.getCurrentLocalObject();
-    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations) === true;
+    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
     if (!stellarObject || !isControlledByPlayer) {
       return [];
     }
@@ -243,7 +243,7 @@ class Game {
       return { success: false, reason: 'You must be docked or landed to build' };
     }
 
-    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations) === true;
+    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
     if (!isControlledByPlayer) {
       return { success: false, reason: 'You do not control this stellar object' };
     }
