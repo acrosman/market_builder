@@ -10,6 +10,7 @@
   let _displayStellarObjectProperties;
   let _closeModal;
   let _openTradeModal;
+  let _openBuildingsModal;
 
   /**
    * Initialize the navigation handlers module with shared game context.
@@ -25,6 +26,7 @@
    * @param {Function} context.displayStellarObjectProperties - Display object details.
    * @param {Function} context.closeModal - Close the currently open modal.
    * @param {Function} context.openTradeModal - Open the trade modal for an object.
+   * @param {Function} context.openBuildingsModal - Open the buildings modal for an object.
    */
   function init(context) {
     _api = context.api;
@@ -37,6 +39,7 @@
     _displayStellarObjectProperties = context.displayStellarObjectProperties;
     _closeModal = context.closeModal;
     _openTradeModal = context.openTradeModal;
+    _openBuildingsModal = context.openBuildingsModal;
 
     _api.receive('jump-result', async (result) => {
       if (result.success) {
@@ -405,16 +408,13 @@
         localButtons.appendChild(tradeButton);
       }
 
-      if (Array.isArray(buildableBuildings)) {
-        buildableBuildings.forEach((building) => {
-          const buildButton = document.createElement('button');
-          buildButton.className = 'action-btn';
-          buildButton.dataset.action = 'build';
-          buildButton.dataset.buildingType = building.type;
-          buildButton.textContent = `Build ${building.type}`;
-          buildButton.addEventListener('click', () => handleBuild(building.type));
-          localButtons.appendChild(buildButton);
-        });
+      if (Array.isArray(buildableBuildings) && buildableBuildings.length > 0) {
+        const buildingsButton = document.createElement('button');
+        buildingsButton.className = 'action-btn';
+        buildingsButton.dataset.action = 'buildings';
+        buildingsButton.textContent = 'Buildings';
+        buildingsButton.addEventListener('click', () => _openBuildingsModal(currentObject, buildableBuildings));
+        localButtons.appendChild(buildingsButton);
       }
 
       const takeOffButton = document.createElement('button');
@@ -486,7 +486,7 @@
     }
 
     if (canonicalCommand === 'build') {
-      executeLocalActionShortcut('build');
+      executeLocalActionShortcut('buildings');
       return;
     }
 

@@ -282,7 +282,12 @@ document.addEventListener(
         if (noImagePlaceholder) noImagePlaceholder.style.display = 'block';
       }
 
-      const buildableBuildings = await window.api.invoke('get-buildable-buildings');
+      let buildableBuildings = [];
+      try {
+        buildableBuildings = await window.api.invoke('get-buildable-buildings');
+      } catch (error) {
+        window.logger.error('Error loading buildable buildings:', error);
+      }
       window.navigationHandlers.updateAvailableActions(locationState, buildableBuildings || []);
     }
 
@@ -350,7 +355,8 @@ document.addEventListener(
       updateShipStatus,
       displayStellarObjectProperties,
       closeModal: () => window.modalManager.closeModal(),
-      openTradeModal: (obj) => window.modalManager.openTradeModal(obj)
+      openTradeModal: (obj) => window.modalManager.openTradeModal(obj),
+      openBuildingsModal: (obj, buildableBuildings) => window.modalManager.openBuildingsModal(obj, buildableBuildings)
     });
 
     window.modalManager.init({

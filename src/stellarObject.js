@@ -221,7 +221,11 @@ class StellarObject {
       .filter(([, buildingData]) => this.supportsBuilding(buildingData))
       .map(([buildingType, buildingData]) => ({
         type: buildingType,
-        buildCost: buildingData.buildCost
+        buildCost: buildingData.buildCost,
+        image: buildingData.image || '',
+        data: buildingData,
+        builtCount: this.buildings?.[buildingType]?.count || 0,
+        isBuilt: (this.buildings?.[buildingType]?.count || 0) > 0
       }));
   }
 

@@ -562,6 +562,139 @@
   }
 
   /**
+   * Format the build cost text shown in the buildings modal.
+   * @param {Object} buildCost - Building build cost details.
+   * @returns {string} Human-readable build cost string.
+   */
+  function formatBuildingCost(buildCost) {
+    const credits = Number(buildCost?.credits || 0).toLocaleString();
+    const goods = Object.entries(buildCost?.goods || {})
+      .map(([goodName, quantity]) => `${quantity} ${goodName}`)
+      .join(', ');
+    return goods ? `${credits} cr, ${goods}` : `${credits} cr`;
+  }
+
+  /**
+   * Build a short description of what a building provides.
+   * @param {Object} buildingData - Building definition data.
+   * @returns {string} Summary of non-zero effects.
+   */
+  function formatBuildingBenefits(buildingData) {
+    const benefits = [];
+    const maxCannonOutput = Array.isArray(buildingData?.cannonBurstOutput)
+      ? Number(buildingData.cannonBurstOutput[1] || 0)
+      : 0;
+
+    if (Number(buildingData?.storage || 0) > 0) benefits.push(`Storage +${buildingData.storage}`);
+    if (Number(buildingData?.energyStorage || 0) > 0) benefits.push(`Energy Storage +${buildingData.energyStorage}`);
+    if (Number(buildingData?.shieldsMaxCharge || 0) > 0) benefits.push(`Shield Capacity +${buildingData.shieldsMaxCharge}`);
+    if (Number(buildingData?.shieldsChargeRate || 0) > 0) benefits.push(`Shield Recharge +${buildingData.shieldsChargeRate}`);
+    if (maxCannonOutput > 0) benefits.push(`Cannon Output +${maxCannonOutput}`);
+    if (Number(buildingData?.bankSavings || 0) > 0) benefits.push(`Savings Rate +${buildingData.bankSavings}%`);
+    if (Number(buildingData?.bankLoans || 0) > 0) benefits.push(`Loan Capacity +${buildingData.bankLoans}`);
+    if (Number(buildingData?.manufactorUnits || 0) > 0) benefits.push(`Factory Units +${buildingData.manufactorUnits}`);
+    if (Number(buildingData?.farming || 0) > 0) benefits.push(`Farming +${buildingData.farming}`);
+    if (Number(buildingData?.mining || 0) > 0) benefits.push(`Mining +${buildingData.mining}`);
+    if (Number(buildingData?.recycling || 0) > 0) benefits.push(`Recycling +${buildingData.recycling}`);
+    if (Number(buildingData?.waterPurification || 0) > 0) benefits.push(`Water Purification +${buildingData.waterPurification}`);
+    if (Number(buildingData?.airPurification || 0) > 0) benefits.push(`Air Purification +${buildingData.airPurification}`);
+
+    return benefits.length > 0 ? benefits.join(' • ') : 'No direct production bonuses';
+  }
+
+  /**
+   * Resolve image path for building thumbnails.
+   * @param {string} imagePath - Relative image path from building data.
+   * @param {string} dataDirectory - Configured game data directory.
+   * @returns {string} Path suitable for renderer image src.
+   */
+  function getBuildingImageSrc(imagePath, dataDirectory) {
+    if (!imagePath) {
+      return '';
+    }
+    return `../${dataDirectory}/${imagePath}`;
+  }
+
+  /**
+   * Open the buildings modal for the current local object.
+   * @param {Object} stellarObject - Current docked or landed stellar object.
+   * @param {Object[]} buildableBuildings - Buildable building metadata.
+   */
+  async function openBuildingsModal(stellarObject, buildableBuildings = []) {
+    await loadModal('Buildings', './modals/buildings.html', async () => {
+      const locationNameEl = document.getElementById('buildings-location-name');
+      if (locationNameEl) {
+        locationNameEl.textContent = stellarObject?.name || '';
+      }
+
+      const buildingsList = document.getElementById('buildings-list');
+      if (!buildingsList) {
+        return;
+      }
+
+      buildingsList.innerHTML = '';
+
+      if (!Array.isArray(buildableBuildings) || buildableBuildings.length === 0) {
+        const noBuildings = document.createElement('p');
+        noBuildings.textContent = 'No buildings available at this location.';
+        buildingsList.appendChild(noBuildings);
+        return;
+      }
+
+      let dataDirectory = 'data/default/en-us';
+      try {
+        const settings = await _api.getGameSettings();
+        if (settings?.data_directory) {
+          dataDirectory = settings.data_directory;
+        }
+      } catch (error) {
+        window.logger.error('Error loading game settings for building images:', error);
+      }
+
+      const buildingItemTemplate = await window.gameHelpers.loadTemplate('./templates/building-item.html');
+
+      buildableBuildings.forEach((building) => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = buildingItemTemplate;
+        const item = wrapper.firstElementChild;
+
+        item.querySelector('.building-name').textContent = building.type;
+        item.querySelector('.building-cost').textContent = formatBuildingCost(building.buildCost);
+        item.querySelector('.building-benefits').textContent = formatBuildingBenefits(building.data || {});
+
+        const imageEl = item.querySelector('.building-image');
+        const imageSrc = getBuildingImageSrc(building.image, dataDirectory);
+        if (imageSrc) {
+          imageEl.src = imageSrc;
+          imageEl.alt = `${building.type} image`;
+        } else {
+          imageEl.classList.add('hidden');
+        }
+
+        const builtMarker = item.querySelector('.building-built-marker');
+        const buildButton = item.querySelector('.building-build-btn');
+        if (building.isBuilt) {
+          builtMarker.classList.remove('hidden');
+          buildButton.classList.add('hidden');
+        } else {
+          builtMarker.classList.add('hidden');
+          buildButton.classList.remove('hidden');
+          buildButton.addEventListener('click', () => {
+            closeModal();
+            if (window.navigationHandlers?.handleBuild) {
+              window.navigationHandlers.handleBuild(building.type);
+            } else {
+              _api.send('construct-building', building.type);
+            }
+          });
+        }
+
+        buildingsList.appendChild(item);
+      });
+    });
+  }
+
+  /**
    * Open the universe map modal and display the universe visualization.
    */
   async function openUniverseMapModal() {
@@ -942,6 +1075,7 @@
     openPlayerStatusModal,
     openCorporationStatusModal,
     openTradeModal,
+    openBuildingsModal,
     openUniverseMapModal,
     openJumpPlanner,
     renderUniverseMap,

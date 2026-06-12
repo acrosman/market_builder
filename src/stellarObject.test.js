@@ -403,6 +403,28 @@ describe('StellarObject', () => {
 
       expect(options.some(option => option.type === 'Cannon')).toBe(false);
     });
+
+    test('should include built status for each build option', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildings = {
+        Mine: { count: 1 }
+      };
+
+      const options = obj.getBuildableBuildingOptions(mockBuildingsData);
+      const mineOption = options.find(option => option.type === 'Mine');
+
+      expect(mineOption).toBeDefined();
+      expect(mineOption.isBuilt).toBe(true);
+      expect(mineOption.builtCount).toBe(1);
+      expect(mineOption.data).toEqual(mockBuildingsData.Mine);
+    });
   });
 
   describe('constructBuilding', () => {

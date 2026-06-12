@@ -43,7 +43,8 @@ describe('navigationHandlers', () => {
       updateShipStatus: jest.fn().mockResolvedValue(undefined),
       displayStellarObjectProperties: jest.fn().mockResolvedValue(undefined),
       closeModal: jest.fn(),
-      openTradeModal: jest.fn()
+      openTradeModal: jest.fn(),
+      openBuildingsModal: jest.fn()
     };
 
     navigationHandlers.init(mockContext);
@@ -410,17 +411,19 @@ describe('navigationHandlers', () => {
       expect(tradeBtn).toBeNull();
     });
 
-    test('shows build buttons when buildable buildings are provided', () => {
+    test('shows buildings modal button when buildable buildings are provided', () => {
       const state = {
         ...baseLocationState,
         playerState: { dockedAt: null, landedOn: 10 },
         objects: [{ id: 10, type: 'Planet', name: 'New Terra', capabilities: { market: false } }]
       };
-      navigationHandlers.updateAvailableActions(state, [{ type: 'Mine' }, { type: 'Warehouse' }]);
-      const buildButtons = document.querySelectorAll('#local-buttons [data-action="build"]');
-      expect(buildButtons).toHaveLength(2);
-      expect(buildButtons[0].textContent).toBe('Build Mine');
-      expect(buildButtons[1].textContent).toBe('Build Warehouse');
+      const buildableBuildings = [{ type: 'Mine' }, { type: 'Warehouse' }];
+      navigationHandlers.updateAvailableActions(state, buildableBuildings);
+      const buildingsButton = document.querySelector('#local-buttons [data-action="buildings"]');
+      expect(buildingsButton).not.toBeNull();
+      expect(buildingsButton.textContent).toBe('Buildings');
+      buildingsButton.click();
+      expect(mockContext.openBuildingsModal).toHaveBeenCalledWith(state.objects[0], buildableBuildings);
     });
 
     test('clears previous buttons before rendering new ones', () => {
@@ -487,7 +490,7 @@ describe('navigationHandlers', () => {
       mockContext.commandParser.parseJumpSystemId.mockReturnValue(null);
       mockContext.commandParser.applyAlias.mockReturnValue('build');
       await navigationHandlers.executeInputCommand('b');
-      expect(mockContext.addMessage).toHaveBeenCalledWith('message:commands.no_action_available', { action: 'build' });
+      expect(mockContext.addMessage).toHaveBeenCalledWith('message:commands.no_action_available', { action: 'buildings' });
     });
 
     test('clicks exact-matching button', async () => {

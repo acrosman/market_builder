@@ -148,6 +148,7 @@ async function loadGameJs() {
     openUniverseMapModal: jest.fn(),
     openJumpPlanner: jest.fn(),
     openTradeModal: jest.fn(),
+    openBuildingsModal: jest.fn(),
     closeModal: jest.fn()
   };
 
@@ -195,6 +196,7 @@ describe('game.js coordinator', () => {
       expect(typeof ctx.updateShipStatus).toBe('function');
       expect(typeof ctx.closeModal).toBe('function');
       expect(typeof ctx.openTradeModal).toBe('function');
+      expect(typeof ctx.openBuildingsModal).toBe('function');
     });
 
     test('calls modalManager.init with context', async () => {
@@ -219,6 +221,15 @@ describe('game.js coordinator', () => {
       const mockObj = { id: 1, name: 'Test Station' };
       ctx.openTradeModal(mockObj);
       expect(window.modalManager.openTradeModal).toHaveBeenCalledWith(mockObj);
+    });
+
+    test('context.openBuildingsModal delegates to modalManager.openBuildingsModal', async () => {
+      await loadGameJs();
+      const ctx = window.navigationHandlers.init.mock.calls[0][0];
+      const mockObj = { id: 1, name: 'Test Planet' };
+      const buildableBuildings = [{ type: 'Mine' }];
+      ctx.openBuildingsModal(mockObj, buildableBuildings);
+      expect(window.modalManager.openBuildingsModal).toHaveBeenCalledWith(mockObj, buildableBuildings);
     });
 
     test('context.executeJumpSequence delegates to navigationHandlers.executeJumpSequence', async () => {
