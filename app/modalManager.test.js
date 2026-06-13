@@ -689,7 +689,7 @@ describe('modalManager', () => {
             interestRate: 5.0,
             outstandingDebt: 40000,
             ownedStellarObjects: [
-              { id: 10, name: 'Farm World', className: 'Planet', location: 3, value: 240000 }
+              { id: 10, name: 'Farm World', className: 'Planet', location: 3, locationName: 'Helios', value: 240000 }
             ],
             ships: ['Freighter'],
             loans: [

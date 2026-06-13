@@ -281,6 +281,7 @@ describe('Corporation', () => {
   describe('getCompanyManagementState', () => {
     test('should return management snapshot with derived financial fields', () => {
       const universe = new Universe();
+      universe.systems = [{ id: 2, name: 'Alpha System' }];
       universe.stellarObjects = [
         { id: 1, name: 'Farm World', className: 'Planet', location: 2, value: 25000 }
       ];
@@ -301,7 +302,7 @@ describe('Corporation', () => {
       expect(state.sharesIssued).toBe(100);
       expect(state.outstandingDebt).toBe(1000);
       expect(state.ownedStellarObjects).toEqual([
-        { id: 1, name: 'Farm World', className: 'Planet', location: 2, value: 25000 }
+        { id: 1, name: 'Farm World', className: 'Planet', location: 2, locationName: 'Alpha System', value: 25000 }
       ]);
       expect(state.ships).toEqual(['Freighter']);
       expect(state.loans).toHaveLength(1);

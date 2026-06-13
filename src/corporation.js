@@ -319,16 +319,27 @@ class Corporation {
     let ownedStellarObjects = [];
     if (universe && Array.isArray(universe.stellarObjects)) {
       value = this.calculateTotalValue(universe, shipValues, goodPrices);
+      const stellarObjectById = new Map(universe.stellarObjects.map(stellarObject => [stellarObject.id, stellarObject]));
+      const systemById = new Map(
+        Array.isArray(universe.systems)
+          ? universe.systems.map(system => [system.id, system])
+          : []
+      );
       ownedStellarObjects = this.stellarObjects
-        .map(objId => universe.stellarObjects.find(obj => obj.id === objId))
+        .map(objId => stellarObjectById.get(objId))
         .filter(Boolean)
-        .map(stellarObject => ({
-          id: stellarObject.id,
-          name: stellarObject.name,
-          className: stellarObject.className,
-          location: stellarObject.location,
-          value: stellarObject.value || 0
-        }));
+        .map((stellarObject) => {
+          const locationSystem = systemById.get(stellarObject.location);
+          const locationName = locationSystem && locationSystem.name ? locationSystem.name : stellarObject.location;
+          return {
+            id: stellarObject.id,
+            name: stellarObject.name,
+            className: stellarObject.className,
+            location: stellarObject.location,
+            locationName,
+            value: stellarObject.value || 0
+          };
+        });
     }
 
     return {

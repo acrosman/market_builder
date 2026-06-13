@@ -428,7 +428,7 @@
           objectLine.textContent = await _resolveMessageText('company_management.assets.stellar_object_line', {
             name: stellarObject.name || '',
             className: stellarObject.className || '',
-            location: stellarObject.location || '',
+            location: stellarObject.locationName || stellarObject.location || '',
             value: Number(stellarObject.value || 0).toLocaleString()
           });
           stellarObjectsList.appendChild(objectLine);
