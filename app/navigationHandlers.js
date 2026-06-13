@@ -10,6 +10,7 @@
   let _displayStellarObjectProperties;
   let _closeModal;
   let _openTradeModal;
+  let _openBuildingsModal;
 
   /**
    * Initialize the navigation handlers module with shared game context.
@@ -25,6 +26,7 @@
    * @param {Function} context.displayStellarObjectProperties - Display object details.
    * @param {Function} context.closeModal - Close the currently open modal.
    * @param {Function} context.openTradeModal - Open the trade modal for an object.
+   * @param {Function} context.openBuildingsModal - Open the buildings modal for an object.
    */
   function init(context) {
     _api = context.api;
@@ -37,6 +39,7 @@
     _displayStellarObjectProperties = context.displayStellarObjectProperties;
     _closeModal = context.closeModal;
     _openTradeModal = context.openTradeModal;
+    _openBuildingsModal = context.openBuildingsModal;
 
     _api.receive('jump-result', async (result) => {
       if (result.success) {
@@ -85,6 +88,19 @@
         await _updateShipStatus();
       } else {
         _addMessage('message:navigation.takeoff_failed', { reason: result.reason });
+      }
+      _finishAction();
+    });
+
+    _api.receive('build-result', async (result) => {
+      if (result.success) {
+        _addMessage('message:navigation.build_success', {
+          buildingType: result.buildingType,
+          ticks: result.ticksRemaining
+        });
+        await _updateLocationDisplay();
+      } else {
+        _addMessage('message:navigation.build_failed', { reason: result.reason });
       }
       _finishAction();
     });
@@ -234,6 +250,16 @@
   }
 
   /**
+   * Request construction of a building at current local object.
+   * @param {string} buildingType - Building type to construct.
+   */
+  function handleBuild(buildingType) {
+    _addMessage('message:navigation.build_request', { buildingType });
+    _startAction();
+    _api.send('construct-building', buildingType);
+  }
+
+  /**
    * Validate a destination, calculate route, prompt for confirmation, then jump.
    * @param {number} destinationId - Destination system ID.
    */
@@ -343,8 +369,9 @@
    * Creates jump buttons for connected systems and dock/land/trade/takeoff
    * buttons based on available objects and player status.
    * @param {Object} locationState - Current location state from the game.
+   * @param {Object[]} buildableBuildings - Build options for the current local object.
    */
-  function updateAvailableActions(locationState) {
+  function updateAvailableActions(locationState, buildableBuildings = []) {
     const jumpButtons = document.getElementById('jump-buttons');
     const localButtons = document.getElementById('local-buttons');
 
@@ -379,6 +406,15 @@
         tradeButton.textContent = 'Trade';
         tradeButton.addEventListener('click', () => _openTradeModal(currentObject));
         localButtons.appendChild(tradeButton);
+      }
+
+      if (Array.isArray(buildableBuildings) && buildableBuildings.length > 0) {
+        const buildingsButton = document.createElement('button');
+        buildingsButton.className = 'action-btn';
+        buildingsButton.dataset.action = 'buildings';
+        buildingsButton.textContent = 'Buildings';
+        buildingsButton.addEventListener('click', () => _openBuildingsModal(currentObject, buildableBuildings));
+        localButtons.appendChild(buildingsButton);
       }
 
       const takeOffButton = document.createElement('button');
@@ -449,6 +485,11 @@
       return;
     }
 
+    if (canonicalCommand === 'build') {
+      executeLocalActionShortcut('buildings');
+      return;
+    }
+
     const commandButtons = getCommandButtons();
     const exactMatch = commandButtons.find((button) => {
       return _commandParser.normalizeCommandText(button.textContent) === canonicalCommand;
@@ -481,6 +522,7 @@
     handleDock,
     handleLand,
     handleTakeOff,
+    handleBuild,
     offerRouteAndJump,
     executeJumpSequence,
     updateAvailableActions,

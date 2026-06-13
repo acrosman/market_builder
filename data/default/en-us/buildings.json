@@ -41,6 +41,7 @@
    "Shield Generator": {
       "value": 15000,
       "image": "images/buildings/shield_generator.jpg",
+      "isShieldGenerator": true,
       "storage": 0,
       "energyStorage": 0,
       "shieldsMaxCharge": 1000,
@@ -366,6 +367,7 @@
    "Cannon": {
       "value": 20000,
       "image": "images/buildings/cannon.jpg",
+      "isCannon": true,
       "storage": 0,
       "energyStorage": 10000,
       "shieldsMaxCharge": 0,

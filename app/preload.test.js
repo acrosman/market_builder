@@ -64,6 +64,7 @@ describe('Preload Script', () => {
       'jump-to-system',
       'dock-at-station',
       'land-on-surface',
+      'construct-building',
       'save-game',
       'load-game',
       'get-save-files',
@@ -116,7 +117,8 @@ describe('Preload Script', () => {
       'open-load-game-dialog',
       'get-all-systems',
       'calculate-jump-route',
-      'get-game-messages'
+      'get-game-messages',
+      'get-buildable-buildings'
     ];
 
     test.each(validInvokeChannels)('should allow invoke on valid channel: %s', (channel) => {
@@ -161,6 +163,7 @@ describe('Preload Script', () => {
       'jump-result',
       'dock-result',
       'land-result',
+      'build-result',
       'save-game-result',
       'load-game-result',
       'save-files-list',

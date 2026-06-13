@@ -612,6 +612,159 @@ describe('Game Module', () => {
         expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
       });
     });
+
+    describe('Building Construction', () => {
+      function createBuildableObject(overrides = {}) {
+        const baseObject = {
+          id: 100,
+          type: 'Planet',
+          className: 'Earth-like',
+          name: 'Build World',
+          location: 0,
+          owner: 'Test Corp',
+          capabilities: { buildings: true, market: true, shields: true, cannons: true },
+          buildingLimit: 10,
+          buildingCredits: 5000,
+          marketState: { inventory: { metal: 200 } },
+          getBuildableBuildingOptions: jest.fn((buildingsData) => {
+            if (!buildingsData || !buildingsData.Mine) {
+              return [];
+            }
+
+            return [{ type: 'Mine', buildCost: buildingsData.Mine.buildCost }];
+          }),
+          constructBuilding: jest.fn((buildingType) => {
+            if (buildingType !== 'Mine') {
+              return { success: false, reason: 'Unknown building type' };
+            }
+
+            return { success: true, buildingType: 'Mine', ticksRemaining: 10 };
+          })
+        };
+        return {
+          ...baseObject,
+          ...overrides,
+          capabilities: { ...baseObject.capabilities, ...(overrides.capabilities || {}) }
+        };
+      }
+
+      test('returns buildable buildings when docked at controlled object with resources', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject();
+        game.universe.stellarObjects = [object];
+        game.player.dockedAt = object.id;
+
+        const options = game.getBuildableBuildingsForCurrentObject();
+
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.some(opt => opt.type === 'Mine')).toBe(true);
+      });
+
+      test('returns no build options when building data cannot be loaded', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject();
+        game.universe.stellarObjects = [object];
+        game.player.dockedAt = object.id;
+        jest.spyOn(game, 'getBuildingsData').mockReturnValue(null);
+
+        const options = game.getBuildableBuildingsForCurrentObject();
+
+        expect(options).toEqual([]);
+        expect(object.getBuildableBuildingOptions).toHaveBeenCalledWith(null);
+      });
+
+      test('lists build options even when local credits are insufficient', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        const options = game.getBuildableBuildingsForCurrentObject();
+
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.some(opt => opt.type === 'Mine')).toBe(true);
+        expect(object.getBuildableBuildingOptions).toHaveBeenCalledWith(expect.any(Object));
+      });
+
+      test('returns buildable buildings when landed at corporation asset even if owner label is stale', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({ owner: 'Independent' });
+        game.universe.stellarObjects = [object];
+        game.player.corporation.stellarObjects = [object.id];
+        game.player.landedOn = object.id;
+
+        const options = game.getBuildableBuildingsForCurrentObject();
+
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.some(opt => opt.type === 'Mine')).toBe(true);
+      });
+
+      test('returns buildable buildings when player corporation reference is missing but corp is marked player-owned', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({ owner: 'Test Corp' });
+        game.universe.stellarObjects = [object];
+        game.player.corporation = null;
+        game.corporations = [{
+          name: 'Test Corp',
+          isPlayerOwned: true,
+          stellarObjects: [object.id]
+        }];
+        game.player.landedOn = object.id;
+
+        const options = game.getBuildableBuildingsForCurrentObject();
+
+        expect(options.length).toBeGreaterThan(0);
+        expect(options.some(opt => opt.type === 'Mine')).toBe(true);
+      });
+
+      test('buildBuildingAtCurrentObject rejects when player does not control object', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject({ owner: 'Rival Corp' });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        const result = game.buildBuildingAtCurrentObject('Mine');
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('You do not control this stellar object');
+      });
+
+      test('buildBuildingAtCurrentObject queues construction on the current object', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+
+        const object = createBuildableObject();
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        const result = game.buildBuildingAtCurrentObject('Mine');
+
+        expect(result.success).toBe(true);
+        expect(result.ticksRemaining).toBe(10);
+        expect(result.objectId).toBe(object.id);
+        expect(object.constructBuilding).toHaveBeenCalledWith('Mine', expect.any(Object));
+        expect(object.constructBuilding.mock.calls[0][1]).toEqual(expect.objectContaining({ Mine: expect.any(Object) }));
+      });
+    });
   });
 
   describe('Time Tick System', () => {

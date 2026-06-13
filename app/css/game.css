@@ -640,6 +640,63 @@
   font-weight: bold;
 }
 
+/* Buildings Modal Styles */
+.buildings-modal {
+  padding: 20px;
+}
+
+.buildings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.building-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+}
+
+.building-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 1px solid #4a5568;
+  object-fit: cover;
+}
+
+.building-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.building-name {
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.building-cost,
+.building-benefits {
+  font-size: 0.9em;
+  color: #a0aec0;
+}
+
+.building-actions {
+  display: flex;
+  align-items: center;
+}
+
+.building-built-marker {
+  color: #68d391;
+  font-weight: bold;
+}
+
 .trade-error.hidden {
   display: none;
 }

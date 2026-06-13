@@ -27,7 +27,8 @@ describe('modalManager', () => {
       getLocationState: jest.fn(),
       getUniverseState: jest.fn(),
       getUniverseMapData: jest.fn(),
-      getGameData: jest.fn()
+      getGameData: jest.fn(),
+      getGameSettings: jest.fn()
     };
 
     mockContext = {
@@ -43,12 +44,16 @@ describe('modalManager', () => {
     modalManager.init(mockContext);
 
     global.fetch = jest.fn();
+    window.navigationHandlers = {
+      handleBuild: jest.fn()
+    };
     window.gameHelpers = gameHelpers;
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     document.body.innerHTML = '';
+    delete window.navigationHandlers;
     delete window.gameHelpers;
   });
 
@@ -519,6 +524,86 @@ describe('modalManager', () => {
 
       await modalManager.openUniverseMapModal();
       // No assertion — just verifying no crash
+    });
+  });
+
+  describe('openBuildingsModal', () => {
+    const buildingsModalHtml = `
+      <div class="buildings-modal">
+        <h3>Buildings at <span id="buildings-location-name"></span></h3>
+        <div id="buildings-list" class="buildings-list"></div>
+      </div>
+    `;
+    const buildingItemHtml = `
+      <div class="building-item">
+        <img class="building-image" src="" alt="">
+        <div class="building-details">
+          <div class="building-name"></div>
+          <div class="building-cost"></div>
+          <div class="building-benefits"></div>
+        </div>
+        <div class="building-actions">
+          <span class="building-built-marker hidden">✓ Built</span>
+          <button class="action-btn building-build-btn" type="button">Build</button>
+        </div>
+      </div>
+    `;
+
+    test('renders building rows with built status', async () => {
+      global.fetch
+        .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(buildingsModalHtml) })
+        .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(buildingItemHtml) });
+      mockApi.getGameSettings.mockResolvedValue({ data_directory: 'data/default/en-us' });
+
+      await modalManager.openBuildingsModal(
+        { id: 2, name: 'Farm World' },
+        [
+          {
+            type: 'Mine',
+            image: 'images/buildings/mine.jpg',
+            buildCost: { credits: 500, goods: { metal: 10 } },
+            data: { mining: 5 },
+            isBuilt: false
+          },
+          {
+            type: 'Warehouse',
+            image: 'images/buildings/warehouse.jpg',
+            buildCost: { credits: 500 },
+            data: { storage: 1000 },
+            isBuilt: true
+          }
+        ]
+      );
+
+      const rows = document.querySelectorAll('#buildings-list .building-item');
+      expect(rows).toHaveLength(2);
+      expect(document.getElementById('buildings-location-name').textContent).toBe('Farm World');
+      expect(rows[0].querySelector('.building-build-btn').classList.contains('hidden')).toBe(false);
+      expect(rows[1].querySelector('.building-built-marker').classList.contains('hidden')).toBe(false);
+    });
+
+    test('calls navigation build handler when build is clicked', async () => {
+      global.fetch
+        .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(buildingsModalHtml) })
+        .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(buildingItemHtml) });
+      mockApi.getGameSettings.mockResolvedValue({ data_directory: 'data/default/en-us' });
+
+      await modalManager.openBuildingsModal(
+        { id: 2, name: 'Factory World' },
+        [
+          {
+            type: 'Factory',
+            image: 'images/buildings/factory.jpg',
+            buildCost: { credits: 2000 },
+            data: { manufactorUnits: 5 },
+            isBuilt: false
+          }
+        ]
+      );
+
+      const buildButton = document.querySelector('#buildings-list .building-build-btn');
+      buildButton.click();
+      expect(window.navigationHandlers.handleBuild).toHaveBeenCalledWith('Factory');
     });
   });
 

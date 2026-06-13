@@ -36,14 +36,15 @@ describe('navigationHandlers', () => {
         applyAlias: jest.fn(cmd => cmd),
         resolveUniqueFirstWord: jest.fn(() => null)
       },
-      commandAliases: { l: 'land', d: 'dock' },
+      commandAliases: { l: 'land', d: 'dock', b: 'build' },
       addMessage: jest.fn(),
       resolveMessageText: jest.fn().mockResolvedValue(''),
       updateLocationDisplay: jest.fn().mockResolvedValue(undefined),
       updateShipStatus: jest.fn().mockResolvedValue(undefined),
       displayStellarObjectProperties: jest.fn().mockResolvedValue(undefined),
       closeModal: jest.fn(),
-      openTradeModal: jest.fn()
+      openTradeModal: jest.fn(),
+      openBuildingsModal: jest.fn()
     };
 
     navigationHandlers.init(mockContext);
@@ -238,6 +239,18 @@ describe('navigationHandlers', () => {
     });
   });
 
+  describe('handleBuild', () => {
+    test('sends construct-building IPC message', () => {
+      navigationHandlers.handleBuild('Mine');
+      expect(mockApi.send).toHaveBeenCalledWith('construct-building', 'Mine');
+    });
+
+    test('displays build request message', () => {
+      navigationHandlers.handleBuild('Mine');
+      expect(mockContext.addMessage).toHaveBeenCalledWith('message:navigation.build_request', { buildingType: 'Mine' });
+    });
+  });
+
   describe('offerRouteAndJump', () => {
     test('shows takeoff_required when player is docked', async () => {
       mockApi.getLocationState.mockResolvedValue({
@@ -398,6 +411,21 @@ describe('navigationHandlers', () => {
       expect(tradeBtn).toBeNull();
     });
 
+    test('shows buildings modal button when buildable buildings are provided', () => {
+      const state = {
+        ...baseLocationState,
+        playerState: { dockedAt: null, landedOn: 10 },
+        objects: [{ id: 10, type: 'Planet', name: 'New Terra', capabilities: { market: false } }]
+      };
+      const buildableBuildings = [{ type: 'Mine' }, { type: 'Warehouse' }];
+      navigationHandlers.updateAvailableActions(state, buildableBuildings);
+      const buildingsButton = document.querySelector('#local-buttons [data-action="buildings"]');
+      expect(buildingsButton).not.toBeNull();
+      expect(buildingsButton.textContent).toBe('Buildings');
+      buildingsButton.click();
+      expect(mockContext.openBuildingsModal).toHaveBeenCalledWith(state.objects[0], buildableBuildings);
+    });
+
     test('clears previous buttons before rendering new ones', () => {
       navigationHandlers.updateAvailableActions(baseLocationState);
       navigationHandlers.updateAvailableActions(baseLocationState);
@@ -455,6 +483,14 @@ describe('navigationHandlers', () => {
       mockContext.commandParser.applyAlias.mockReturnValue('land');
       await navigationHandlers.executeInputCommand('l');
       expect(mockContext.addMessage).toHaveBeenCalledWith('message:commands.no_action_available', { action: 'land' });
+    });
+
+    test('calls executeLocalActionShortcut for build command', async () => {
+      mockContext.commandParser.parseNumericSystemId.mockReturnValue(null);
+      mockContext.commandParser.parseJumpSystemId.mockReturnValue(null);
+      mockContext.commandParser.applyAlias.mockReturnValue('build');
+      await navigationHandlers.executeInputCommand('b');
+      expect(mockContext.addMessage).toHaveBeenCalledWith('message:commands.no_action_available', { action: 'buildings' });
     });
 
     test('clicks exact-matching button', async () => {
@@ -573,6 +609,19 @@ describe('navigationHandlers', () => {
       const handler = getReceiveHandler('takeoff-result');
       await handler({ success: false, reason: 'Blocked' });
       expect(mockContext.addMessage).toHaveBeenCalledWith('message:navigation.takeoff_failed', { reason: 'Blocked' });
+    });
+
+    test('build-result success shows build_success message', async () => {
+      const handler = getReceiveHandler('build-result');
+      await handler({ success: true, buildingType: 'Mine', ticksRemaining: 10 });
+      expect(mockContext.addMessage).toHaveBeenCalledWith('message:navigation.build_success', { buildingType: 'Mine', ticks: 10 });
+      expect(mockContext.updateLocationDisplay).toHaveBeenCalled();
+    });
+
+    test('build-result failure shows build_failed message', async () => {
+      const handler = getReceiveHandler('build-result');
+      await handler({ success: false, reason: 'Insufficient metal at this location' });
+      expect(mockContext.addMessage).toHaveBeenCalledWith('message:navigation.build_failed', { reason: 'Insufficient metal at this location' });
     });
 
     test('dock-result success with description shows description message', async () => {

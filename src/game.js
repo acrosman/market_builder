@@ -195,6 +195,72 @@ class Game {
   }
 
   /**
+   * Get the stellar object where the player is currently docked/landed.
+   * @returns {Object|null} Current local stellar object, or null in space
+   */
+  getCurrentLocalObject() {
+    const objectId = this.player.dockedAt ?? this.player.landedOn;
+    if (objectId === null || objectId === undefined) {
+      return null;
+    }
+    return this.universe.stellarObjects.find(obj => obj.id === objectId) || null;
+  }
+
+  /**
+   * Load building definitions from configured data directory.
+   * @returns {Object} Building definitions keyed by type
+   */
+  getBuildingsData() {
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    const buildingsPath = path.join(__dirname, '..', dataDir, 'buildings.json');
+    const buildingsData = JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
+    return buildingsData;
+  }
+
+  /**
+   * Get buildings that can be built at the player's current object.
+   * @returns {Object[]} List of build options
+   */
+  getBuildableBuildingsForCurrentObject() {
+    const stellarObject = this.getCurrentLocalObject();
+    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
+    if (!stellarObject || !isControlledByPlayer) {
+      return [];
+    }
+
+    const buildingsData = this.getBuildingsData();
+    return stellarObject.getBuildableBuildingOptions(buildingsData);
+  }
+
+  /**
+   * Queue construction of a building at the player's current object.
+   * @param {string} buildingType - Building type from buildings.json
+   * @returns {Object} Build result
+   */
+  buildBuildingAtCurrentObject(buildingType) {
+    const stellarObject = this.getCurrentLocalObject();
+    if (!stellarObject) {
+      return { success: false, reason: 'You must be docked or landed to build' };
+    }
+
+    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
+    if (!isControlledByPlayer) {
+      return { success: false, reason: 'You do not control this stellar object' };
+    }
+
+    const buildingsData = this.getBuildingsData();
+    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData);
+    if (!buildResult.success) {
+      return buildResult;
+    }
+
+    return {
+      ...buildResult,
+      objectId: stellarObject.id
+    };
+  }
+
+  /**
    * Get the current state of the player
    * @returns {Object} Player state information
    */

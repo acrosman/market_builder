@@ -1,17 +1,13 @@
 # Copilot / Coding Agent Instructions — Repository Onboarding
 
-You are a skilled JavaScript developer familiar with game development and simulation. Ensure that all existing tests pass and add new tests for any new functionality. Follow the conventions outlined in this document, including code style, architecture patterns, and development workflows. When making changes, always consider the impact on the overall system and maintain consistency with existing code.
-
-## Purpose
-
-This file documents practical, actionable guidance for an automated coding agent (or a new contributor) working in this repository. It focuses on reproducible developer workflows, CI parity, and minimal, safe edits.
+Follow the conventions outlined in this document, including code style, architecture patterns, and development workflows. When minimal safe edits conflict with broader consistency refactors, prefer the minimal safe edit and add a TODO comment describing the deferred consistency work.
 
 ## Quick Summary
 
 - **Project**: Space trading game with economy simulation built with Electron (main + renderer)
 - **Languages**: JavaScript (ES6+), HTML5, CSS3
-- **Tests**: Jest with dual environments (node for `src/`, jsdom for `app/`)
-- **Linting**: ESLint (neostandard), Prettier
+- **Tests**: Jest with dual environments: node for `src/`, jsdom for `app/`
+- **Linting**: ESLint, Prettier
 
 ### Environment
 
@@ -26,58 +22,61 @@ This file documents practical, actionable guidance for an automated coding agent
 
 This is a **multi-process Electron app** with strict security boundaries:
 
-1. **Main Process** ([main.js](main.js)) - Node.js environment
-   - Manages game state via `currentGame` global variable
-   - Window lifecycle and IPC handlers
-   - File system access (saves, data loading)
-   - Game logic coordination through Game/Universe instances
+1. **Main Process** (main.js) - Node.js environment
+
+- Manages game state via `currentGame` global variable
+- Window lifecycle and IPC handlers
+- File system access (saves, data loading)
+- Game logic coordination through Game/Universe instances
 
 2. **Renderer Process** (`app/*.html`, `app/*.js`) - Browser environment
-   - NO direct Node.js access (contextIsolation enabled)
-   - ALL main process communication via [app/preload.js](app/preload.js) bridge
-   - UI updates and user interaction handling
 
-3. **Preload Script** ([app/preload.js](app/preload.js)) - Secure IPC bridge
-   - Whitelisted channels only (see `validChannels` arrays)
-   - Pattern: renderer calls `window.api.send()` or `window.api.invoke()`
-   - **Critical**: When adding new IPC, update THREE places:
-     1. preload.js validChannels array
-     2. main.js ipcMain handler (use `ipcMain.on` for send, `ipcMain.handle` for invoke)
-     3. renderer JS file calling the API
+- NO direct Node.js access (contextIsolation enabled)
+- ALL main process communication via `app/preload.js` bridge
+- UI updates and user interaction handling
+
+3. **Preload Script** (app/preload.js) - Secure IPC bridge
+
+- Whitelisted channels only (see `validChannels` arrays)
+- Pattern: renderer calls `window.api.send()` or `window.api.invoke()`
+- **Critical**: When adding new IPC, update THREE places:
+  1. preload.js validChannels array
+  2. main.js ipcMain handler (use `ipcMain.on` for send, `ipcMain.handle` for invoke)
+  3. renderer JS file calling the API
 
 ### Core Game Logic (`src/`)
 
 Backend modules run in main process only:
 
-- **[src/game.js](src/game.js)** - Central state manager
+- **src/game.js** - Central state manager
   - `Game` class: Tracks universe, player, NPCs, corporations, turn/tick counters
   - Methods: `initializeGame()`, `jump()`, `dock()`, `land()`, `takeoff()`, `advanceTicks()`
   - Uses `EventBus` for tick events
 
-- **[src/trader.js](src/trader.js)** - Base class for entities that trade and move
+- **src/trader.js** - Base class for entities that trade and move
   - `Trader` class: Common functionality for Player and NPC
   - Properties: `id`, `location`, `ship`, `credits`, `cargo`
   - Methods: `moveTo()`, `addCargo()`, `removeCargo()`, `canAfford()`, `addCredits()`, `removeCredits()`, `getCargoQuantity()`
   - Both Player and NPC extend this class
   - **Usage**: Always use Trader methods instead of direct property manipulation for credits and cargo
 
-- **[src/player.js](src/player.js)** - Player character (extends Trader)
+- **src/player.js** - Player character (extends Trader)
   - Additional properties: `dockedAt`, `landedOn`, `shipEnergy`, `shipMaxEnergy`, `energyPerJump`, `energyRecharge`, `stats`
   - Filesystem access for loading ship data
   - Inherits all Trader methods for movement and cargo management
 
-- **[src/npc.js](src/npc.js)** - AI traders (extends Trader)
+- **src/npc.js** - AI traders (extends Trader)
   - Additional properties: `type`, `homeSystem`, `currentSystem` (alias for `location`)
   - Overrides `moveTo()` to keep `currentSystem` synchronized
   - Inherits all Trader methods for movement and cargo management
 
-- **[src/universe.js](src/universe.js)** - World generation
+- **src/universe.js** - World generation
   - `Universe`: Container for systems and stellar objects
   - `System`: Star systems with connections (jump routes graph)
   - `createUniverse()`: Procedural generation function
   - Graph algorithms: `findShortestPath()` for jump route planning
 
-- **[src/stellarObject.js](src/stellarObject.js)** - Stellar object class (planets, stations, asteroids)
+- **src/stellarObject.js** - Stellar object class (planets, stations, asteroids)
   - `StellarObject`: Full state tracking for each location
   - **Capabilities**: Boolean flags in `capabilities` object indicating what CAN exist: `{ market: true, buildings: true, shipyard: false, shields: true, ... }`
   - **Important distinction**: `capabilities.shields` (boolean, CAN have shields) vs `getShieldStrength()` (calculated number from built Shield Generator buildings)
@@ -91,12 +90,12 @@ Backend modules run in main process only:
   - Methods: `addBuilding(type, buildingsData)` (queues construction), `removeBuilding()`, `getShieldStrength()`, `getCannonStrength()`, `addFighters()`, `updatePopulation()`, `calculateValue()`, `onTick(data)` (automatic time-based updates)
   - **EventBus Integration**: Subscribes to tick events during game initialization for automatic updates (population growth, construction advancement)
 
-- **[src/corporation.js](src/corporation.js)** - Economic entities
+- **src/corporation.js** - Economic entities
   - Tracks owned assets (stellar objects, ships, goods inventory)
   - Asset valuation methods
   - Player and NPC corporations
 
-- **[src/market.js](src/market.js)** - Market and trading system
+- **src/market.js** - Market and trading system
   - `Market` class: Manages all trading, pricing, and market initialization
   - Methods: `initializeMarkets()`, `updatePrices()`, `processTrade()`
   - Populates `marketState` for stellar objects with market capability
@@ -104,7 +103,7 @@ Backend modules run in main process only:
   - Dynamic pricing based on supply/demand
   - Integrates with stellar objects' productivity ratings
 
-- **[src/eventBus.js](src/eventBus.js)** - Pub/sub event system
+- **src/eventBus.js** - Pub/sub event system
   - **Direct listener methods**: `on(eventName, callback)`, `once()`, `emit()`, `clear()`, `listenerCount()`
   - **Subscriber interface**: `subscribe(eventName, subscriber)` - object-based subscription where subscriber implements `onEventName()` methods (e.g., `onTick()`, `onGameEnd()`)
   - Used for tick events: `eventBus.emit('tick', { ticks, action })`
@@ -138,8 +137,9 @@ To support new languages/variants, copy entire `data/default/en-us/` directory a
 
 - **Shared patterns**:
   - Load HTML templates from `app/templates/` or `app/modals/` via shared helpers (`window.gameHelpers.loadTemplate()` in renderer modules)
-  - Reuse shared helpers for cross-module utility logic (for example, template loading and cargo mass calculations) instead of re-implementing logic per file
-  - Never embed HTML in JS strings
+  - Use available shared helpers in `app/gameHelpers.js`: `loadTemplate(templatePath)`, `calculateCargoMass(cargo, goodsData)`, `replaceMessageVariables(message, vars)`
+  - For new cross-module utility logic, add it to `app/gameHelpers.js` and export it via `window.gameHelpers` instead of duplicating per file
+  - See Code Style: No HTML in JS rule
   - CSS files in `app/css/` (one per page + shared)
   - **Modal pattern**: Fetch from `app/modals/`, create overlay div, append modal content, add close handlers
   - **Data directory pattern**: Thread `dataDir` parameter through constructors (defaults to `data/default/en-us`), use `path.join(__dirname, '..', dataDir, 'file.json')` for file access
@@ -184,36 +184,30 @@ container.appendChild(item);
 
 ## Developer Workflows
 
-### Running Locally
-
-```bash
-npm start          # Launch Electron app
-npm test           # Run all tests (Jest)
-npm run lint       # Check code style
-```
-
 ### Testing
 
-- **Jest config**: [jest.config.js](jest.config.js) - Two projects (node + jsdom)
+- **Jest config**: `jest.config.js` - Two projects (node + jsdom)
 - Tests colocated: `*.test.js` next to source files
-- Node environment: `src/**/*.test.js`, [main.test.js](main.test.js)
+- Node environment: `src/**/*.test.js`, `main.test.js`
 - JSDOM environment: `app/**/*.test.js` (simulates browser)
-- Helper pattern: See `createTestPlayerData()` in [src/game.test.js](src/game.test.js#L6-L17)
-- E2E test: [app/game.e2e.test.js](app/game.e2e.test.js) (integration-style test)
+- Helper pattern: See `createTestPlayerData()` in `src/game.test.js`
+- E2E test: `app/game.e2e.test.js` (integration-style test)
 
 ### Debugging IPC Issues
 
-1. Check [app/preload.js](app/preload.js) - Is channel whitelisted in both `send`/`invoke` validChannels AND `receive`?
-2. Check [main.js](main.js) - Is there a matching `ipcMain.on()` or `ipcMain.handle()`?
+1. Check `app/preload.js` - Is channel whitelisted in both `send`/`invoke` validChannels AND `receive`?
+2. Check `main.js` - Is there a matching `ipcMain.on()` or `ipcMain.handle()`?
 3. Check renderer - Using correct API? `window.api.send()` (fire-and-forget) vs `window.api.invoke()` (returns Promise)
+   - For `window.api.invoke()` calls, always wrap in `try/catch` and surface failures to users via `addMessage('message:error.ipc_failure', { action })` (or an equivalent existing error message key). Do not silently swallow IPC errors.
 4. Console logs: Main process logs in terminal, renderer logs in DevTools
 
 ### Game State Management
 
-- **Critical**: `currentGame` in [main.js](main.js#L152) is the single source of truth
+- **Critical**: `currentGame` in `main.js` is the single source of truth
 - Flow: Universe created → Player created → `currentGame = new Game(universe, settings)` → `initializeGame(playerData)`
 - State access: `currentGame.getCurrentLocationState()`, `currentGame.getPlayerState()`
-- Save/load: [main.js](main.js) handles file I/O, serializes game state to JSON in `saves/` directory
+- Save/load: `main.js` handles file I/O, serializes game state to JSON in `saves/` directory
+- If save file reading fails or JSON parsing fails during `loadGame()`, do not set `currentGame`; send a dedicated IPC error event (for example `load-game-error`) and have the renderer display an error via an existing save/load failure message key in `game_messages.json`.
 
 ## Project-Specific Conventions
 
@@ -245,7 +239,11 @@ npm run lint       # Check code style
   - ❌ **NEVER**: `addMessage('Error: something went wrong')`
   - ❌ **NEVER**: `element.textContent = 'Click here to continue'`
   - ✅ **ALWAYS**: Load from `game_messages.json` using `addMessage('message:key', { variables })`
-  - Static labels in HTML templates are acceptable (e.g., form labels, button text in templates)
+  - When new user-facing text is needed:
+    - In `game_messages.json`, add it as a nested object entry (example: `"navigation": { "new_action": "Text with {tokenName} placeholders" }`)
+    - In code, reference that nested path with dot-notation (example: `addMessage('message:navigation.new_action')`; `message:` is a code-level prefix, not part of the JSON key)
+  - Never use a message key that does not exist in `game_messages.json`
+  - Template HTML should use message keys/placeholders for user-facing text instead of hardcoded literals
   - Exception: System/technical strings for developers (console.log, error handling) are OK
 - **Variable declarations**: `const` for immutable, `let` for mutable (avoid `var`)
 - **Callbacks**: Arrow functions for anonymous functions/callbacks
@@ -253,8 +251,8 @@ npm run lint       # Check code style
 - **Console logging**: Use `[DEBUG functionName]` prefix for debug logs: `console.log('[DEBUG updateLocationDisplay] value:', value)`
 - **Show/hide UI elements**: Use `.hidden` CSS class with `classList.add('hidden')` and `classList.remove('hidden')` - never inline styles
 - **File size and modularity**:
-  - Files over **500 lines** should be reviewed during any touch/update to determine if they can be shortened or split into focused modules.
-  - Files over **1000 lines** must be reviewed and refactored into smaller files unless there is a documented, justified exception.
+  - Files over **500 lines**: before making changes, check whether the file can be split into focused modules; if splitting is safe and in scope, do it.
+  - Files over **1000 lines**: split into smaller modules in the same PR unless the files is a configuration JSON file.
   - Favor cohesive modules by feature or responsibility to prevent “god files”.
 
 ### Function Documentation
@@ -265,18 +263,6 @@ All functions must have:
 - `@param` tags with types
 - `@returns` tag when applicable
 - Example usage in comments
-
-Example from [src/eventBus.js](src/eventBus.js#L10-L17):
-
-```javascript
-/**
- * Subscribe to an event
- * @param {string} eventName - Name of the event to listen for
- * @param {Function} callback - Function to call when event is emitted
- * @returns {Function} Unsubscribe function
- */
-on(eventName, callback) { /* ... */ }
-```
 
 ### Security Practices
 
@@ -303,7 +289,7 @@ When modifying code:
 
 1. Run existing tests first: `npm test`
 2. Add tests for new functionality (colocate in same directory)
-3. Mock external dependencies (universe, settings) - see [src/game.test.js](src/game.test.js#L22-L70)
+3. Mock external dependencies (universe, settings) and use helper functions to create test data rather than relying on full game initialization
 4. **Create reusable test helpers**: Extract common mock setup into helper functions (see `createTestPlayerData()`) rather than duplicating across test files
 5. Test both success and error paths
 6. Verify tests pass after changes
@@ -329,7 +315,7 @@ When modifying code:
 
 ### UI and Content Violations
 
-11. **Don't embed HTML in JavaScript strings** - No `innerHTML` with template literals, string concatenation, `outerHTML`, or `document.write()`
+11. **Don't embed HTML in JavaScript strings** - See Code Style: No HTML in JS rule.
 12. **Don't hardcode user-facing text** - Load from `game_messages.json` via `addMessage()`
 13. **Don't use inline styles for show/hide** - Use `.hidden` CSS class
 14. **Don't break message token replacement** - Ensure tokens match `game_messages.json` format exactly
@@ -365,13 +351,13 @@ When modifying code:
 
 ## Key Files Reference
 
-- [main.js](main.js) - Electron main process, IPC handlers, game state manager
-- [app/preload.js](app/preload.js) - IPC whitelist and bridge
-- [src/game.js](src/game.js) - Core game logic and player state
-- [src/universe.js](src/universe.js) - World generation and graph algorithms
-- [src/market.js](src/market.js) - Market initialization, trading, and dynamic pricing
-- [src/stellarObject.js](src/stellarObject.js) - Stellar object state and capabilities management
-- [src/eventBus.js](src/eventBus.js) - Event system for game-wide notifications
-- [jest.config.js](jest.config.js) - Test configuration (dual environments)
-- [data/default/en-us/game_settings.json](data/default/en-us/game_settings.json) - Game configuration
-- [data/default/en-us/game_messages.json](data/default/en-us/game_messages.json) - Localized text templates
+- `main.js` - Electron main process, IPC handlers, game state manager
+- `app/preload.js` - IPC whitelist and bridge
+- `src/game.js` - Core game logic and player state
+- `src/universe.js` - World generation and graph algorithms
+- `src/market.js` - Market initialization, trading, and dynamic pricing
+- `src/stellarObject.js` - Stellar object state and capabilities management
+- `src/eventBus.js` - Event system for game-wide notifications
+- `jest.config.js` - Test configuration (dual environments)
+- `data/default/en-us/game_settings.json` - Game configuration
+- `data/default/en-us/game_messages.json` - Localized text templates

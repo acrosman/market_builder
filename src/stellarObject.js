@@ -182,6 +182,108 @@ class StellarObject {
   }
 
   /**
+   * Check whether this object can support a building type.
+   * @param {Object} buildingData - Building definition from buildings.json
+   * @returns {boolean} True when this object supports the building
+   * Uses explicit type flags (`isShieldGenerator`, `isCannon`) in building data.
+   * @example
+   * const canBuild = obj.supportsBuilding(buildingsData['Mine']);
+   */
+  supportsBuilding(buildingData) {
+    if (!this.capabilities?.buildings || !buildingData) {
+      return false;
+    }
+
+    if (buildingData.isShieldGenerator && !this.capabilities.shields) {
+      return false;
+    }
+
+    if (buildingData.isCannon && !this.capabilities.cannons) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Get building options this object supports.
+   * @param {Object} buildingsData - Building definitions from buildings.json
+   * @returns {Object[]} List of supported build options
+   * @example
+   * const options = obj.getBuildableBuildingOptions(buildingsData);
+   */
+  getBuildableBuildingOptions(buildingsData) {
+    if (!buildingsData || !this.capabilities?.buildings) {
+      return [];
+    }
+
+    return Object.entries(buildingsData)
+      .filter(([, buildingData]) => this.supportsBuilding(buildingData))
+      .map(([buildingType, buildingData]) => ({
+        type: buildingType,
+        buildCost: buildingData.buildCost,
+        image: buildingData.image || '',
+        data: buildingData,
+        builtCount: this.buildings?.[buildingType]?.count || 0,
+        isBuilt: (this.buildings?.[buildingType]?.count || 0) > 0
+      }));
+  }
+
+  /**
+   * Queue construction and deduct local object resources.
+   * @param {string} buildingType - Type of building to construct
+   * @param {Object} buildingsData - Building definitions from buildings.json
+   * @returns {Object} Construction result
+   * @example
+   * const result = obj.constructBuilding('Mine', buildingsData);
+   */
+  constructBuilding(buildingType, buildingsData) {
+    const buildingData = buildingsData?.[buildingType];
+    if (!buildingData) {
+      return { success: false, reason: 'Unknown building type' };
+    }
+
+    if (!this.supportsBuilding(buildingData)) {
+      return { success: false, reason: `${buildingType} is not supported here` };
+    }
+
+    const buildCost = buildingData.buildCost || {};
+    const requiredCredits = Number(buildCost.credits || 0);
+    const requiredGoods = buildCost.goods || {};
+    const availableCredits = Number(this.buildingCredits || 0);
+    const availableGoods = this.marketState?.inventory || {};
+
+    if (availableCredits < requiredCredits) {
+      return { success: false, reason: 'Insufficient building credits at this location' };
+    }
+
+    for (const [goodName, quantity] of Object.entries(requiredGoods)) {
+      if ((availableGoods[goodName] || 0) < quantity) {
+        return { success: false, reason: `Insufficient ${goodName} at this location` };
+      }
+    }
+
+    const queued = this.addBuilding(buildingType, buildingsData);
+    if (!queued) {
+      return { success: false, reason: 'Building limit reached or cannot construct building' };
+    }
+
+    this.buildingCredits = availableCredits - requiredCredits;
+    Object.entries(requiredGoods).forEach(([goodName, quantity]) => {
+      availableGoods[goodName] -= quantity;
+      if (availableGoods[goodName] <= 0) {
+        delete availableGoods[goodName];
+      }
+    });
+
+    return {
+      success: true,
+      buildingType,
+      ticksRemaining: buildingData.buildCost?.ticks || 0
+    };
+  }
+
+  /**
    * Remove a building from this stellar object
    * @param {string} buildingType - Type of building to remove
    * @returns {boolean} True if building was removed, false if none exist
