@@ -1,0 +1,104 @@
+<div class="company-management-tabs">
+  <button id="company-tab-profile" class="action-btn" data-tab="profile"></button>
+  <button id="company-tab-finance" class="action-btn" data-tab="finance"></button>
+  <button id="company-tab-loans" class="action-btn" data-tab="loans"></button>
+  <button id="company-tab-trade-routes" class="action-btn" data-tab="trade-routes"></button>
+</div>
+
+<div id="company-tab-content-profile" class="company-management-tab-content">
+  <h3 id="company-profile-heading"></h3>
+  <h4 id="company-overview-heading"></h4>
+  <div class="player-stat">
+    <span id="company-overview-total-value-label" class="player-stat-label"></span>
+    <span id="company-overview-total-value" class="player-stat-value"></span>
+  </div>
+  <div class="player-stat">
+    <span id="company-overview-cash-reserves-label" class="player-stat-label"></span>
+    <span id="company-overview-cash-reserves" class="player-stat-value"></span>
+  </div>
+  <h4 id="company-owned-stellar-objects-heading"></h4>
+  <div id="company-owned-stellar-objects-list"></div>
+  <h4 id="company-fleet-heading"></h4>
+  <div id="company-fleet-list"></div>
+  <div class="player-stat">
+    <label id="company-name-label" for="company-name-input" class="player-stat-label"></label>
+    <input id="company-name-input" type="text">
+  </div>
+  <div class="player-stat">
+    <label id="company-description-label" for="company-description-input" class="player-stat-label"></label>
+    <textarea id="company-description-input" rows="3"></textarea>
+  </div>
+  <button id="save-company-profile-btn" class="action-btn"></button>
+</div>
+
+<div id="company-tab-content-finance" class="company-management-tab-content hidden">
+  <h3 id="company-finance-heading"></h3>
+  <div class="player-stat">
+    <span id="company-value-label" class="player-stat-label"></span>
+    <span id="company-value" class="player-stat-value"></span>
+  </div>
+  <div class="player-stat">
+    <span id="company-cash-reserves-label" class="player-stat-label"></span>
+    <span id="company-cash-reserves" class="player-stat-value"></span>
+  </div>
+  <div class="player-stat">
+    <span id="company-shares-issued-label" class="player-stat-label"></span>
+    <span id="company-shares-issued" class="player-stat-value"></span>
+  </div>
+  <div class="player-stat">
+    <label id="company-dividend-rate-label" for="company-dividend-rate-input" class="player-stat-label"></label>
+    <input id="company-dividend-rate-input" type="number" min="0" max="100" step="0.1">
+    <button id="set-company-dividend-btn" class="action-btn"></button>
+  </div>
+  <div class="player-stat">
+    <label id="company-issue-shares-label" for="company-issue-shares-input" class="player-stat-label"></label>
+    <input id="company-issue-shares-input" type="number" min="1" step="1">
+    <button id="issue-company-shares-btn" class="action-btn"></button>
+  </div>
+</div>
+
+<div id="company-tab-content-loans" class="company-management-tab-content hidden">
+  <h3 id="company-loans-heading"></h3>
+  <div class="player-stat">
+    <span id="company-credit-rating-label" class="player-stat-label"></span>
+    <span id="company-credit-rating" class="player-stat-value"></span>
+  </div>
+  <div class="player-stat">
+    <span id="company-interest-rate-label" class="player-stat-label"></span>
+    <span id="company-interest-rate" class="player-stat-value"></span>
+  </div>
+  <div class="player-stat">
+    <span id="company-outstanding-debt-label" class="player-stat-label"></span>
+    <span id="company-outstanding-debt" class="player-stat-value"></span>
+  </div>
+
+  <div class="player-stat">
+    <label id="company-loan-amount-label" for="company-loan-amount-input" class="player-stat-label"></label>
+    <input id="company-loan-amount-input" type="number" min="1" step="1">
+    <button id="take-company-loan-btn" class="action-btn"></button>
+  </div>
+
+  <h4 id="company-outstanding-loans-heading"></h4>
+  <div id="company-loans-list"></div>
+
+  <div class="player-stat">
+    <label id="company-loan-payment-select-label" for="company-loan-payment-select" class="player-stat-label"></label>
+    <select id="company-loan-payment-select"></select>
+    <label id="company-loan-payment-amount-label" for="company-loan-payment-amount-input" class="player-stat-label"></label>
+    <input id="company-loan-payment-amount-input" type="number" min="1" step="1">
+    <button id="make-company-loan-payment-btn" class="action-btn"></button>
+  </div>
+
+  <div class="player-stat">
+    <label id="company-loan-repayment-select-label" for="company-loan-repayment-select" class="player-stat-label"></label>
+    <select id="company-loan-repayment-select"></select>
+    <label id="company-loan-repayment-rate-label" for="company-loan-repayment-rate-input" class="player-stat-label"></label>
+    <input id="company-loan-repayment-rate-input" type="number" min="0" step="0.1">
+    <button id="set-company-loan-repayment-btn" class="action-btn"></button>
+  </div>
+</div>
+
+<div id="company-tab-content-trade-routes" class="company-management-tab-content hidden">
+  <h3 id="company-trade-routes-heading"></h3>
+  <p id="company-trade-routes-placeholder"></p>
+</div>

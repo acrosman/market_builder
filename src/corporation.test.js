@@ -20,6 +20,9 @@ describe('Corporation', () => {
       expect(corporation.ships).toEqual([]);
       expect(corporation.goods).toEqual({});
       expect(corporation.cashReserves).toBe(0);
+      expect(corporation.dividendRate).toBe(0);
+      expect(corporation.sharesIssued).toBe(0);
+      expect(corporation.loans).toEqual([]);
     });
 
     test('should default isPlayerOwned to false', () => {
@@ -127,6 +130,35 @@ describe('Corporation', () => {
 
       expect(corporation.spendCashReserve(250)).toBe(true);
       expect(corporation.cashReserves).toBe(750);
+    });
+
+    describe('company management operations', () => {
+      test('sets dividend rate and issues shares', () => {
+        expect(corporation.setDividendRate(12.5)).toBe(true);
+        expect(corporation.dividendRate).toBe(12.5);
+        expect(corporation.issueShares(1000)).toBe(true);
+        expect(corporation.sharesIssued).toBe(1000);
+      });
+
+      test('rejects invalid dividend and share values', () => {
+        expect(corporation.setDividendRate(-1)).toBe(false);
+        expect(corporation.setDividendRate(150)).toBe(false);
+        expect(corporation.issueShares(0)).toBe(false);
+        expect(corporation.issueShares(1.5)).toBe(false);
+      });
+
+      test('supports taking loans, payment, and repayment rate', () => {
+        corporation.addCashReserve(1000);
+        const loan = corporation.takeLoan(5000);
+
+        expect(loan).toBeTruthy();
+        expect(corporation.loans).toHaveLength(1);
+        expect(corporation.getOutstandingDebt()).toBe(5000);
+        expect(corporation.setLoanRepaymentRate(loan.id, 1.25)).toBe(true);
+        expect(corporation.loans[0].repaymentRate).toBe(1.25);
+        expect(corporation.makeLoanPayment(loan.id, 750)).toBe(true);
+        expect(corporation.loans[0].remainingBalance).toBe(4250);
+      });
     });
 
     test('should fail to spend more than available cash reserves', () => {
@@ -243,6 +275,40 @@ describe('Corporation', () => {
       expect(summary.stellarObjectCount).toBe(0);
       expect(summary.shipCount).toBe(0);
       expect(summary.goodTypes).toBe(0);
+    });
+  });
+
+  describe('getCompanyManagementState', () => {
+    test('should return management snapshot with derived financial fields', () => {
+      const universe = new Universe();
+      universe.systems = [{ id: 2, name: 'Alpha System' }];
+      universe.stellarObjects = [
+        { id: 1, name: 'Farm World', className: 'Planet', location: 2, value: 25000 }
+      ];
+
+      corporation.addStellarObject(1);
+      corporation.addShip('Freighter');
+      corporation.addCashReserve(5000);
+      corporation.setDividendRate(4.5);
+      corporation.issueShares(100);
+      corporation.takeLoan(1000);
+
+      const state = corporation.getCompanyManagementState(universe);
+      expect(state.name).toBe('Test Corp');
+      expect(state.description).toBe('A test corporation');
+      expect(state.value).toBeGreaterThan(0);
+      expect(state.totalCashReserves).toBe(6000);
+      expect(state.dividendRate).toBe(4.5);
+      expect(state.sharesIssued).toBe(100);
+      expect(state.outstandingDebt).toBe(1000);
+      expect(state.ownedStellarObjects).toEqual([
+        { id: 1, name: 'Farm World', className: 'Planet', location: 2, locationName: 'Alpha System', value: 25000 }
+      ]);
+      expect(state.ships).toEqual(['Freighter']);
+      expect(state.loans).toHaveLength(1);
+
+      state.loans[0].remainingBalance = 0;
+      expect(corporation.loans[0].remainingBalance).toBe(1000);
     });
   });
 });

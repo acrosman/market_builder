@@ -48,6 +48,11 @@
   font-size: 0.9em;
   cursor: pointer;
   transition: background-color 0.2s;
+  margin-bottom: 8px;
+}
+
+#company-management-buttons {
+  margin-top: 8px;
 }
 
 .action-btn:hover {

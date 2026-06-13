@@ -7,6 +7,7 @@
   let _updateShipStatus;
   let _displayStellarObjectProperties;
   let _executeJumpSequence;
+  let _refreshCompanyManagementButtons;
 
   // Modal DOM references cached after init()
   let _gameModal;
@@ -24,6 +25,7 @@
    * @param {Function} context.updateShipStatus - Refresh the ship status panel.
    * @param {Function} context.displayStellarObjectProperties - Display object details.
    * @param {Function} context.executeJumpSequence - Execute a multi-hop jump sequence.
+   * @param {Function} context.refreshCompanyManagementButtons - Refresh company management buttons.
    */
   function init(context) {
     _api = context.api;
@@ -33,6 +35,7 @@
     _updateShipStatus = context.updateShipStatus;
     _displayStellarObjectProperties = context.displayStellarObjectProperties;
     _executeJumpSequence = context.executeJumpSequence;
+    _refreshCompanyManagementButtons = context.refreshCompanyManagementButtons;
 
     _gameModal = document.getElementById('game-modal');
     _modalTitle = document.getElementById('modal-title');
@@ -238,6 +241,400 @@
       if (backBtn) {
         backBtn.addEventListener('click', openPlayerStatusModal);
       }
+    });
+  }
+
+  /**
+   * Open company management modal for a selected player-controlled company.
+   * @param {string} companyName - Company name to manage.
+   */
+  async function openCompanyManagementModal(companyName) {
+    const companyManagementTitle = await _resolveMessageText('company_management.modal_title');
+
+    await loadModal(companyManagementTitle, './modals/company-management.html', async () => {
+      let selectedCompanyName = companyName;
+
+      /**
+       * Set text content for a modal element from a message key.
+       * @param {string} elementId - Element id to update.
+       * @param {string} messageKey - Message key path.
+       * @returns {Promise<void>}
+       */
+      async function setElementTextFromMessage(elementId, messageKey) {
+        const element = document.getElementById(elementId);
+        if (!element) {
+          return;
+        }
+
+        const text = await _resolveMessageText(messageKey);
+        element.textContent = text || '';
+      }
+
+      /**
+       * Populate static labels and button text for the modal.
+       * @returns {Promise<void>}
+       */
+      async function setCompanyManagementLabels() {
+        const labelMappings = [
+          ['company-tab-profile', 'company_management.tabs.profile'],
+          ['company-tab-finance', 'company_management.tabs.finance'],
+          ['company-tab-loans', 'company_management.tabs.loans'],
+          ['company-tab-trade-routes', 'company_management.tabs.trade_routes'],
+          ['company-profile-heading', 'company_management.profile.heading'],
+          ['company-overview-heading', 'company_management.profile.overview_heading'],
+          ['company-overview-total-value-label', 'company_management.finance.total_value'],
+          ['company-overview-cash-reserves-label', 'company_management.finance.cash_reserves'],
+          ['company-owned-stellar-objects-heading', 'company_management.profile.owned_stellar_objects'],
+          ['company-fleet-heading', 'company_management.profile.fleet'],
+          ['company-name-label', 'company_management.profile.name'],
+          ['company-description-label', 'company_management.profile.description'],
+          ['save-company-profile-btn', 'company_management.profile.save'],
+          ['company-finance-heading', 'company_management.finance.heading'],
+          ['company-value-label', 'company_management.finance.total_value'],
+          ['company-cash-reserves-label', 'company_management.finance.cash_reserves'],
+          ['company-shares-issued-label', 'company_management.finance.shares_issued'],
+          ['company-dividend-rate-label', 'company_management.finance.dividend_rate'],
+          ['set-company-dividend-btn', 'company_management.finance.set_dividend'],
+          ['company-issue-shares-label', 'company_management.finance.issue_shares'],
+          ['issue-company-shares-btn', 'company_management.finance.issue_shares_action'],
+          ['company-loans-heading', 'company_management.loans.heading'],
+          ['company-credit-rating-label', 'company_management.loans.credit_rating'],
+          ['company-interest-rate-label', 'company_management.loans.interest_rate'],
+          ['company-outstanding-debt-label', 'company_management.loans.outstanding_debt'],
+          ['company-loan-amount-label', 'company_management.loans.take_loan_amount'],
+          ['take-company-loan-btn', 'company_management.loans.take_loan_action'],
+          ['company-outstanding-loans-heading', 'company_management.loans.outstanding_loans'],
+          ['company-loan-payment-select-label', 'company_management.loans.loan_label'],
+          ['company-loan-payment-amount-label', 'company_management.loans.payment_amount'],
+          ['make-company-loan-payment-btn', 'company_management.loans.make_payment'],
+          ['company-loan-repayment-select-label', 'company_management.loans.loan_label'],
+          ['company-loan-repayment-rate-label', 'company_management.loans.repayment_rate'],
+          ['set-company-loan-repayment-btn', 'company_management.loans.set_repayment_rate'],
+          ['company-trade-routes-heading', 'company_management.trade_routes.heading'],
+          ['company-trade-routes-placeholder', 'company_management.trade_routes.placeholder']
+        ];
+
+        await Promise.all(labelMappings.map(([elementId, messageKey]) => setElementTextFromMessage(elementId, messageKey)));
+      }
+
+      /**
+       * Switch the active company tab.
+       * @param {string} tabName - Tab name key.
+       */
+      function setActiveTab(tabName) {
+        const tabNames = ['profile', 'finance', 'loans', 'trade-routes'];
+
+        tabNames.forEach((name) => {
+          const tabButton = document.getElementById(`company-tab-${name}`);
+          const tabContent = document.getElementById(`company-tab-content-${name}`);
+
+          if (tabButton) {
+            tabButton.disabled = name === tabName;
+          }
+
+          if (tabContent) {
+            if (name === tabName) {
+              tabContent.classList.remove('hidden');
+            } else {
+              tabContent.classList.add('hidden');
+            }
+          }
+        });
+      }
+
+      /**
+       * Replace options in a loan selector with current loan data.
+       * @param {HTMLSelectElement} selectEl - Select element to populate.
+       * @param {Object[]} loans - Loan entries.
+       * @returns {Promise<void>}
+       */
+      async function populateLoanSelect(selectEl, loans) {
+        if (!selectEl) {
+          return;
+        }
+
+        while (selectEl.firstChild) {
+          selectEl.removeChild(selectEl.firstChild);
+        }
+        for (const loan of loans) {
+          const option = document.createElement('option');
+          option.value = String(loan.id);
+          option.textContent = await _resolveMessageText(
+            'company_management.loans.loan_option',
+            {
+              loanId: loan.id,
+              balance: loan.remainingBalance.toLocaleString()
+            }
+          );
+          selectEl.appendChild(option);
+        }
+      }
+
+      /**
+       * Render outstanding loan items in the modal.
+       * @param {Object[]} loans - Loan entries.
+       * @returns {Promise<void>}
+       */
+      async function renderLoanList(loans) {
+        const loansList = document.getElementById('company-loans-list');
+        if (!loansList) {
+          return;
+        }
+
+        loansList.innerHTML = '';
+
+        if (!Array.isArray(loans) || loans.length === 0) {
+          const noLoansMessage = document.createElement('p');
+          noLoansMessage.textContent = await _resolveMessageText('company_management.loans.none_outstanding');
+          loansList.appendChild(noLoansMessage);
+          return;
+        }
+
+        for (const loan of loans) {
+          const loanLine = document.createElement('p');
+          loanLine.textContent = await _resolveMessageText('company_management.loans.loan_line', {
+            loanId: loan.id,
+            principal: loan.principal.toLocaleString(),
+            remaining: loan.remainingBalance.toLocaleString(),
+            interestRate: loan.interestRate.toFixed(2),
+            repaymentRate: loan.repaymentRate.toFixed(2)
+          });
+          loansList.appendChild(loanLine);
+        }
+      }
+
+      /**
+       * Render owned stellar objects in company management profile tab.
+       * @param {Object[]} stellarObjects - Owned stellar object entries.
+       * @returns {Promise<void>}
+       */
+      async function renderOwnedStellarObjects(stellarObjects) {
+        const stellarObjectsList = document.getElementById('company-owned-stellar-objects-list');
+        if (!stellarObjectsList) {
+          return;
+        }
+
+        stellarObjectsList.innerHTML = '';
+
+        if (!Array.isArray(stellarObjects) || stellarObjects.length === 0) {
+          const noObjectsMessage = document.createElement('p');
+          noObjectsMessage.textContent = await _resolveMessageText('company_management.assets.none_stellar_objects');
+          stellarObjectsList.appendChild(noObjectsMessage);
+          return;
+        }
+
+        for (const stellarObject of stellarObjects) {
+          const objectLine = document.createElement('p');
+          objectLine.textContent = await _resolveMessageText('company_management.assets.stellar_object_line', {
+            name: stellarObject.name || '',
+            className: stellarObject.className || '',
+            location: stellarObject.locationName || stellarObject.location || '',
+            value: Number(stellarObject.value || 0).toLocaleString()
+          });
+          stellarObjectsList.appendChild(objectLine);
+        }
+      }
+
+      /**
+       * Render owned fleet entries in company management profile tab.
+       * @param {string[]} ships - Owned ship identifiers.
+       * @returns {Promise<void>}
+       */
+      async function renderFleetList(ships) {
+        const fleetList = document.getElementById('company-fleet-list');
+        if (!fleetList) {
+          return;
+        }
+
+        fleetList.innerHTML = '';
+
+        if (!Array.isArray(ships) || ships.length === 0) {
+          const noShipsMessage = document.createElement('p');
+          noShipsMessage.textContent = await _resolveMessageText('company_management.assets.none_ships');
+          fleetList.appendChild(noShipsMessage);
+          return;
+        }
+
+        for (const shipName of ships) {
+          const shipLine = document.createElement('p');
+          shipLine.textContent = await _resolveMessageText('company_management.assets.ship_line', {
+            shipName
+          });
+          fleetList.appendChild(shipLine);
+        }
+      }
+
+      /**
+       * Populate modal fields from company management state.
+       * @returns {Promise<void>}
+       */
+      async function refreshCompanyState() {
+        const companyState = await _api.invoke('get-company-management-state', {
+          companyName: selectedCompanyName
+        });
+
+        if (!companyState) {
+          return;
+        }
+
+        const previousCompanyName = selectedCompanyName;
+        selectedCompanyName = companyState.name || previousCompanyName;
+
+        const companyNameInput = document.getElementById('company-name-input');
+        if (companyNameInput) {
+          companyNameInput.value = companyState.name;
+        }
+
+        const companyDescriptionInput = document.getElementById('company-description-input');
+        if (companyDescriptionInput) {
+          companyDescriptionInput.value = companyState.description || '';
+        }
+
+        const companyValue = document.getElementById('company-value');
+        if (companyValue) {
+          companyValue.textContent = companyState.value.toLocaleString();
+        }
+
+        const companyOverviewTotalValue = document.getElementById('company-overview-total-value');
+        if (companyOverviewTotalValue) {
+          companyOverviewTotalValue.textContent = companyState.value.toLocaleString();
+        }
+
+        const companyCashReserves = document.getElementById('company-cash-reserves');
+        if (companyCashReserves) {
+          companyCashReserves.textContent = companyState.totalCashReserves.toLocaleString();
+        }
+
+        const companyOverviewCashReserves = document.getElementById('company-overview-cash-reserves');
+        if (companyOverviewCashReserves) {
+          companyOverviewCashReserves.textContent = companyState.totalCashReserves.toLocaleString();
+        }
+
+        const companySharesIssued = document.getElementById('company-shares-issued');
+        if (companySharesIssued) {
+          companySharesIssued.textContent = companyState.sharesIssued.toLocaleString();
+        }
+
+        const companyDividendRateInput = document.getElementById('company-dividend-rate-input');
+        if (companyDividendRateInput) {
+          companyDividendRateInput.value = String(companyState.dividendRate);
+        }
+
+        const companyCreditRating = document.getElementById('company-credit-rating');
+        if (companyCreditRating) {
+          companyCreditRating.textContent = companyState.creditRating;
+        }
+
+        const companyInterestRate = document.getElementById('company-interest-rate');
+        if (companyInterestRate) {
+          companyInterestRate.textContent = `${companyState.interestRate.toFixed(2)}%`;
+        }
+
+        const companyOutstandingDebt = document.getElementById('company-outstanding-debt');
+        if (companyOutstandingDebt) {
+          companyOutstandingDebt.textContent = companyState.outstandingDebt.toLocaleString();
+        }
+
+        await renderOwnedStellarObjects(companyState.ownedStellarObjects || []);
+        await renderFleetList(companyState.ships || []);
+        await renderLoanList(companyState.loans || []);
+        await populateLoanSelect(document.getElementById('company-loan-payment-select'), companyState.loans || []);
+        await populateLoanSelect(document.getElementById('company-loan-repayment-select'), companyState.loans || []);
+
+        if (typeof _refreshCompanyManagementButtons === 'function') {
+          await _refreshCompanyManagementButtons();
+        }
+      }
+
+      document.querySelectorAll('.company-management-tabs [data-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+          setActiveTab(button.getAttribute('data-tab'));
+        });
+      });
+
+      const saveCompanyProfileBtn = document.getElementById('save-company-profile-btn');
+      if (saveCompanyProfileBtn) {
+        saveCompanyProfileBtn.addEventListener('click', async () => {
+          const companyNameInput = document.getElementById('company-name-input');
+          const companyDescriptionInput = document.getElementById('company-description-input');
+
+          await _api.invoke('update-company-profile', {
+            currentName: selectedCompanyName,
+            name: companyNameInput ? companyNameInput.value : '',
+            description: companyDescriptionInput ? companyDescriptionInput.value : ''
+          });
+
+          await refreshCompanyState();
+        });
+      }
+
+      const setCompanyDividendBtn = document.getElementById('set-company-dividend-btn');
+      if (setCompanyDividendBtn) {
+        setCompanyDividendBtn.addEventListener('click', async () => {
+          const companyDividendRateInput = document.getElementById('company-dividend-rate-input');
+          await _api.invoke('update-company-dividend-rate', {
+            companyName: selectedCompanyName,
+            dividendRate: companyDividendRateInput ? companyDividendRateInput.value : ''
+          });
+          await refreshCompanyState();
+        });
+      }
+
+      const issueCompanySharesBtn = document.getElementById('issue-company-shares-btn');
+      if (issueCompanySharesBtn) {
+        issueCompanySharesBtn.addEventListener('click', async () => {
+          const companyIssueSharesInput = document.getElementById('company-issue-shares-input');
+          await _api.invoke('issue-company-shares', {
+            companyName: selectedCompanyName,
+            shares: companyIssueSharesInput ? companyIssueSharesInput.value : ''
+          });
+          await refreshCompanyState();
+        });
+      }
+
+      const takeCompanyLoanBtn = document.getElementById('take-company-loan-btn');
+      if (takeCompanyLoanBtn) {
+        takeCompanyLoanBtn.addEventListener('click', async () => {
+          const companyLoanAmountInput = document.getElementById('company-loan-amount-input');
+          await _api.invoke('take-company-loan', {
+            companyName: selectedCompanyName,
+            amount: companyLoanAmountInput ? companyLoanAmountInput.value : ''
+          });
+          await refreshCompanyState();
+        });
+      }
+
+      const makeCompanyLoanPaymentBtn = document.getElementById('make-company-loan-payment-btn');
+      if (makeCompanyLoanPaymentBtn) {
+        makeCompanyLoanPaymentBtn.addEventListener('click', async () => {
+          const loanSelect = document.getElementById('company-loan-payment-select');
+          const paymentInput = document.getElementById('company-loan-payment-amount-input');
+          await _api.invoke('make-company-loan-payment', {
+            companyName: selectedCompanyName,
+            loanId: loanSelect ? loanSelect.value : '',
+            amount: paymentInput ? paymentInput.value : ''
+          });
+          await refreshCompanyState();
+        });
+      }
+
+      const setCompanyLoanRepaymentBtn = document.getElementById('set-company-loan-repayment-btn');
+      if (setCompanyLoanRepaymentBtn) {
+        setCompanyLoanRepaymentBtn.addEventListener('click', async () => {
+          const loanSelect = document.getElementById('company-loan-repayment-select');
+          const repaymentRateInput = document.getElementById('company-loan-repayment-rate-input');
+          await _api.invoke('set-company-loan-repayment-rate', {
+            companyName: selectedCompanyName,
+            loanId: loanSelect ? loanSelect.value : '',
+            repaymentRate: repaymentRateInput ? repaymentRateInput.value : ''
+          });
+          await refreshCompanyState();
+        });
+      }
+
+      setActiveTab('profile');
+      await setCompanyManagementLabels();
+      await refreshCompanyState();
     });
   }
 
@@ -1074,6 +1471,7 @@
     displayErrorMessage,
     openPlayerStatusModal,
     openCorporationStatusModal,
+    openCompanyManagementModal,
     openTradeModal,
     openBuildingsModal,
     openUniverseMapModal,

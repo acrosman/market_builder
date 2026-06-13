@@ -21,6 +21,7 @@ function buildFullDom() {
     <button id="load-game-btn">Load</button>
     <button id="player-status-btn">Player Status</button>
     <button id="game-settings-btn">Settings</button>
+    <div id="company-management-buttons"></div>
     <div id="game-modal" class="modal">
       <div class="modal-content">
         <h2 id="modal-title"></h2>
@@ -147,6 +148,7 @@ async function loadGameJs() {
     openPlayerStatusModal: jest.fn(),
     openUniverseMapModal: jest.fn(),
     openJumpPlanner: jest.fn(),
+    openCompanyManagementModal: jest.fn(),
     openTradeModal: jest.fn(),
     openBuildingsModal: jest.fn(),
     closeModal: jest.fn()
@@ -787,6 +789,46 @@ describe('game.js coordinator', () => {
 
       await new Promise(resolve => setTimeout(resolve, 50));
       expect(window.api.invoke).toHaveBeenCalledWith('get-game-messages', 'settings.not_implemented');
+    });
+
+    test('renders a company button for each player-controlled company', async () => {
+      window.api = createMockApi();
+      window.api.getLocationState.mockResolvedValue(createMockLocationState());
+      window.api.invoke.mockImplementation((channel) => {
+        if (channel === 'get-player-companies') {
+          return Promise.resolve([{ name: 'Alpha Corp' }, { name: 'Beta Corp' }]);
+        }
+        return Promise.resolve(null);
+      });
+
+      await loadGameJs();
+
+      const companyButtons = document
+        .getElementById('company-management-buttons')
+        .querySelectorAll('button');
+      expect(companyButtons.length).toBe(2);
+      expect(companyButtons[0].textContent).toBe('Alpha Corp');
+      expect(companyButtons[1].textContent).toBe('Beta Corp');
+    });
+
+    test('company button opens company management modal', async () => {
+      window.api = createMockApi();
+      window.api.getLocationState.mockResolvedValue(createMockLocationState());
+      window.api.invoke.mockImplementation((channel) => {
+        if (channel === 'get-player-companies') {
+          return Promise.resolve([{ name: 'Alpha Corp' }]);
+        }
+        return Promise.resolve(null);
+      });
+
+      await loadGameJs();
+
+      const companyButton = document
+        .getElementById('company-management-buttons')
+        .querySelector('button');
+      companyButton.click();
+
+      expect(window.modalManager.openCompanyManagementModal).toHaveBeenCalledWith('Alpha Corp');
     });
   });
 
