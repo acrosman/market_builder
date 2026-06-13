@@ -617,6 +617,10 @@ describe('modalManager', () => {
           <div id="company-tab-content-finance"></div>
           <div id="company-tab-content-loans"></div>
           <div id="company-tab-content-trade-routes"></div>
+          <span id="company-overview-total-value"></span>
+          <span id="company-overview-cash-reserves"></span>
+          <div id="company-owned-stellar-objects-list"></div>
+          <div id="company-fleet-list"></div>
           <input id="company-name-input">
           <textarea id="company-description-input"></textarea>
           <span id="company-value"></span>
@@ -658,6 +662,18 @@ describe('modalManager', () => {
         if (messageKey === 'company_management.loans.none_outstanding') {
           return Promise.resolve('No outstanding loans.');
         }
+        if (messageKey === 'company_management.assets.none_stellar_objects') {
+          return Promise.resolve('No stellar objects owned.');
+        }
+        if (messageKey === 'company_management.assets.none_ships') {
+          return Promise.resolve('No ships owned.');
+        }
+        if (messageKey === 'company_management.assets.stellar_object_line') {
+          return Promise.resolve(`${vars.name} (${vars.className}) | System: ${vars.location} | Value: ${vars.value}`);
+        }
+        if (messageKey === 'company_management.assets.ship_line') {
+          return Promise.resolve(vars.shipName);
+        }
         return Promise.resolve('');
       });
       mockApi.invoke.mockImplementation((channel) => {
@@ -672,6 +688,10 @@ describe('modalManager', () => {
             creditRating: 'AA',
             interestRate: 5.0,
             outstandingDebt: 40000,
+            ownedStellarObjects: [
+              { id: 10, name: 'Farm World', className: 'Planet', location: 3, value: 240000 }
+            ],
+            ships: ['Freighter'],
             loans: [
               { id: 1, principal: 50000, remainingBalance: 40000, interestRate: 5.0, repaymentRate: 2.0 }
             ]
@@ -685,6 +705,10 @@ describe('modalManager', () => {
       expect(document.getElementById('company-name-input').value).toBe('Trade Guild');
       expect(document.getElementById('company-credit-rating').textContent).toBe('AA');
       expect(document.getElementById('company-interest-rate').textContent).toBe('5.00%');
+      expect(document.getElementById('company-overview-total-value').textContent).toBe('500,000');
+      expect(document.getElementById('company-overview-cash-reserves').textContent).toBe('30,000');
+      expect(document.getElementById('company-owned-stellar-objects-list').textContent).toContain('Farm World');
+      expect(document.getElementById('company-fleet-list').textContent).toContain('Freighter');
       expect(document.getElementById('company-loans-list').textContent).toContain('Loan #1');
       expect(mockContext.refreshCompanyManagementButtons).toHaveBeenCalled();
     });
@@ -704,6 +728,8 @@ describe('modalManager', () => {
             creditRating: 'AA',
             interestRate: 5.0,
             outstandingDebt: 0,
+            ownedStellarObjects: [],
+            ships: [],
             loans: []
           });
         }

@@ -316,8 +316,19 @@ class Corporation {
    */
   getCompanyManagementState(universe, shipValues = {}, goodPrices = {}) {
     let value = 0;
+    let ownedStellarObjects = [];
     if (universe && Array.isArray(universe.stellarObjects)) {
       value = this.calculateTotalValue(universe, shipValues, goodPrices);
+      ownedStellarObjects = this.stellarObjects
+        .map(objId => universe.stellarObjects.find(obj => obj.id === objId))
+        .filter(Boolean)
+        .map(stellarObject => ({
+          id: stellarObject.id,
+          name: stellarObject.name,
+          className: stellarObject.className,
+          location: stellarObject.location,
+          value: stellarObject.value || 0
+        }));
     }
 
     return {
@@ -330,6 +341,8 @@ class Corporation {
       creditRating: this.getCreditRating(),
       interestRate: this.getInterestRate(),
       outstandingDebt: this.getOutstandingDebt(),
+      ownedStellarObjects,
+      ships: Array.isArray(this.ships) ? [...this.ships] : [],
       loans: Array.isArray(this.loans) ? this.loans.map(loan => ({ ...loan })) : []
     };
   }

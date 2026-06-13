@@ -281,6 +281,11 @@
           ['company-tab-loans', 'company_management.tabs.loans'],
           ['company-tab-trade-routes', 'company_management.tabs.trade_routes'],
           ['company-profile-heading', 'company_management.profile.heading'],
+          ['company-overview-heading', 'company_management.profile.overview_heading'],
+          ['company-overview-total-value-label', 'company_management.finance.total_value'],
+          ['company-overview-cash-reserves-label', 'company_management.finance.cash_reserves'],
+          ['company-owned-stellar-objects-heading', 'company_management.profile.owned_stellar_objects'],
+          ['company-fleet-heading', 'company_management.profile.fleet'],
           ['company-name-label', 'company_management.profile.name'],
           ['company-description-label', 'company_management.profile.description'],
           ['save-company-profile-btn', 'company_management.profile.save'],
@@ -399,6 +404,67 @@
       }
 
       /**
+       * Render owned stellar objects in company management profile tab.
+       * @param {Object[]} stellarObjects - Owned stellar object entries.
+       * @returns {Promise<void>}
+       */
+      async function renderOwnedStellarObjects(stellarObjects) {
+        const stellarObjectsList = document.getElementById('company-owned-stellar-objects-list');
+        if (!stellarObjectsList) {
+          return;
+        }
+
+        stellarObjectsList.innerHTML = '';
+
+        if (!Array.isArray(stellarObjects) || stellarObjects.length === 0) {
+          const noObjectsMessage = document.createElement('p');
+          noObjectsMessage.textContent = await _resolveMessageText('company_management.assets.none_stellar_objects');
+          stellarObjectsList.appendChild(noObjectsMessage);
+          return;
+        }
+
+        for (const stellarObject of stellarObjects) {
+          const objectLine = document.createElement('p');
+          objectLine.textContent = await _resolveMessageText('company_management.assets.stellar_object_line', {
+            name: stellarObject.name || '',
+            className: stellarObject.className || '',
+            location: stellarObject.location || '',
+            value: Number(stellarObject.value || 0).toLocaleString()
+          });
+          stellarObjectsList.appendChild(objectLine);
+        }
+      }
+
+      /**
+       * Render owned fleet entries in company management profile tab.
+       * @param {string[]} ships - Owned ship identifiers.
+       * @returns {Promise<void>}
+       */
+      async function renderFleetList(ships) {
+        const fleetList = document.getElementById('company-fleet-list');
+        if (!fleetList) {
+          return;
+        }
+
+        fleetList.innerHTML = '';
+
+        if (!Array.isArray(ships) || ships.length === 0) {
+          const noShipsMessage = document.createElement('p');
+          noShipsMessage.textContent = await _resolveMessageText('company_management.assets.none_ships');
+          fleetList.appendChild(noShipsMessage);
+          return;
+        }
+
+        for (const shipName of ships) {
+          const shipLine = document.createElement('p');
+          shipLine.textContent = await _resolveMessageText('company_management.assets.ship_line', {
+            shipName
+          });
+          fleetList.appendChild(shipLine);
+        }
+      }
+
+      /**
        * Populate modal fields from company management state.
        * @returns {Promise<void>}
        */
@@ -429,9 +495,19 @@
           companyValue.textContent = companyState.value.toLocaleString();
         }
 
+        const companyOverviewTotalValue = document.getElementById('company-overview-total-value');
+        if (companyOverviewTotalValue) {
+          companyOverviewTotalValue.textContent = companyState.value.toLocaleString();
+        }
+
         const companyCashReserves = document.getElementById('company-cash-reserves');
         if (companyCashReserves) {
           companyCashReserves.textContent = companyState.totalCashReserves.toLocaleString();
+        }
+
+        const companyOverviewCashReserves = document.getElementById('company-overview-cash-reserves');
+        if (companyOverviewCashReserves) {
+          companyOverviewCashReserves.textContent = companyState.totalCashReserves.toLocaleString();
         }
 
         const companySharesIssued = document.getElementById('company-shares-issued');
@@ -459,6 +535,8 @@
           companyOutstandingDebt.textContent = companyState.outstandingDebt.toLocaleString();
         }
 
+        await renderOwnedStellarObjects(companyState.ownedStellarObjects || []);
+        await renderFleetList(companyState.ships || []);
         await renderLoanList(companyState.loans || []);
         await populateLoanSelect(document.getElementById('company-loan-payment-select'), companyState.loans || []);
         await populateLoanSelect(document.getElementById('company-loan-repayment-select'), companyState.loans || []);

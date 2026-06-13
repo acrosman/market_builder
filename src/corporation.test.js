@@ -281,9 +281,12 @@ describe('Corporation', () => {
   describe('getCompanyManagementState', () => {
     test('should return management snapshot with derived financial fields', () => {
       const universe = new Universe();
-      universe.stellarObjects = [{ id: 1, value: 25000 }];
+      universe.stellarObjects = [
+        { id: 1, name: 'Farm World', className: 'Planet', location: 2, value: 25000 }
+      ];
 
       corporation.addStellarObject(1);
+      corporation.addShip('Freighter');
       corporation.addCashReserve(5000);
       corporation.setDividendRate(4.5);
       corporation.issueShares(100);
@@ -297,6 +300,10 @@ describe('Corporation', () => {
       expect(state.dividendRate).toBe(4.5);
       expect(state.sharesIssued).toBe(100);
       expect(state.outstandingDebt).toBe(1000);
+      expect(state.ownedStellarObjects).toEqual([
+        { id: 1, name: 'Farm World', className: 'Planet', location: 2, value: 25000 }
+      ]);
+      expect(state.ships).toEqual(['Freighter']);
       expect(state.loans).toHaveLength(1);
 
       state.loans[0].remainingBalance = 0;

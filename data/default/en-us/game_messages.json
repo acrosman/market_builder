@@ -76,9 +76,18 @@
     },
     "profile": {
       "heading": "Company Profile",
+      "overview_heading": "Corporate Overview",
+      "owned_stellar_objects": "Owned Stellar Objects",
+      "fleet": "Fleet",
       "name": "Name:",
       "description": "Description:",
       "save": "Save Profile"
+    },
+    "assets": {
+      "none_stellar_objects": "No stellar objects owned.",
+      "none_ships": "No ships owned.",
+      "stellar_object_line": "{name} ({className}) | System: {location} | Value: {value}",
+      "ship_line": "{shipName}"
     },
     "finance": {
       "heading": "Dividend and Shares",
