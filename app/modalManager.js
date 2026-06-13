@@ -154,7 +154,7 @@
 
       const corpStatusBtn = document.getElementById('btn-corporation-status');
       if (corpStatusBtn) {
-        corpStatusBtn.addEventListener('click', () => openCompanyManagementModal(playerState.corporation.name));
+        corpStatusBtn.addEventListener('click', openCorporationStatusModal);
       }
     });
   }

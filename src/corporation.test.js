@@ -277,4 +277,30 @@ describe('Corporation', () => {
       expect(summary.goodTypes).toBe(0);
     });
   });
+
+  describe('getCompanyManagementState', () => {
+    test('should return management snapshot with derived financial fields', () => {
+      const universe = new Universe();
+      universe.stellarObjects = [{ id: 1, value: 25000 }];
+
+      corporation.addStellarObject(1);
+      corporation.addCashReserve(5000);
+      corporation.setDividendRate(4.5);
+      corporation.issueShares(100);
+      corporation.takeLoan(1000);
+
+      const state = corporation.getCompanyManagementState(universe);
+      expect(state.name).toBe('Test Corp');
+      expect(state.description).toBe('A test corporation');
+      expect(state.value).toBeGreaterThan(0);
+      expect(state.totalCashReserves).toBe(6000);
+      expect(state.dividendRate).toBe(4.5);
+      expect(state.sharesIssued).toBe(100);
+      expect(state.outstandingDebt).toBe(1000);
+      expect(state.loans).toHaveLength(1);
+
+      state.loans[0].remainingBalance = 0;
+      expect(corporation.loans[0].remainingBalance).toBe(1000);
+    });
+  });
 });

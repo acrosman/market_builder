@@ -306,6 +306,35 @@ class Corporation {
   }
 
   /**
+   * Build a renderer-friendly company management snapshot.
+   * @param {Universe} universe - The universe used for valuation calculations.
+   * @param {Object} [shipValues={}] - Optional ship valuation map.
+   * @param {Object} [goodPrices={}] - Optional goods pricing map.
+   * @returns {Object} Company management state.
+   * @example
+   * corporation.getCompanyManagementState(universe);
+   */
+  getCompanyManagementState(universe, shipValues = {}, goodPrices = {}) {
+    let value = 0;
+    if (universe && Array.isArray(universe.stellarObjects)) {
+      value = this.calculateTotalValue(universe, shipValues, goodPrices);
+    }
+
+    return {
+      name: this.name,
+      description: this.description,
+      value,
+      totalCashReserves: this.getTotalCashReserves(),
+      dividendRate: this.dividendRate || 0,
+      sharesIssued: this.sharesIssued || 0,
+      creditRating: this.getCreditRating(),
+      interestRate: this.getInterestRate(),
+      outstandingDebt: this.getOutstandingDebt(),
+      loans: Array.isArray(this.loans) ? this.loans.map(loan => ({ ...loan })) : []
+    };
+  }
+
+  /**
    * Calculates the total value of all corporation assets
    * @param {Universe} universe - The universe object to get stellar object values
    * @param {Object} shipValues - Object mapping ship types/IDs to values

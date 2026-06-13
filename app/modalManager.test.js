@@ -292,13 +292,7 @@ describe('modalManager', () => {
       // Should not throw and modal body remains with loaded HTML
     });
 
-    test('corporation button opens company management modal for active corporation', async () => {
-      mockContext.resolveMessageText.mockImplementation((messageKey) => {
-        if (messageKey === 'company_management.modal_title') {
-          return Promise.resolve('Company Management');
-        }
-        return Promise.resolve('');
-      });
+    test('corporation button opens corporation status modal for active corporation', async () => {
       global.fetch
         .mockResolvedValueOnce({
           ok: true,
@@ -320,28 +314,24 @@ describe('modalManager', () => {
         .mockResolvedValueOnce({
           ok: true,
           text: jest.fn().mockResolvedValue(`
-            <div class="company-management-tabs">
-              <button id="company-tab-profile" data-tab="profile"></button>
-              <button id="company-tab-finance" data-tab="finance"></button>
-              <button id="company-tab-loans" data-tab="loans"></button>
-              <button id="company-tab-trade-routes" data-tab="trade-routes"></button>
+            <span id="corp-name"></span>
+            <span id="corp-description"></span>
+            <span id="corp-value"></span>
+            <span id="corp-cash-total"></span>
+            <div id="corp-planets-list"></div>
+            <div id="corp-ships-list"></div>
+            <button id="btn-player-status"></button>
+          `)
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(`
+            <div class="asset-item">
+              <span id="asset-name"></span>
+              <span id="asset-class"></span>
+              <span id="asset-location"></span>
+              <span id="asset-value"></span>
             </div>
-            <div id="company-tab-content-profile"></div>
-            <div id="company-tab-content-finance"></div>
-            <div id="company-tab-content-loans"></div>
-            <div id="company-tab-content-trade-routes"></div>
-            <input id="company-name-input">
-            <textarea id="company-description-input"></textarea>
-            <span id="company-value"></span>
-            <span id="company-cash-reserves"></span>
-            <span id="company-shares-issued"></span>
-            <input id="company-dividend-rate-input">
-            <span id="company-credit-rating"></span>
-            <span id="company-interest-rate"></span>
-            <span id="company-outstanding-debt"></span>
-            <div id="company-loans-list"></div>
-            <select id="company-loan-payment-select"></select>
-            <select id="company-loan-repayment-select"></select>
           `)
         });
 
@@ -358,24 +348,12 @@ describe('modalManager', () => {
         }
       });
 
+      mockApi.getUniverseState.mockResolvedValue({ stellarObjects: [] });
+      mockApi.getGameData.mockResolvedValue({ Scout: { value: 1000 } });
+
       mockApi.invoke.mockImplementation((channel) => {
         if (channel === 'get-goods-data') {
           return Promise.resolve({});
-        }
-
-        if (channel === 'get-company-management-state') {
-          return Promise.resolve({
-            name: 'Alpha Corp',
-            description: 'Test',
-            value: 100,
-            totalCashReserves: 0,
-            sharesIssued: 0,
-            dividendRate: 0,
-            creditRating: 'AAA',
-            interestRate: 4,
-            outstandingDebt: 0,
-            loans: []
-          });
         }
 
         return Promise.resolve(null);
@@ -385,7 +363,7 @@ describe('modalManager', () => {
       document.getElementById('btn-corporation-status').click();
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      expect(document.getElementById('modal-title').textContent).toBe('Company Management');
+      expect(document.getElementById('modal-title').textContent).toBe('Corporation Status');
     });
   });
 
