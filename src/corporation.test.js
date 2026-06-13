@@ -20,6 +20,9 @@ describe('Corporation', () => {
       expect(corporation.ships).toEqual([]);
       expect(corporation.goods).toEqual({});
       expect(corporation.cashReserves).toBe(0);
+      expect(corporation.dividendRate).toBe(0);
+      expect(corporation.sharesIssued).toBe(0);
+      expect(corporation.loans).toEqual([]);
     });
 
     test('should default isPlayerOwned to false', () => {
@@ -127,6 +130,35 @@ describe('Corporation', () => {
 
       expect(corporation.spendCashReserve(250)).toBe(true);
       expect(corporation.cashReserves).toBe(750);
+    });
+
+    describe('company management operations', () => {
+      test('sets dividend rate and issues shares', () => {
+        expect(corporation.setDividendRate(12.5)).toBe(true);
+        expect(corporation.dividendRate).toBe(12.5);
+        expect(corporation.issueShares(1000)).toBe(true);
+        expect(corporation.sharesIssued).toBe(1000);
+      });
+
+      test('rejects invalid dividend and share values', () => {
+        expect(corporation.setDividendRate(-1)).toBe(false);
+        expect(corporation.setDividendRate(150)).toBe(false);
+        expect(corporation.issueShares(0)).toBe(false);
+        expect(corporation.issueShares(1.5)).toBe(false);
+      });
+
+      test('supports taking loans, payment, and repayment rate', () => {
+        corporation.addCashReserve(1000);
+        const loan = corporation.takeLoan(5000);
+
+        expect(loan).toBeTruthy();
+        expect(corporation.loans).toHaveLength(1);
+        expect(corporation.getOutstandingDebt()).toBe(5000);
+        expect(corporation.setLoanRepaymentRate(loan.id, 1.25)).toBe(true);
+        expect(corporation.loans[0].repaymentRate).toBe(1.25);
+        expect(corporation.makeLoanPayment(loan.id, 750)).toBe(true);
+        expect(corporation.loans[0].remainingBalance).toBe(4250);
+      });
     });
 
     test('should fail to spend more than available cash reserves', () => {

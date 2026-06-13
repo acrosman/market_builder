@@ -18,6 +18,10 @@ class Corporation {
     this.ships = []; // Array of ship IDs owned by this corporation
     this.goods = {}; // Object mapping good names to quantities
     this.cashReserves = Corporation.normalizeCashReserves(cashReserves);
+    this.dividendRate = 0;
+    this.sharesIssued = 0;
+    this.loans = [];
+    this.nextLoanId = 1;
   }
 
   /**
@@ -156,6 +160,152 @@ class Corporation {
   }
 
   /**
+   * Set the corporation's dividend payout rate.
+   * @param {number} rate - Dividend rate percentage from 0 to 100.
+   * @returns {boolean} True when updated, false for invalid values.
+   */
+  setDividendRate(rate) {
+    if (typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0 || rate > 100) {
+      return false;
+    }
+    this.dividendRate = rate;
+    return true;
+  }
+
+  /**
+   * Issue additional stock shares.
+   * @param {number} count - Number of shares to issue.
+   * @returns {boolean} True when shares are issued, false otherwise.
+   */
+  issueShares(count) {
+    if (!Number.isInteger(count) || count <= 0) {
+      return false;
+    }
+    this.sharesIssued += count;
+    return true;
+  }
+
+  /**
+   * Get the total outstanding debt across all loans.
+   * @returns {number} Total remaining loan balance.
+   */
+  getOutstandingDebt() {
+    return this.loans.reduce((sum, loan) => sum + (loan.remainingBalance || 0), 0);
+  }
+
+  /**
+   * Get the credit rating from total outstanding debt.
+   * @returns {string} Credit rating label.
+   */
+  getCreditRating() {
+    const debt = this.getOutstandingDebt();
+    if (debt <= 0) {
+      return 'AAA';
+    }
+    if (debt <= 50000) {
+      return 'AA';
+    }
+    if (debt <= 150000) {
+      return 'A';
+    }
+    if (debt <= 300000) {
+      return 'BBB';
+    }
+    return 'BB';
+  }
+
+  /**
+   * Get the current interest rate based on debt-driven credit rating.
+   * @returns {number} Interest rate as a percentage.
+   */
+  getInterestRate() {
+    const rating = this.getCreditRating();
+    const interestRateByRating = {
+      AAA: 4.0,
+      AA: 5.0,
+      A: 6.0,
+      BBB: 8.0,
+      BB: 10.0
+    };
+    return interestRateByRating[rating] || 10.0;
+  }
+
+  /**
+   * Take out a loan for this corporation.
+   * @param {number} amount - Principal amount to borrow.
+   * Interest rate is fixed at loan origination using the corporation's
+   * current credit profile at the time the loan is created.
+   * @returns {Object|null} Created loan object, or null when invalid.
+   */
+  takeLoan(amount) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      return null;
+    }
+
+    const interestRate = this.getInterestRate();
+    const loan = {
+      id: this.nextLoanId,
+      principal: amount,
+      remainingBalance: amount,
+      interestRate,
+      repaymentRate: 0
+    };
+    this.nextLoanId += 1;
+    this.loans.push(loan);
+    this.addCashReserve(amount);
+    return loan;
+  }
+
+  /**
+   * Make a one-time payment on an outstanding loan.
+   * @param {number} loanId - Loan identifier.
+   * @param {number} amount - Amount to apply to the loan.
+   * @returns {boolean} True when payment succeeds, false otherwise.
+   */
+  makeLoanPayment(loanId, amount) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      return false;
+    }
+
+    const loan = this.loans.find(entry => entry.id === loanId);
+    if (!loan) {
+      return false;
+    }
+
+    if (!this.spendCashReserve(amount)) {
+      return false;
+    }
+
+    loan.remainingBalance = Math.max(0, loan.remainingBalance - amount);
+
+    if (loan.remainingBalance === 0) {
+      this.loans = this.loans.filter(entry => entry.id !== loanId);
+    }
+
+    return true;
+  }
+
+  /**
+   * Set the recurring repayment rate for an outstanding loan.
+   * @param {number} loanId - Loan identifier.
+   * @param {number} repaymentRate - Repayment rate percentage.
+   * @returns {boolean} True when updated, false otherwise.
+   */
+  setLoanRepaymentRate(loanId, repaymentRate) {
+    if (typeof repaymentRate !== 'number' || !Number.isFinite(repaymentRate) || repaymentRate < 0) {
+      return false;
+    }
+
+    const loan = this.loans.find(entry => entry.id === loanId);
+    if (!loan) {
+      return false;
+    }
+
+    loan.repaymentRate = repaymentRate;
+    return true;
+  }
+
+  /**
    * Calculates the total value of all corporation assets
    * @param {Universe} universe - The universe object to get stellar object values
    * @param {Object} shipValues - Object mapping ship types/IDs to values
@@ -207,7 +357,12 @@ class Corporation {
       goods: { ...this.goods },
       goodTypes: Object.keys(this.goods).length,
       cashReserves: this.cashReserves,
-      totalCashReserves: this.getTotalCashReserves()
+      totalCashReserves: this.getTotalCashReserves(),
+      dividendRate: this.dividendRate,
+      sharesIssued: this.sharesIssued,
+      loans: this.loans.map(loan => ({ ...loan })),
+      creditRating: this.getCreditRating(),
+      interestRate: this.getInterestRate()
     };
   }
 }

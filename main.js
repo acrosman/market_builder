@@ -177,6 +177,57 @@ ipcMain.on('renderer-log', (event, payload = {}) => {
 
 let currentUniverse = null;
 let currentGame = null;  // Add this line to track the current game
+const DEFAULT_SHIP_VALUES = {};
+const DEFAULT_GOOD_PRICES = {};
+
+/**
+ * Build a renderer-friendly company management snapshot.
+ * @param {Object} corporation - Corporation instance.
+ * @returns {Object} Company management state.
+ */
+function buildCompanyManagementState(corporation) {
+  if (!corporation) {
+    return null;
+  }
+
+  return {
+    name: corporation.name,
+    description: corporation.description,
+    value: corporation.calculateTotalValue(currentGame.universe, DEFAULT_SHIP_VALUES, DEFAULT_GOOD_PRICES),
+    totalCashReserves: corporation.getTotalCashReserves(),
+    dividendRate: corporation.dividendRate || 0,
+    sharesIssued: corporation.sharesIssued || 0,
+    creditRating: corporation.getCreditRating(),
+    interestRate: corporation.getInterestRate(),
+    outstandingDebt: corporation.getOutstandingDebt(),
+    loans: Array.isArray(corporation.loans) ? corporation.loans.map(loan => ({ ...loan })) : []
+  };
+}
+
+/**
+ * Get all corporations controlled by the current player.
+ * @returns {Object[]} Player-owned corporations.
+ */
+function getPlayerControlledCorporations() {
+  if (!currentGame || !currentGame.player) {
+    return [];
+  }
+
+  return currentGame.player.getOwnedCorporations(currentGame.corporations);
+}
+
+/**
+ * Find a player-controlled corporation by name.
+ * @param {string} companyName - Corporation name.
+ * @returns {Object|null} Corporation instance or null.
+ */
+function findPlayerControlledCorporation(companyName) {
+  if (!companyName) {
+    return null;
+  }
+
+  return getPlayerControlledCorporations().find(corporation => corporation.name === companyName) || null;
+}
 
 function getUniverseGraph(universe) {
   return {
@@ -287,6 +338,103 @@ ipcMain.handle('get-universe-state', () => {
     systems: currentGame.universe.systems,
     stellarObjects: currentGame.universe.stellarObjects
   };
+});
+
+ipcMain.handle('get-player-companies', () => {
+  return getPlayerControlledCorporations().map(corporation => buildCompanyManagementState(corporation));
+});
+
+ipcMain.handle('get-company-management-state', (event, { companyName } = {}) => {
+  const corporation = findPlayerControlledCorporation(companyName);
+  return buildCompanyManagementState(corporation);
+});
+
+ipcMain.handle('update-company-profile', (event, payload = {}) => {
+  const corporation = findPlayerControlledCorporation(payload.currentName);
+  if (!corporation) {
+    return { success: false };
+  }
+
+  const previousName = corporation.name;
+
+  if (typeof payload.name === 'string' && payload.name.trim().length > 0) {
+    corporation.name = payload.name.trim();
+  }
+
+  if (typeof payload.description === 'string') {
+    corporation.description = payload.description.trim();
+  }
+
+  if (previousName !== corporation.name) {
+    currentGame.universe.stellarObjects.forEach((stellarObject) => {
+      if (stellarObject.owner === previousName) {
+        stellarObject.setOwner(corporation.name);
+      }
+    });
+  }
+
+  return { success: true, company: buildCompanyManagementState(corporation) };
+});
+
+ipcMain.handle('update-company-dividend-rate', (event, payload = {}) => {
+  const corporation = findPlayerControlledCorporation(payload.companyName);
+  if (!corporation) {
+    return { success: false };
+  }
+
+  const dividendRate = Number(payload.dividendRate);
+  const success = corporation.setDividendRate(dividendRate);
+  return { success, company: buildCompanyManagementState(corporation) };
+});
+
+ipcMain.handle('issue-company-shares', (event, payload = {}) => {
+  const corporation = findPlayerControlledCorporation(payload.companyName);
+  if (!corporation) {
+    return { success: false };
+  }
+
+  const shares = Number(payload.shares);
+  const success = corporation.issueShares(shares);
+  return { success, company: buildCompanyManagementState(corporation) };
+});
+
+ipcMain.handle('take-company-loan', (event, payload = {}) => {
+  const corporation = findPlayerControlledCorporation(payload.companyName);
+  if (!corporation) {
+    return { success: false };
+  }
+
+  const amount = Number(payload.amount);
+  const loan = corporation.takeLoan(amount);
+  return {
+    success: Boolean(loan),
+    loan,
+    company: buildCompanyManagementState(corporation)
+  };
+});
+
+ipcMain.handle('make-company-loan-payment', (event, payload = {}) => {
+  const corporation = findPlayerControlledCorporation(payload.companyName);
+  if (!corporation) {
+    return { success: false };
+  }
+
+  const loanId = Number(payload.loanId);
+  const amount = Number(payload.amount);
+  const success = corporation.makeLoanPayment(loanId, amount);
+  return { success, company: buildCompanyManagementState(corporation) };
+});
+
+ipcMain.handle('set-company-loan-repayment-rate', (event, payload = {}) => {
+  const corporation = findPlayerControlledCorporation(payload.companyName);
+  if (!corporation) {
+    return { success: false };
+  }
+
+  const loanId = Number(payload.loanId);
+  const repaymentRate = Number(payload.repaymentRate);
+  const success = corporation.setLoanRepaymentRate(loanId, repaymentRate);
+  return { success, company: buildCompanyManagementState(corporation) };
 });
 
 ipcMain.handle('get-universe-map-data', () => {
