@@ -615,24 +615,40 @@ describe('modalManager', () => {
       </div>
     `;
 
-    test('displays fallback text when system is not found', async () => {
-      document.body.innerHTML += '<div id="system-details"></div>';
+    test('renders fallback text and skips template loading when system is not found', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
 
+      // The requested node id (99) is absent from systems, so fallback text should render.
       await modalManager.showSystemDetails({ id: 99 }, [{ id: 1, name: 'Sol', connections: {} }], [], []);
 
       expect(document.getElementById('system-details').textContent).toBe('System not found');
+      expect(loadTemplateSpy).not.toHaveBeenCalled();
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('throws when system details container is missing', async () => {
+      await expect(
+        modalManager.showSystemDetails({ id: 99 }, [{ id: 1, name: 'Sol', connections: {} }], [], [])
+      ).rejects.toThrow(/textContent/);
     });
 
     test('renders unexplored state details', async () => {
-      document.body.innerHTML += '<div id="system-details"></div>';
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
       const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
 
-      await modalManager.showSystemDetails(
-        { id: 1 },
-        [{ id: 1, name: 'Sol', connections: { 2: {} } }],
-        [{ id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1 }],
-        []
-      );
+      await expect(
+        modalManager.showSystemDetails(
+          { id: 1 },
+          [{ id: 1, name: 'Sol', connections: { 2: {} } }],
+          [{ id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1 }],
+          []
+        )
+      ).resolves.toBeUndefined();
 
       expect(document.getElementById('system-name').textContent).toBe('Sol');
       expect(document.getElementById('system-status').textContent).toBe('Unexplored');
@@ -643,7 +659,9 @@ describe('modalManager', () => {
     });
 
     test('renders explored system with stellar objects and connections', async () => {
-      document.body.innerHTML += '<div id="system-details"></div>';
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
       const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockImplementation(async (templatePath) => {
         if (templatePath === './templates/system-details.html') {
           return detailsTemplate;
@@ -666,13 +684,16 @@ describe('modalManager', () => {
         [{ id: 1, name: 'Sol', connections: { 2: {}, 3: {} } }],
         [
           { id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1, owner: 'Trade Guild' },
+          // Mars is intentionally in another system to verify filtering by location.
           { id: 11, name: 'Mars', type: 'Planet', className: 'Barren', location: 2 }
         ],
         [1]
       );
 
       expect(document.getElementById('system-status').textContent).toBe('Explored');
+      // Earth is in the selected system (location 1), while Mars is not; together these assertions validate filtering.
       expect(document.getElementById('stellar-objects-list').textContent).toContain('Earth');
+      expect(document.getElementById('stellar-objects-list').textContent).not.toContain('Mars');
       expect(document.getElementById('stellar-objects-list').textContent).toContain('Trade Guild');
       expect(document.getElementById('system-connections').textContent).toBe('System 2, System 3');
       expect(loadTemplateSpy).toHaveBeenCalledWith('./templates/stellar-object-item.html');
@@ -680,7 +701,9 @@ describe('modalManager', () => {
     });
 
     test('renders explored system with no stellar objects and no connections', async () => {
-      document.body.innerHTML += '<div id="system-details"></div>';
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
       const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
 
       await modalManager.showSystemDetails(
@@ -692,6 +715,23 @@ describe('modalManager', () => {
 
       expect(document.getElementById('stellar-objects-list').textContent).toContain('No stellar objects in this system');
       expect(document.getElementById('system-connections').textContent).toBe('None');
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('throws when system details template fails to load', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockRejectedValue(new Error('template failed'));
+
+      await expect(
+        modalManager.showSystemDetails(
+          { id: 1 },
+          [{ id: 1, name: 'Sol', connections: {} }],
+          [],
+          [1]
+        )
+      ).rejects.toThrow('template failed');
       loadTemplateSpy.mockRestore();
     });
   });
