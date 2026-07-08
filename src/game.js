@@ -803,6 +803,22 @@ class Game {
         corp.stellarObjects = corpData.stellarObjects || [];
         corp.ships = corpData.ships || [];
         corp.goods = corpData.goods || {};
+        corp.dividendRate = corpData.dividendRate || 0;
+        corp.sharesIssued = corpData.sharesIssued || 0;
+        corp.loans = Array.isArray(corpData.loans) ? corpData.loans.map(loan => ({ ...loan })) : [];
+        const maxLoanId = corp.loans.reduce((maxId, loan) => {
+          const loanId = Number(loan?.id);
+          if (!Number.isFinite(loanId) || loanId < 0) {
+            return maxId;
+          }
+          return Math.max(maxId, loanId);
+        }, 0);
+        const savedNextLoanId = Number(corpData.nextLoanId);
+        if (Number.isFinite(savedNextLoanId) && savedNextLoanId > 0) {
+          corp.nextLoanId = savedNextLoanId;
+        } else {
+          corp.nextLoanId = Math.max(1, maxLoanId + 1);
+        }
         return corp;
       });
 

@@ -66,6 +66,61 @@
     "route_cancelled": "Route to System {systemId} was cancelled.",
     "route_confirm_prompt": "Plot route to System {destinationId} ({jumps} jumps, {cost} ticks) and start jump sequence?"
   },
+  "company_management": {
+    "modal_title": "Company Management",
+    "tabs": {
+      "profile": "Profile",
+      "finance": "Finance",
+      "loans": "Loans",
+      "trade_routes": "Trade Routes"
+    },
+    "profile": {
+      "heading": "Company Profile",
+      "overview_heading": "Corporate Overview",
+      "owned_stellar_objects": "Owned Stellar Objects",
+      "fleet": "Fleet",
+      "name": "Name:",
+      "description": "Description:",
+      "save": "Save Profile"
+    },
+    "assets": {
+      "none_stellar_objects": "No stellar objects owned.",
+      "none_ships": "No ships owned.",
+      "stellar_object_line": "{name} ({className}) | System: {location} | Value: {value}",
+      "ship_line": "{shipName}"
+    },
+    "finance": {
+      "heading": "Dividend and Shares",
+      "total_value": "Total Value:",
+      "cash_reserves": "Cash Reserves:",
+      "shares_issued": "Issued Shares:",
+      "dividend_rate": "Dividend Rate (%):",
+      "set_dividend": "Set Dividend Rate",
+      "issue_shares": "Issue Shares:",
+      "issue_shares_action": "Issue Shares"
+    },
+    "loans": {
+      "heading": "Loan Management",
+      "credit_rating": "Credit Rating:",
+      "interest_rate": "Interest Rate:",
+      "outstanding_debt": "Outstanding Debt:",
+      "take_loan_amount": "Take Loan Amount:",
+      "take_loan_action": "Take Loan",
+      "outstanding_loans": "Outstanding Loans",
+      "loan_label": "Loan:",
+      "payment_amount": "Payment:",
+      "make_payment": "Make Payment",
+      "repayment_rate": "Repayment Rate (%):",
+      "set_repayment_rate": "Set Repayment Rate",
+      "none_outstanding": "No outstanding loans.",
+      "loan_option": "Loan #{loanId} ({balance})",
+      "loan_line": "Loan #{loanId} | Principal: {principal} | Remaining: {remaining} | Interest: {interestRate}% | Repayment: {repaymentRate}%"
+    },
+    "trade_routes": {
+      "heading": "Trade Routes",
+      "placeholder": "This tab will be implemented in issue #9."
+    }
+  },
   "settings": {
     "not_implemented": "Game Settings feature is not yet implemented."
   }

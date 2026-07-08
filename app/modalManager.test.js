@@ -38,7 +38,8 @@ describe('modalManager', () => {
       updateLocationDisplay: jest.fn().mockResolvedValue(undefined),
       updateShipStatus: jest.fn().mockResolvedValue(undefined),
       displayStellarObjectProperties: jest.fn().mockResolvedValue(undefined),
-      executeJumpSequence: jest.fn().mockResolvedValue(undefined)
+      executeJumpSequence: jest.fn().mockResolvedValue(undefined),
+      refreshCompanyManagementButtons: jest.fn().mockResolvedValue(undefined)
     };
 
     modalManager.init(mockContext);
@@ -290,6 +291,80 @@ describe('modalManager', () => {
       await modalManager.openPlayerStatusModal();
       // Should not throw and modal body remains with loaded HTML
     });
+
+    test('corporation button opens corporation status modal for active corporation', async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(`
+            <span id="stat-name"></span>
+            <span id="stat-credits"></span>
+            <span id="stat-ship"></span>
+            <span id="stat-energy"></span>
+            <span id="stat-cargo"></span>
+            <span id="stat-jumps"></span>
+            <span id="stat-trades"></span>
+            <span id="stat-profit"></span>
+            <span id="stat-corporation-name"></span>
+            <span id="stat-corporation-description"></span>
+            <span id="stat-corporation-value"></span>
+            <button id="btn-corporation-status"></button>
+          `)
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(`
+            <span id="corp-name"></span>
+            <span id="corp-description"></span>
+            <span id="corp-value"></span>
+            <span id="corp-cash-total"></span>
+            <div id="corp-planets-list"></div>
+            <div id="corp-ships-list"></div>
+            <button id="btn-player-status"></button>
+          `)
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: jest.fn().mockResolvedValue(`
+            <div class="asset-item">
+              <span id="asset-name"></span>
+              <span id="asset-class"></span>
+              <span id="asset-location"></span>
+              <span id="asset-value"></span>
+            </div>
+          `)
+        });
+
+      mockApi.getLocationState.mockResolvedValue({
+        playerState: {
+          name: 'Captain',
+          credits: 10,
+          ship: 'Scout',
+          shipEnergy: 5,
+          shipMaxEnergy: 10,
+          cargo: {},
+          stats: { jumps: 1, trades: 1, profit: 1 },
+          corporation: { name: 'Alpha Corp', description: 'Test', value: 100 }
+        }
+      });
+
+      mockApi.getUniverseState.mockResolvedValue({ stellarObjects: [] });
+      mockApi.getGameData.mockResolvedValue({ Scout: { value: 1000 } });
+
+      mockApi.invoke.mockImplementation((channel) => {
+        if (channel === 'get-goods-data') {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve(null);
+      });
+
+      await modalManager.openPlayerStatusModal();
+      document.getElementById('btn-corporation-status').click();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(document.getElementById('modal-title').textContent).toBe('Corporation Status');
+    });
   });
 
   describe('openCorporationStatusModal', () => {
@@ -524,6 +599,294 @@ describe('modalManager', () => {
 
       await modalManager.openUniverseMapModal();
       // No assertion — just verifying no crash
+    });
+  });
+
+  describe('showSystemDetails', () => {
+    const detailsTemplate = `
+      <div>
+        <h3 id="system-name"></h3>
+        <p id="system-status"></p>
+        <div id="unexplored-message" class="hidden">Unexplored content</div>
+        <div id="explored-content" class="hidden">
+          <div id="stellar-objects-list"></div>
+          <p id="system-connections"></p>
+        </div>
+      </div>
+    `;
+
+    test('renders fallback text and skips template loading when system is not found', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
+
+      // The requested node id (99) is absent from systems, so fallback text should render.
+      await modalManager.showSystemDetails({ id: 99 }, [{ id: 1, name: 'Sol', connections: {} }], [], []);
+
+      expect(document.getElementById('system-details').textContent).toBe('System not found');
+      expect(loadTemplateSpy).not.toHaveBeenCalled();
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('throws when system details container is missing', async () => {
+      await expect(
+        modalManager.showSystemDetails({ id: 99 }, [{ id: 1, name: 'Sol', connections: {} }], [], [])
+      ).rejects.toThrow(/Cannot set properties of null/);
+    });
+
+    test('renders unexplored state details', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
+
+      await expect(
+        modalManager.showSystemDetails(
+          { id: 1 },
+          [{ id: 1, name: 'Sol', connections: { 2: {} } }],
+          [{ id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1 }],
+          []
+        )
+      ).resolves.toBeUndefined();
+
+      expect(document.getElementById('system-name').textContent).toBe('Sol');
+      expect(document.getElementById('system-status').textContent).toBe('Unexplored');
+      expect(document.getElementById('unexplored-message').classList.contains('hidden')).toBe(false);
+      expect(document.getElementById('explored-content').classList.contains('hidden')).toBe(true);
+      expect(loadTemplateSpy).toHaveBeenCalledWith('./templates/system-details.html');
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('renders explored system with stellar objects and connections', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockImplementation(async (templatePath) => {
+        if (templatePath === './templates/system-details.html') {
+          return detailsTemplate;
+        }
+        if (templatePath === './templates/stellar-object-item.html') {
+          return `
+            <div class="stellar-object-item">
+              <span id="object-name"></span>
+              <span id="object-type"></span>
+              <span id="object-class"></span>
+              <span id="object-owner"></span>
+            </div>
+          `;
+        }
+        return '';
+      });
+
+      await modalManager.showSystemDetails(
+        { id: 1 },
+        [{ id: 1, name: 'Sol', connections: { 2: {}, 3: {} } }],
+        [
+          { id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1, owner: 'Trade Guild' },
+          // Mars is intentionally in another system to verify filtering by location.
+          { id: 11, name: 'Mars', type: 'Planet', className: 'Barren', location: 2 }
+        ],
+        [1]
+      );
+
+      expect(document.getElementById('system-status').textContent).toBe('Explored');
+      // Earth is in the selected system (location 1), while Mars is not; together these assertions validate filtering.
+      expect(document.getElementById('stellar-objects-list').textContent).toContain('Earth');
+      expect(document.getElementById('stellar-objects-list').textContent).not.toContain('Mars');
+      expect(document.querySelectorAll('#stellar-objects-list .stellar-object-item')).toHaveLength(1);
+      expect(document.getElementById('stellar-objects-list').textContent).toContain('Trade Guild');
+      expect(document.getElementById('system-connections').textContent).toBe('System 2, System 3');
+      expect(loadTemplateSpy).toHaveBeenCalledWith('./templates/stellar-object-item.html');
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('renders explored system with no stellar objects and no connections', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
+
+      await modalManager.showSystemDetails(
+        { id: 1 },
+        [{ id: 1, name: 'Sol', connections: {} }],
+        [],
+        [1]
+      );
+
+      expect(document.getElementById('stellar-objects-list').textContent).toContain('No stellar objects in this system');
+      expect(document.getElementById('system-connections').textContent).toBe('None');
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('throws when system details template fails to load', async () => {
+      const systemDetails = document.createElement('div');
+      systemDetails.id = 'system-details';
+      document.body.appendChild(systemDetails);
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockRejectedValue(new Error('template failed'));
+
+      await expect(
+        modalManager.showSystemDetails(
+          { id: 1 },
+          [{ id: 1, name: 'Sol', connections: {} }],
+          [],
+          [1]
+        )
+      ).rejects.toThrow('template failed');
+      loadTemplateSpy.mockRestore();
+    });
+  });
+
+  describe('openCompanyManagementModal', () => {
+    function setupCompanyManagementModal() {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        text: jest.fn().mockResolvedValue(`
+          <div class="company-management-tabs">
+            <button id="company-tab-profile" data-tab="profile"></button>
+            <button id="company-tab-finance" data-tab="finance"></button>
+            <button id="company-tab-loans" data-tab="loans"></button>
+            <button id="company-tab-trade-routes" data-tab="trade-routes"></button>
+          </div>
+          <div id="company-tab-content-profile"></div>
+          <div id="company-tab-content-finance"></div>
+          <div id="company-tab-content-loans"></div>
+          <div id="company-tab-content-trade-routes"></div>
+          <span id="company-overview-total-value"></span>
+          <span id="company-overview-cash-reserves"></span>
+          <div id="company-owned-stellar-objects-list"></div>
+          <div id="company-fleet-list"></div>
+          <input id="company-name-input">
+          <textarea id="company-description-input"></textarea>
+          <span id="company-value"></span>
+          <span id="company-cash-reserves"></span>
+          <span id="company-shares-issued"></span>
+          <input id="company-dividend-rate-input" />
+          <span id="company-credit-rating"></span>
+          <span id="company-interest-rate"></span>
+          <span id="company-outstanding-debt"></span>
+          <div id="company-loans-list"></div>
+          <select id="company-loan-payment-select"></select>
+          <select id="company-loan-repayment-select"></select>
+          <button id="save-company-profile-btn"></button>
+          <button id="set-company-dividend-btn"></button>
+          <button id="issue-company-shares-btn"></button>
+          <input id="company-issue-shares-input" />
+          <button id="take-company-loan-btn"></button>
+          <input id="company-loan-amount-input" />
+          <button id="make-company-loan-payment-btn"></button>
+          <input id="company-loan-payment-amount-input" />
+          <button id="set-company-loan-repayment-btn"></button>
+          <input id="company-loan-repayment-rate-input" />
+        `)
+      });
+    }
+
+    test('loads and displays company management data', async () => {
+      setupCompanyManagementModal();
+      mockContext.resolveMessageText.mockImplementation((messageKey, vars = {}) => {
+        if (messageKey === 'company_management.modal_title') {
+          return Promise.resolve('Company Management');
+        }
+        if (messageKey === 'company_management.loans.loan_option') {
+          return Promise.resolve(`Loan #${vars.loanId} (${vars.balance})`);
+        }
+        if (messageKey === 'company_management.loans.loan_line') {
+          return Promise.resolve(`Loan #${vars.loanId}`);
+        }
+        if (messageKey === 'company_management.loans.none_outstanding') {
+          return Promise.resolve('No outstanding loans.');
+        }
+        if (messageKey === 'company_management.assets.none_stellar_objects') {
+          return Promise.resolve('No stellar objects owned.');
+        }
+        if (messageKey === 'company_management.assets.none_ships') {
+          return Promise.resolve('No ships owned.');
+        }
+        if (messageKey === 'company_management.assets.stellar_object_line') {
+          return Promise.resolve(`${vars.name} (${vars.className}) | System: ${vars.location} | Value: ${vars.value}`);
+        }
+        if (messageKey === 'company_management.assets.ship_line') {
+          return Promise.resolve(vars.shipName);
+        }
+        return Promise.resolve('');
+      });
+      mockApi.invoke.mockImplementation((channel) => {
+        if (channel === 'get-company-management-state') {
+          return Promise.resolve({
+            name: 'Trade Guild',
+            description: 'Major trade house',
+            value: 500000,
+            totalCashReserves: 30000,
+            sharesIssued: 2500,
+            dividendRate: 3.5,
+            creditRating: 'AA',
+            interestRate: 5.0,
+            outstandingDebt: 40000,
+            ownedStellarObjects: [
+              { id: 10, name: 'Farm World', className: 'Planet', location: 3, locationName: 'Helios', value: 240000 }
+            ],
+            ships: ['Freighter'],
+            loans: [
+              { id: 1, principal: 50000, remainingBalance: 40000, interestRate: 5.0, repaymentRate: 2.0 }
+            ]
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      await modalManager.openCompanyManagementModal('Trade Guild');
+
+      expect(document.getElementById('company-name-input').value).toBe('Trade Guild');
+      expect(document.getElementById('company-credit-rating').textContent).toBe('AA');
+      expect(document.getElementById('company-interest-rate').textContent).toBe('5.00%');
+      expect(document.getElementById('company-overview-total-value').textContent).toBe('500,000');
+      expect(document.getElementById('company-overview-cash-reserves').textContent).toBe('30,000');
+      expect(document.getElementById('company-owned-stellar-objects-list').textContent).toContain('Farm World');
+      expect(document.getElementById('company-fleet-list').textContent).toContain('Freighter');
+      expect(document.getElementById('company-loans-list').textContent).toContain('Loan #1');
+      expect(mockContext.refreshCompanyManagementButtons).toHaveBeenCalled();
+    });
+
+    test('save profile action invokes update-company-profile', async () => {
+      setupCompanyManagementModal();
+      mockContext.resolveMessageText.mockResolvedValue('');
+      mockApi.invoke.mockImplementation((channel) => {
+        if (channel === 'get-company-management-state') {
+          return Promise.resolve({
+            name: 'Trade Guild',
+            description: 'Major trade house',
+            value: 500000,
+            totalCashReserves: 30000,
+            sharesIssued: 2500,
+            dividendRate: 3.5,
+            creditRating: 'AA',
+            interestRate: 5.0,
+            outstandingDebt: 0,
+            ownedStellarObjects: [],
+            ships: [],
+            loans: []
+          });
+        }
+
+        if (channel === 'update-company-profile') {
+          return Promise.resolve({ success: true });
+        }
+
+        return Promise.resolve(null);
+      });
+
+      await modalManager.openCompanyManagementModal('Trade Guild');
+      document.getElementById('company-name-input').value = 'Trade Guild Prime';
+      document.getElementById('company-description-input').value = 'Updated description';
+      document.getElementById('save-company-profile-btn').click();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockApi.invoke).toHaveBeenCalledWith('update-company-profile', {
+        currentName: 'Trade Guild',
+        name: 'Trade Guild Prime',
+        description: 'Updated description'
+      });
     });
   });
 

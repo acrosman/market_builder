@@ -12,6 +12,7 @@ document.addEventListener(
     const loadGameBtn = document.getElementById('load-game-btn');
     const playerStatusBtn = document.getElementById('player-status-btn');
     const gameSettingsBtn = document.getElementById('game-settings-btn');
+    const companyManagementButtons = document.getElementById('company-management-buttons');
     const commandParser = window.commandParser;
 
     const commandAliases = {
@@ -343,6 +344,38 @@ document.addEventListener(
       }
     }
 
+    /**
+     * Refresh company management buttons for all player-controlled companies.
+     */
+    async function refreshCompanyManagementButtons() {
+      if (!companyManagementButtons) {
+        return;
+      }
+
+      while (companyManagementButtons.firstChild) {
+        companyManagementButtons.removeChild(companyManagementButtons.firstChild);
+      }
+
+      try {
+        const companies = await window.api.invoke('get-player-companies');
+        if (!Array.isArray(companies) || companies.length === 0) {
+          return;
+        }
+
+        companies.forEach((company) => {
+          const companyButton = document.createElement('button');
+          companyButton.classList.add('action-btn');
+          companyButton.textContent = company.name;
+          companyButton.addEventListener('click', () => {
+            window.modalManager.openCompanyManagementModal(company.name);
+          });
+          companyManagementButtons.appendChild(companyButton);
+        });
+      } catch (error) {
+        window.logger.error('Error refreshing company management buttons:', error);
+      }
+    }
+
     // --- Initialize sub-modules ---
 
     window.navigationHandlers.init({
@@ -366,7 +399,8 @@ document.addEventListener(
       updateLocationDisplay,
       updateShipStatus,
       displayStellarObjectProperties,
-      executeJumpSequence: (route) => window.navigationHandlers.executeJumpSequence(route)
+      executeJumpSequence: (route) => window.navigationHandlers.executeJumpSequence(route),
+      refreshCompanyManagementButtons
     });
 
     // --- Game startup ---
@@ -377,6 +411,7 @@ document.addEventListener(
 
     await updateLocationDisplay();
     await updateShipStatus();
+    await refreshCompanyManagementButtons();
 
     if (locationImage) {
       locationImage.addEventListener('error', () => {
@@ -455,6 +490,7 @@ document.addEventListener(
         addMessage('message:save_load.load_success');
         updateLocationDisplay();
         updateShipStatus();
+        refreshCompanyManagementButtons();
       } else {
         addMessage('message:save_load.load_failed', { reason: result.reason });
       }

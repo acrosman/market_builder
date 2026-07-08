@@ -83,7 +83,15 @@ contextBridge.exposeInMainWorld('api', {
       'get-market-price',
       'trade-goods',
       'load-passengers',
-      'unload-passengers'
+      'unload-passengers',
+      'get-player-companies',
+      'get-company-management-state',
+      'update-company-profile',
+      'update-company-dividend-rate',
+      'issue-company-shares',
+      'take-company-loan',
+      'make-company-loan-payment',
+      'set-company-loan-repayment-rate'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);
