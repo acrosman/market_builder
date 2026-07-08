@@ -300,7 +300,6 @@
   background: #3b4a61;
 }
 
-.company-management-tab-btn.is-active,
 .company-management-tab-btn[aria-selected="true"] {
   background: #3182ce;
   border-color: #3182ce;
@@ -318,6 +317,10 @@
   min-width: 180px;
 }
 
+.company-management-tab-content {
+  --company-form-control-width: 220px;
+}
+
 .company-management-select-input {
   min-width: 180px;
   max-width: 260px;
@@ -329,7 +332,7 @@
 }
 
 .company-management-number-input {
-  width: 220px;
+  width: var(--company-form-control-width);
   padding: 10px;
   border: 1px solid #4a5568;
   border-radius: 4px;
@@ -339,7 +342,7 @@
 
 .company-management-inline-btn {
   width: auto;
-  min-width: 220px;
+  min-width: var(--company-form-control-width);
   margin-bottom: 0;
   margin-left: 8px;
 }

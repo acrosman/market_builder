@@ -330,7 +330,6 @@
 
           if (tabButton) {
             const isActiveTab = name === tabName;
-            tabButton.classList.toggle('is-active', isActiveTab);
             tabButton.setAttribute('aria-selected', isActiveTab ? 'true' : 'false');
             tabButton.setAttribute('tabindex', isActiveTab ? '0' : '-1');
           }
@@ -549,9 +548,49 @@
         }
       }
 
-      document.querySelectorAll('.company-management-tabs [data-tab]').forEach((button) => {
+      /**
+       * Handle keyboard navigation across company management tabs.
+       * @param {KeyboardEvent} event - Keyboard event from tab button.
+       * @param {HTMLButtonElement[]} tabButtons - Ordered tab button list.
+       * @param {number} currentIndex - Current tab index.
+       */
+      function handleCompanyTabKeydown(event, tabButtons, currentIndex) {
+        const tabCount = tabButtons.length;
+        if (tabCount === 0) {
+          return;
+        }
+
+        let nextIndex = currentIndex;
+        if (event.key === 'ArrowRight') {
+          nextIndex = (currentIndex + 1) % tabCount;
+        } else if (event.key === 'ArrowLeft') {
+          nextIndex = (currentIndex - 1 + tabCount) % tabCount;
+        } else if (event.key === 'Home') {
+          nextIndex = 0;
+        } else if (event.key === 'End') {
+          nextIndex = tabCount - 1;
+        } else {
+          return;
+        }
+
+        event.preventDefault();
+        const nextTabButton = tabButtons[nextIndex];
+        if (!nextTabButton) {
+          return;
+        }
+
+        nextTabButton.focus();
+        setActiveTab(nextTabButton.getAttribute('data-tab'));
+      }
+
+      const companyTabButtons = Array.from(document.querySelectorAll('.company-management-tabs [data-tab]'));
+      companyTabButtons.forEach((button, index) => {
         button.addEventListener('click', () => {
           setActiveTab(button.getAttribute('data-tab'));
+        });
+
+        button.addEventListener('keydown', (event) => {
+          handleCompanyTabKeydown(event, companyTabButtons, index);
         });
       });
 
