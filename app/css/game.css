@@ -277,6 +277,93 @@
   color: #4ade80;
 }
 
+.company-management-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #2d3748;
+}
+
+.company-management-tab-btn {
+  width: auto;
+  margin-bottom: 0;
+  padding: 10px 18px;
+  border: 1px solid #4a5568;
+  background: #2d3748;
+  color: #cbd5e0;
+  font-size: 1em;
+}
+
+.company-management-tab-btn:hover {
+  background: #3b4a61;
+}
+
+.company-management-tab-btn.is-active,
+.company-management-tab-btn[aria-selected="true"] {
+  background: #3182ce;
+  border-color: #3182ce;
+  color: #ffffff;
+}
+
+.company-management-form-row {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.company-management-form-row .player-stat-label {
+  min-width: 180px;
+}
+
+.company-management-select-input {
+  min-width: 180px;
+  max-width: 260px;
+  padding: 10px;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #1a202c;
+}
+
+.company-management-number-input {
+  width: 220px;
+  padding: 10px;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #1a202c;
+}
+
+.company-management-inline-btn {
+  width: auto;
+  min-width: 220px;
+  margin-bottom: 0;
+  margin-left: 8px;
+}
+
+.company-management-profile-row .player-stat-label {
+  min-width: 210px;
+}
+
+.company-management-text-input,
+.company-management-textarea-input {
+  flex: 1 1 480px;
+  min-width: 340px;
+  padding: 10px;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #1a202c;
+}
+
+.company-management-textarea-input {
+  min-height: 120px;
+  resize: vertical;
+}
+
 /* Jump Planner Styles */
 .jump-planner {
   max-width: 500px;

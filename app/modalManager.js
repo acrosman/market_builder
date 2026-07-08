@@ -329,7 +329,10 @@
           const tabContent = document.getElementById(`company-tab-content-${name}`);
 
           if (tabButton) {
-            tabButton.disabled = name === tabName;
+            const isActiveTab = name === tabName;
+            tabButton.classList.toggle('is-active', isActiveTab);
+            tabButton.setAttribute('aria-selected', isActiveTab ? 'true' : 'false');
+            tabButton.setAttribute('tabindex', isActiveTab ? '0' : '-1');
           }
 
           if (tabContent) {
