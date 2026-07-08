@@ -602,6 +602,100 @@ describe('modalManager', () => {
     });
   });
 
+  describe('showSystemDetails', () => {
+    const detailsTemplate = `
+      <div>
+        <h3 id="system-name"></h3>
+        <p id="system-status"></p>
+        <div id="unexplored-message" class="hidden">Unexplored content</div>
+        <div id="explored-content" class="hidden">
+          <div id="stellar-objects-list"></div>
+          <p id="system-connections"></p>
+        </div>
+      </div>
+    `;
+
+    test('displays fallback text when system is not found', async () => {
+      document.body.innerHTML += '<div id="system-details"></div>';
+
+      await modalManager.showSystemDetails({ id: 99 }, [{ id: 1, name: 'Sol', connections: {} }], [], []);
+
+      expect(document.getElementById('system-details').textContent).toBe('System not found');
+    });
+
+    test('renders unexplored state details', async () => {
+      document.body.innerHTML += '<div id="system-details"></div>';
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
+
+      await modalManager.showSystemDetails(
+        { id: 1 },
+        [{ id: 1, name: 'Sol', connections: { 2: {} } }],
+        [{ id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1 }],
+        []
+      );
+
+      expect(document.getElementById('system-name').textContent).toBe('Sol');
+      expect(document.getElementById('system-status').textContent).toBe('Unexplored');
+      expect(document.getElementById('unexplored-message').classList.contains('hidden')).toBe(false);
+      expect(document.getElementById('explored-content').classList.contains('hidden')).toBe(true);
+      expect(loadTemplateSpy).toHaveBeenCalledWith('./templates/system-details.html');
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('renders explored system with stellar objects and connections', async () => {
+      document.body.innerHTML += '<div id="system-details"></div>';
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockImplementation(async (templatePath) => {
+        if (templatePath === './templates/system-details.html') {
+          return detailsTemplate;
+        }
+        if (templatePath === './templates/stellar-object-item.html') {
+          return `
+            <div class="stellar-object-item">
+              <span id="object-name"></span>
+              <span id="object-type"></span>
+              <span id="object-class"></span>
+              <span id="object-owner"></span>
+            </div>
+          `;
+        }
+        return '';
+      });
+
+      await modalManager.showSystemDetails(
+        { id: 1 },
+        [{ id: 1, name: 'Sol', connections: { 2: {}, 3: {} } }],
+        [
+          { id: 10, name: 'Earth', type: 'Planet', className: 'Earth-like', location: 1, owner: 'Trade Guild' },
+          { id: 11, name: 'Mars', type: 'Planet', className: 'Barren', location: 2 }
+        ],
+        [1]
+      );
+
+      expect(document.getElementById('system-status').textContent).toBe('Explored');
+      expect(document.getElementById('stellar-objects-list').textContent).toContain('Earth');
+      expect(document.getElementById('stellar-objects-list').textContent).toContain('Trade Guild');
+      expect(document.getElementById('system-connections').textContent).toBe('System 2, System 3');
+      expect(loadTemplateSpy).toHaveBeenCalledWith('./templates/stellar-object-item.html');
+      loadTemplateSpy.mockRestore();
+    });
+
+    test('renders explored system with no stellar objects and no connections', async () => {
+      document.body.innerHTML += '<div id="system-details"></div>';
+      const loadTemplateSpy = jest.spyOn(window.gameHelpers, 'loadTemplate').mockResolvedValue(detailsTemplate);
+
+      await modalManager.showSystemDetails(
+        { id: 1 },
+        [{ id: 1, name: 'Sol', connections: {} }],
+        [],
+        [1]
+      );
+
+      expect(document.getElementById('stellar-objects-list').textContent).toContain('No stellar objects in this system');
+      expect(document.getElementById('system-connections').textContent).toBe('None');
+      loadTemplateSpy.mockRestore();
+    });
+  });
+
   describe('openCompanyManagementModal', () => {
     function setupCompanyManagementModal() {
       global.fetch.mockResolvedValue({
