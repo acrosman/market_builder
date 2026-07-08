@@ -632,7 +632,7 @@ describe('modalManager', () => {
     test('throws when system details container is missing', async () => {
       await expect(
         modalManager.showSystemDetails({ id: 99 }, [{ id: 1, name: 'Sol', connections: {} }], [], [])
-      ).rejects.toThrow(/textContent/);
+      ).rejects.toThrow(/Cannot set properties of null/);
     });
 
     test('renders unexplored state details', async () => {
@@ -694,6 +694,7 @@ describe('modalManager', () => {
       // Earth is in the selected system (location 1), while Mars is not; together these assertions validate filtering.
       expect(document.getElementById('stellar-objects-list').textContent).toContain('Earth');
       expect(document.getElementById('stellar-objects-list').textContent).not.toContain('Mars');
+      expect(document.querySelectorAll('#stellar-objects-list .stellar-object-item')).toHaveLength(1);
       expect(document.getElementById('stellar-objects-list').textContent).toContain('Trade Guild');
       expect(document.getElementById('system-connections').textContent).toBe('System 2, System 3');
       expect(loadTemplateSpy).toHaveBeenCalledWith('./templates/stellar-object-item.html');
