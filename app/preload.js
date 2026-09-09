@@ -1,7 +1,7 @@
 // Preload script.
 const { contextBridge, ipcRenderer } = require('electron');
 
-const validRendererLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
 
 /**
  * Convert unsupported values (like Error instances) to serializable payloads.
@@ -26,7 +26,7 @@ function serializeLogValue(value) {
  * @param {Array<*>} args - Log arguments.
  */
 function sendRendererLog(level, args) {
-  if (!validRendererLogLevels.has(level)) {
+  if (!validLogLevels.has(level)) {
     throw new Error(`Invalid renderer log level: ${level}`);
   }
 

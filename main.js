@@ -4,10 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const { app, BrowserWindow, ipcMain, dialog } = electron;
 const { createUniverse } = require('./src/universe');
-const { Game } = require('./src/game');  // Add this line
+const { Game } = require('./src/game');
 const { configureLogger, createLogger, normalizeRendererLogScope } = require('./src/logger');
 
-// Developer Dependencies.
+// Developer Mode Setup
 const isDev = !app.isPackaged;
 configureLogger({ isDevelopment: isDev });
 const logger = createLogger('main');
@@ -19,10 +19,11 @@ try {
   gameSettings = JSON.parse(fs.readFileSync(gameSettingsPath, 'utf-8'));
 } catch (error) {
   logger.error('Error loading game settings:', error);
-  gameSettings = {
-    initial_ship: "Shuttle",
-    food_per_person: 1
-  };
+  dialog.showErrorBox(
+    'Unable to load game settings',
+    `Without a default settings file the game cannot run.\nDetailed Message:\n\n${error.message}`
+  );
+  app.exit(1);
 }
 
 // Get rid of the deprecated default.
@@ -31,6 +32,9 @@ app.allowRendererProcessReuse = true;
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow;
+
+// Define the logging levels that are valid for the renderer process.
+const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
 
 /**
  * Create the main application window.
@@ -49,7 +53,7 @@ function createWindow() {
       nodeIntegrationInSubFrames: false,
       contextIsolation: true, // Protect against prototype pollution.
       worldSafeExecuteJavaScript: true, // https://github.com/electron/electron/pull/24114
-      enableRemoteModule: false, // Turn off remote to avoid temptation.
+      enableRemoteModule: false, // Turn off remote to avoid temptation to use it.
       preload: path.join(app.getAppPath(), 'app/preload.js'),
     },
   });
@@ -59,9 +63,7 @@ function createWindow() {
 
   // Emitted when the window is closed.
   mainWindow.on('closed', () => {
-    // Dereference the window object, usually you would store windows
-    // in an array if your app supports multi windows, this is the time
-    // when you should delete the corresponding element.
+    // Delete the main window so it can be garbage collected.
     mainWindow = null;
   });
 }
@@ -71,7 +73,7 @@ function createWindow() {
 // Some APIs can only be used after this event occurs.
 app.on('ready', createWindow);
 
-// Quit when all windows are closed.
+// Quit when all windows are closed, except on Mac.
 app.on('window-all-closed', () => {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
@@ -112,30 +114,38 @@ app.on('web-contents-created', (event, contents) => {
 app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
+  // This condition should only occur on Mac, where closing all
+  // windows doesn't quit the app.
   if (mainWindow === null) {
     createWindow();
   }
 });
 
-let newGameWindow = null;
+let gameSetupWindow = null;
 
-function openNewGameWindow() {
-  if (newGameWindow) {
-    newGameWindow.focus();
+function openGameSetupWindow() {
+  if (gameSetupWindow) {
+    gameSetupWindow.focus();
     return;
   }
-  newGameWindow = new BrowserWindow({
-    width: 1400,  // Increased from previous size
-    height: 900,  // Increased from previous size
+  gameSetupWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
     parent: mainWindow,
     modal: true,
     webPreferences: {
-      contextIsolation: true,
+      devTools: isDev,
+      nodeIntegration: false, // Disable nodeIntegration for security.
+      nodeIntegrationInWorker: false,
+      nodeIntegrationInSubFrames: false,
+      contextIsolation: true, // Protect against prototype pollution.
+      worldSafeExecuteJavaScript: true, // https://github.com/electron/electron/pull/24114
+      enableRemoteModule: false, // Turn off remote to avoid temptation to use it.
       preload: path.join(app.getAppPath(), 'app/preload.js'),
     },
   });
-  newGameWindow.loadURL(`file://${__dirname}/app/new_game.html`);
-  newGameWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+  gameSetupWindow.loadURL(`file://${__dirname}/app/new_game.html`);
+  gameSetupWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
@@ -143,19 +153,17 @@ function openNewGameWindow() {
       }
     });
   });
-  newGameWindow.on('closed', () => {
-    newGameWindow = null;
+  gameSetupWindow.on('closed', () => {
+    gameSetupWindow = null;
   });
 }
 
-ipcMain.on('open-new-game', openNewGameWindow);
-
-const validRendererLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+ipcMain.on('open-new-game', openGameSetupWindow);
 
 ipcMain.on('renderer-log', (event, payload = {}) => {
   const { level, scope = 'renderer', args = [] } = payload;
 
-  if (!validRendererLogLevels.has(level)) {
+  if (!validLogLevels.has(level)) {
     logger.warn('Rejected renderer log with invalid level:', level);
     return;
   }
@@ -282,7 +290,13 @@ function openGameWindow() {
     width: 1400,
     height: 900,
     webPreferences: {
-      contextIsolation: true,
+      devTools: isDev,
+      nodeIntegration: false, // Disable nodeIntegration for security.
+      nodeIntegrationInWorker: false,
+      nodeIntegrationInSubFrames: false,
+      contextIsolation: true, // Protect against prototype pollution.
+      worldSafeExecuteJavaScript: true, // https://github.com/electron/electron/pull/24114
+      enableRemoteModule: false, // Turn off remote to avoid temptation to use it.
       preload: path.join(app.getAppPath(), 'app/preload.js'),
     },
   });
