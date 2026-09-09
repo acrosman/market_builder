@@ -5,7 +5,7 @@ const os = require('os');
 const { app, BrowserWindow, ipcMain, dialog } = electron;
 const { createUniverse } = require('./src/universe');
 const { Game } = require('./src/game');
-const { configureLogger, createLogger, normalizeRendererLogScope } = require('./src/logger');
+const { configureLogger, createLogger } = require('./src/logger');
 
 // Developer Mode Setup
 const isDev = !app.isPackaged;
@@ -163,23 +163,12 @@ ipcMain.on('open-new-game', openGameSetupWindow);
 ipcMain.on('renderer-log', (event, payload = {}) => {
   const { level, scope = 'renderer', args = [] } = payload;
 
-  if (!validLogLevels.has(level)) {
-    logger.warn('Rejected renderer log with invalid level:', level);
-    return;
-  }
-
   if (!Array.isArray(args)) {
-    logger.warn('Rejected renderer log with non-array args');
+    logger.warn('Rejected renderer log with invalid arguments (expected an array):', [args]);
     return;
   }
 
-  const normalizedScope = normalizeRendererLogScope(scope);
-  if (normalizedScope === null) {
-    logger.warn('Rejected renderer log with invalid scope');
-    return;
-  }
-
-  const rendererLogger = createLogger(`renderer:${normalizedScope}`);
+  const rendererLogger = createLogger(`renderer:${scope}`);
   rendererLogger[level](...args);
 });
 

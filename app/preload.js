@@ -1,6 +1,7 @@
 // Preload script.
 const { contextBridge, ipcRenderer } = require('electron');
 
+// TODO: Move to logger module.
 const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
 
 /**

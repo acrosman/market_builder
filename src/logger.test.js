@@ -17,7 +17,7 @@ jest.mock('electron-log', () => ({
 }));
 
 const electronLog = require('electron-log');
-const { configureLogger, createLogger, normalizeRendererLogScope } = require('./logger');
+const { configureLogger, createLogger, sanitizeLogScope } = require('./logger');
 
 describe('logger', () => {
   beforeEach(() => {
@@ -67,20 +67,20 @@ describe('logger', () => {
     expect(electronLog.error).toHaveBeenCalledWith('[TestScope]', 'error message');
   });
 
-  test('normalizeRendererLogScope accepts valid scopes', () => {
-    expect(normalizeRendererLogScope('interface')).toBe('interface');
-    expect(normalizeRendererLogScope('ui.modal_manager')).toBe('ui.modal_manager');
+  test('sanitizeLogScope accepts valid scopes', () => {
+    expect(sanitizeLogScope('interface')).toBe('interface');
+    expect(sanitizeLogScope('ui.modal_manager')).toBe('ui.modal_manager');
   });
 
-  test('normalizeRendererLogScope rejects invalid scope types and lengths', () => {
-    expect(normalizeRendererLogScope(42)).toBeNull();
-    expect(normalizeRendererLogScope('')).toBeNull();
-    expect(normalizeRendererLogScope('x'.repeat(51))).toBeNull();
+  test('sanitizeLogScope rejects invalid scope types and lengths', () => {
+    expect(sanitizeLogScope(42)).toBeNull();
+    expect(sanitizeLogScope('')).toBeNull();
+    expect(sanitizeLogScope('x'.repeat(51))).toBeNull();
   });
 
-  test('normalizeRendererLogScope rejects multiline and unsafe content', () => {
-    expect(normalizeRendererLogScope('line1\nline2')).toBeNull();
-    expect(normalizeRendererLogScope('scope with spaces')).toBeNull();
-    expect(normalizeRendererLogScope('scope:colon')).toBeNull();
+  test('sanitizeLogScope rejects multiline and unsafe content', () => {
+    expect(sanitizeLogScope('line1\nline2')).toBeNull();
+    expect(sanitizeLogScope('scope with spaces')).toBeNull();
+    expect(sanitizeLogScope('scope:colon')).toBeNull();
   });
 });
