@@ -813,6 +813,31 @@ describe('Game Module', () => {
         expect(creditSupport.spendCredits(500)).toBe(true);
         expect(game.player.credits).toBe(mockSettings.starting_credits - 500);
       });
+
+      test('buildBuildingAtCurrentObject combines corporation and player funding when needed', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Test Corp',
+            description: 'A test corporation',
+            cashReserves: 200
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 400;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(600);
+        expect(creditSupport.spendCredits(500)).toBe(true);
+        expect(game.player.corporation.cashReserves).toBe(0);
+        expect(game.player.credits).toBe(100);
+      });
     });
   });
 
