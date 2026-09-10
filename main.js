@@ -5,7 +5,7 @@ const os = require('os');
 const { app, BrowserWindow, ipcMain, dialog } = electron;
 const { createUniverse } = require('./src/universe');
 const { Game } = require('./src/game');
-const { configureLogger, createLogger, normalizeRendererLogScope } = require('./src/logger');
+const { configureLogger, createLogger, validLogLevels } = require('./src/logger');
 
 // Developer Mode Setup
 const isDev = !app.isPackaged;
@@ -32,9 +32,6 @@ app.allowRendererProcessReuse = true;
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow;
-
-// Define the logging levels that are valid for the renderer process.
-const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
 
 /**
  * Create the main application window.
@@ -163,23 +160,16 @@ ipcMain.on('open-new-game', openGameSetupWindow);
 ipcMain.on('renderer-log', (event, payload = {}) => {
   const { level, scope = 'renderer', args = [] } = payload;
 
-  if (!validLogLevels.has(level)) {
-    logger.warn('Rejected renderer log with invalid level:', level);
-    return;
-  }
-
   if (!Array.isArray(args)) {
-    logger.warn('Rejected renderer log with non-array args');
+    logger.warn('Rejected renderer log with invalid arguments (expected an array):', [args]);
     return;
   }
 
-  const normalizedScope = normalizeRendererLogScope(scope);
-  if (normalizedScope === null) {
-    logger.warn('Rejected renderer log with invalid scope');
+  const rendererLogger = createLogger(`renderer:${scope}`);
+  if (!validLogLevels.has(level)) {
+    rendererLogger.error('Rejected renderer log with invalid level:', [level, args]);
     return;
   }
-
-  const rendererLogger = createLogger(`renderer:${normalizedScope}`);
   rendererLogger[level](...args);
 });
 

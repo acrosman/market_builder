@@ -28,14 +28,20 @@
         {
             "subject": "she",
             "object": "her",
-            "possessive": "her",
+            "possessive": "hers",
             "reflexive": "herself"
+        },
+        {
+            "subject": "ze",
+            "object": "zir",
+            "possessive": "zirs",
+            "reflexive": "zirself"
         },
         {
             "subject": "they",
             "object": "them",
             "possessive": "their",
-            "reflexive": "themself"
+            "reflexive": "themselves"
         }
     ]
 }

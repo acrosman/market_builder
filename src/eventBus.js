@@ -101,20 +101,6 @@ class EventBus {
   }
 
   /**
-   * Subscribe to an event for only one emission
-   * @param {string} eventName - Name of the event to listen for
-   * @param {Function} callback - Function to call when event is emitted
-   * @returns {Function} Unsubscribe function
-   */
-  once(eventName, callback) {
-    const unsubscribe = this.on(eventName, (...args) => {
-      unsubscribe();
-      callback(...args);
-    });
-    return unsubscribe;
-  }
-
-  /**
    * Emit an event to all subscribers
    * @param {string} eventName - Name of the event to emit
    * @param {*} data - Data to pass to event listeners

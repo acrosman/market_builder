@@ -33,7 +33,8 @@ function configureLogger(options = {}) {
  * @returns {Object} Logger methods for debug/info/warn/error.
  */
 function createLogger(scope) {
-  const scopeTag = `[${scope}]`;
+
+  const scopeTag = `[${sanitizeLogScope(scope)}]`;
 
   return {
     debug: (...args) => electronLog.debug(scopeTag, ...args),
@@ -48,7 +49,7 @@ function createLogger(scope) {
  * @param {unknown} scope - The scope provided by renderer log payload.
  * @returns {string|null} The normalized scope if valid, otherwise null.
  */
-function normalizeRendererLogScope(scope) {
+function sanitizeLogScope(scope) {
   if (typeof scope !== 'string') {
     return null;
   }
@@ -58,15 +59,18 @@ function normalizeRendererLogScope(scope) {
     return null;
   }
 
-  if (!/^[a-zA-Z0-9._-]+$/.test(normalizedScope)) {
+  if (!/^[:a-zA-Z0-9._-]+$/.test(normalizedScope)) {
     return null;
   }
 
   return normalizedScope;
 }
 
+const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+
 module.exports = {
   configureLogger,
   createLogger,
-  normalizeRendererLogScope
+  sanitizeLogScope,
+  validLogLevels
 };
