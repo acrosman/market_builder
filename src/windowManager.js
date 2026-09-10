@@ -1,6 +1,5 @@
 const { createUniverse } = require('./universe');
 const { Game } = require('./game');
-const { dialog } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -113,7 +112,13 @@ function registerIpcHandlers({
   }
 
   // IPC: Open or focus the new game setup modal window.
-  ipcMain.on('open-new-game', openGameSetupWindow);
+  ipcMain.on('open-new-game', () => {
+    try {
+      openGameSetupWindow();
+    } catch (error) {
+      logger.error('Error opening game setup window:', error);
+    }
+  });
 
   // IPC: Forward renderer-side logs to main logger with validation.
   ipcMain.on('renderer-log', (event, payload = {}) => {
@@ -511,6 +516,7 @@ function registerIpcHandlers({
 
   // IPC: Open native file picker for save-game loading.
   ipcMain.handle('open-load-game-dialog', async () => {
+    const { dialog } = require('electron');
     const savePath = path.join(os.homedir(), 'market_builder', 'saves');
 
     if (!fs.existsSync(savePath)) {

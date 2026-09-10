@@ -6,7 +6,9 @@ const { configureLogger, createLogger } = require('./src/logger');
 const { registerIpcHandlers } = require('./src/windowManager');
 
 // Developer Mode Setup
-const isDev = !app.isPackaged;
+const isDev = process.env.NODE_ENV === 'development'
+  || process.env.ELECTRON_IS_DEV === '1'
+  || !app.isPackaged;
 configureLogger({ isDevelopment: isDev });
 const logger = createLogger('main');
 
@@ -55,6 +57,9 @@ function createWindow() {
 
   // and load the index.html of the app.
   mainWindow.loadURL(`file://${__dirname}/app/index.html`);
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
+  }
 
   // Emitted when the window is closed.
   mainWindow.on('closed', () => {
@@ -140,6 +145,9 @@ function openGameSetupWindow() {
     },
   });
   gameSetupWindow.loadURL(`file://${__dirname}/app/new_game.html`);
+  if (isDev) {
+    gameSetupWindow.webContents.openDevTools();
+  }
   gameSetupWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -172,7 +180,9 @@ function openGameWindow() {
     },
   });
   gameWindow.loadURL(`file://${__dirname}/app/game.html`);
-  gameWindow.webContents.openDevTools();
+  if (isDev) {
+    gameWindow.webContents.openDevTools();
+  }
 }
 
 registerIpcHandlers({
