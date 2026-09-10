@@ -56,10 +56,26 @@
     return response.text();
   }
 
+  /**
+   * Log renderer errors through window.logger when available.
+   * Falls back to console.error when logger bridge is unavailable.
+   * @param {string} message - Error message prefix.
+   * @param {*} error - Error payload.
+   * @returns {void}
+   */
+  function logClientError(message, error) {
+    if (window.logger && typeof window.logger.error === 'function') {
+      window.logger.error(message, error);
+    } else {
+      console.error(message, error);
+    }
+  }
+
   const api = {
     calculateCargoMass,
     replaceMessageVariables,
-    loadTemplate
+    loadTemplate,
+    logClientError
   };
 
   if (typeof window !== 'undefined') {

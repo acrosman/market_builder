@@ -17,6 +17,7 @@ describe('interface.js (integration)', () => {
       invoke: jest.fn()
     };
     window.api = mockApi;
+    window.gameHelpers = require('./gameHelpers');
 
     jest.isolateModules(() => {
       require('./interface');
@@ -28,6 +29,7 @@ describe('interface.js (integration)', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     delete window.api;
+    delete window.gameHelpers;
   });
 
   test('clicking new-game-btn sends open-new-game', () => {

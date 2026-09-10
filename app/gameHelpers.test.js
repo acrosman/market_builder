@@ -1,4 +1,4 @@
-const { calculateCargoMass, replaceMessageVariables, loadTemplate } = require('./gameHelpers');
+const { calculateCargoMass, replaceMessageVariables, loadTemplate, logClientError } = require('./gameHelpers');
 
 describe('gameHelpers', () => {
   describe('calculateCargoMass', () => {
@@ -121,6 +121,31 @@ describe('gameHelpers', () => {
       await expect(loadTemplate('./templates/missing.html'))
         .rejects
         .toThrow('Failed to load template: ./templates/missing.html');
+    });
+  });
+
+  describe('logClientError', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('uses window.logger.error when available', () => {
+      const loggerError = jest.fn();
+      window.logger = { error: loggerError };
+
+      logClientError('Example message', new Error('example'));
+
+      expect(loggerError).toHaveBeenCalledWith('Example message', expect.any(Error));
+      delete window.logger;
+    });
+
+    test('falls back to console.error when window.logger is unavailable', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      delete window.logger;
+
+      logClientError('Example message', new Error('example'));
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Example message', expect.any(Error));
     });
   });
 });
