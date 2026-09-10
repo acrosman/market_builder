@@ -66,7 +66,7 @@
    * window.gameHelpers.logClientError('Error opening load game dialog:', error);
    */
   function logClientError(message, error) {
-    if (window.logger && typeof window.logger.error === 'function') {
+    if (typeof window !== 'undefined' && window.logger && typeof window.logger.error === 'function') {
       window.logger.error(message, error);
     } else {
       console.error(message, error);
