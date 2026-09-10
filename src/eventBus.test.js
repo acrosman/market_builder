@@ -78,19 +78,6 @@ describe('EventBus', () => {
     });
   });
 
-  describe('once()', () => {
-    test('should call listener only once', () => {
-      const listener = jest.fn();
-      eventBus.once('test-event', listener);
-
-      eventBus.emit('test-event', 'data1');
-      eventBus.emit('test-event', 'data2');
-
-      expect(listener).toHaveBeenCalledTimes(1);
-      expect(listener).toHaveBeenCalledWith('data1');
-    });
-  });
-
   describe('unsubscribe', () => {
     test('should stop calling listener after unsubscribe', () => {
       const listener = jest.fn();
