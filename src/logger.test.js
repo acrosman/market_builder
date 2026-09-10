@@ -17,7 +17,7 @@ jest.mock('electron-log', () => ({
 }));
 
 const electronLog = require('electron-log');
-const { configureLogger, createLogger, sanitizeLogScope } = require('./logger');
+const { configureLogger, createLogger, sanitizeLogScope, validLogLevels } = require('./logger');
 
 describe('logger', () => {
   beforeEach(() => {
@@ -27,6 +27,13 @@ describe('logger', () => {
     electronLog.transports.file.maxSize = 0;
     electronLog.transports.file.format = '';
     electronLog.transports.console.format = '';
+  });
+
+  test('validLogLevels contains correct levels', () => {
+    expect(validLogLevels.has('debug')).toBe(true);
+    expect(validLogLevels.has('info')).toBe(true);
+    expect(validLogLevels.has('warn')).toBe(true);
+    expect(validLogLevels.has('error')).toBe(true);
   });
 
   test('configureLogger enables debug level in development', () => {

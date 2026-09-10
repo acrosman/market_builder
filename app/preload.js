@@ -1,8 +1,7 @@
 // Preload script.
 const { contextBridge, ipcRenderer } = require('electron');
 
-// TODO: Move to logger module.
-const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+const validLogLevels = require('../src/logger').validLogLevels;
 
 /**
  * Convert unsupported values (like Error instances) to serializable payloads.

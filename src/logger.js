@@ -66,8 +66,11 @@ function sanitizeLogScope(scope) {
   return normalizedScope;
 }
 
+const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
+
 module.exports = {
   configureLogger,
   createLogger,
-  sanitizeLogScope
+  sanitizeLogScope,
+  validLogLevels
 };
