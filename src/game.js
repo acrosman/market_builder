@@ -236,11 +236,12 @@ class Game {
    * Create external credit support for construction at a controlled object.
    * Uses player-owned corporation reserves first, then falls back to player credits.
    * @param {Object} stellarObject - Controlled local object.
+   * @param {number} [requiredCredits=0] - Total construction credit cost.
    * @returns {Object} External credit support for construction.
    * @example
-   * const creditSupport = game.getConstructionCreditSupport(stellarObject);
+   * const creditSupport = game.getConstructionCreditSupport(stellarObject, 500);
    */
-  getConstructionCreditSupport(stellarObject) {
+  getConstructionCreditSupport(stellarObject, requiredCredits = 0) {
     const player = this.player;
     const ownedCorporations = player?.getOwnedCorporations(this.corporations) || [];
     const controlledCorporation = ownedCorporations.find((corporation) => {
@@ -265,42 +266,43 @@ class Game {
       0
     );
     const getPlayerCredits = () => Number(player?.credits || 0);
+    const localCredits = Number(stellarObject?.buildingCredits || 0);
+    const requiredExternalCredits = Math.max(0, Number(requiredCredits || 0) - localCredits);
+    const availableCorporationCredits = getCorporationCredits();
+    const availablePlayerCredits = getPlayerCredits();
+
+    if (availableCorporationCredits >= requiredExternalCredits) {
+      return {
+        availableCredits: availableCorporationCredits,
+        spendCredits: (amount) => {
+          const normalizedAmount = Number(amount);
+          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+            return true;
+          }
+
+          if (typeof controlledCorporation?.spendCashReserve === 'function') {
+            return controlledCorporation.spendCashReserve(normalizedAmount);
+          }
+
+          if (availableCorporationCredits < normalizedAmount) {
+            return false;
+          }
+
+          controlledCorporation.cashReserves = availableCorporationCredits - normalizedAmount;
+          return true;
+        }
+      };
+    }
 
     return {
-      availableCredits: getCorporationCredits() + getPlayerCredits(),
+      availableCredits: availablePlayerCredits,
       spendCredits: (amount) => {
         const normalizedAmount = Number(amount);
         if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
           return true;
         }
 
-        let remainingCredits = normalizedAmount;
-        const availableCorporationCredits = getCorporationCredits();
-        const corporationSpend = Math.min(remainingCredits, availableCorporationCredits);
-
-        if (corporationSpend > 0) {
-          const spent = typeof controlledCorporation?.spendCashReserve === 'function'
-            ? controlledCorporation.spendCashReserve(corporationSpend)
-            : (() => {
-                if (availableCorporationCredits < corporationSpend) {
-                  return false;
-                }
-                controlledCorporation.cashReserves = availableCorporationCredits - corporationSpend;
-                return true;
-              })();
-
-          if (!spent) {
-            return false;
-          }
-
-          remainingCredits -= corporationSpend;
-        }
-
-        if (remainingCredits <= 0) {
-          return true;
-        }
-
-        return typeof player?.removeCredits === 'function' && player.removeCredits(remainingCredits);
+        return typeof player?.removeCredits === 'function' && player.removeCredits(normalizedAmount);
       }
     };
   }
@@ -322,7 +324,8 @@ class Game {
     }
 
     const buildingsData = this.getBuildingsData();
-    const creditSupport = this.getConstructionCreditSupport(stellarObject);
+    const requiredCredits = Number(buildingsData?.[buildingType]?.buildCost?.credits || 0);
+    const creditSupport = this.getConstructionCreditSupport(stellarObject, requiredCredits);
     const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);
     if (!buildResult.success) {
       return buildResult;
