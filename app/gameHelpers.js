@@ -62,6 +62,8 @@
    * @param {string} message - Error message prefix.
    * @param {*} error - Error payload.
    * @returns {void}
+   * @example
+   * window.gameHelpers.logClientError('Error opening load game dialog:', error);
    */
   function logClientError(message, error) {
     if (window.logger && typeof window.logger.error === 'function') {
