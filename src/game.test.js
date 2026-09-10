@@ -761,8 +761,57 @@ describe('Game Module', () => {
         expect(result.success).toBe(true);
         expect(result.ticksRemaining).toBe(10);
         expect(result.objectId).toBe(object.id);
-        expect(object.constructBuilding).toHaveBeenCalledWith('Mine', expect.any(Object));
+        expect(object.constructBuilding).toHaveBeenCalledWith(
+          'Mine',
+          expect.any(Object),
+          expect.objectContaining({
+            availableCredits: expect.any(Number),
+            spendCredits: expect.any(Function)
+          })
+        );
         expect(object.constructBuilding.mock.calls[0][1]).toEqual(expect.objectContaining({ Mine: expect.any(Object) }));
+      });
+
+      test('buildBuildingAtCurrentObject exposes corporation reserves for controlled assets', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Test Corp',
+            description: 'A test corporation',
+            cashReserves: 700
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 0;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(700);
+        expect(creditSupport.spendCredits(500)).toBe(true);
+        expect(game.player.corporation.cashReserves).toBe(200);
+      });
+
+      test('buildBuildingAtCurrentObject falls back to player credits for controlled assets', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.player.corporation.cashReserves = 0;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(mockSettings.starting_credits);
+        expect(creditSupport.spendCredits(500)).toBe(true);
+        expect(game.player.credits).toBe(mockSettings.starting_credits - 500);
       });
     });
   });

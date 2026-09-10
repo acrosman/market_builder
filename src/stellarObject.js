@@ -233,11 +233,12 @@ class StellarObject {
    * Queue construction and deduct local object resources.
    * @param {string} buildingType - Type of building to construct
    * @param {Object} buildingsData - Building definitions from buildings.json
+   * @param {Object} [externalCreditSupport={}] - External credits available to fund construction
    * @returns {Object} Construction result
    * @example
-   * const result = obj.constructBuilding('Mine', buildingsData);
+   * const result = obj.constructBuilding('Mine', buildingsData, { availableCredits: 500, spendCredits: () => true });
    */
-  constructBuilding(buildingType, buildingsData) {
+  constructBuilding(buildingType, buildingsData, externalCreditSupport = {}) {
     const buildingData = buildingsData?.[buildingType];
     if (!buildingData) {
       return { success: false, reason: 'Unknown building type' };
@@ -250,12 +251,9 @@ class StellarObject {
     const buildCost = buildingData.buildCost || {};
     const requiredCredits = Number(buildCost.credits || 0);
     const requiredGoods = buildCost.goods || {};
-    const availableCredits = Number(this.buildingCredits || 0);
+    const localCredits = Number(this.buildingCredits || 0);
+    const externalCredits = Number(externalCreditSupport?.availableCredits || 0);
     const availableGoods = this.marketState?.inventory || {};
-
-    if (availableCredits < requiredCredits) {
-      return { success: false, reason: 'Insufficient building credits at this location' };
-    }
 
     for (const [goodName, quantity] of Object.entries(requiredGoods)) {
       if ((availableGoods[goodName] || 0) < quantity) {
@@ -263,12 +261,28 @@ class StellarObject {
       }
     }
 
+    if (localCredits + externalCredits < requiredCredits) {
+      return { success: false, reason: 'Insufficient building credits at this location' };
+    }
+
     const queued = this.addBuilding(buildingType, buildingsData);
     if (!queued) {
       return { success: false, reason: 'Building limit reached or cannot construct building' };
     }
 
-    this.buildingCredits = availableCredits - requiredCredits;
+    const localCreditsToSpend = Math.min(localCredits, requiredCredits);
+    const externalCreditsToSpend = requiredCredits - localCreditsToSpend;
+
+    if (
+      externalCreditsToSpend > 0 &&
+      (typeof externalCreditSupport?.spendCredits !== 'function' ||
+      !externalCreditSupport.spendCredits(externalCreditsToSpend))
+    ) {
+      this.buildingsUnderConstruction.pop();
+      return { success: false, reason: 'Insufficient building credits at this location' };
+    }
+
+    this.buildingCredits = localCredits - localCreditsToSpend;
     Object.entries(requiredGoods).forEach(([goodName, quantity]) => {
       availableGoods[goodName] -= quantity;
       if (availableGoods[goodName] <= 0) {

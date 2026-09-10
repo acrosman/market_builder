@@ -233,6 +233,79 @@ class Game {
   }
 
   /**
+   * Create external credit support for construction at a controlled object.
+   * Uses player-owned corporation reserves first, then falls back to player credits.
+   * @param {Object} stellarObject - Controlled local object.
+   * @returns {Object} External credit support for construction.
+   * @example
+   * const creditSupport = game.getConstructionCreditSupport(stellarObject);
+   */
+  getConstructionCreditSupport(stellarObject) {
+    const player = this.player;
+    const ownedCorporations = player?.getOwnedCorporations(this.corporations) || [];
+    const controlledCorporation = ownedCorporations.find((corporation) => {
+      if (!corporation) {
+        return false;
+      }
+
+      if (corporation.name && corporation.name === stellarObject?.owner) {
+        return true;
+      }
+
+      if (!Array.isArray(corporation.stellarObjects)) {
+        return false;
+      }
+
+      return corporation.stellarObjects.some((assetId) => Number(assetId) === Number(stellarObject?.id));
+    }) || null;
+
+    const getCorporationCredits = () => Number(
+      controlledCorporation?.getTotalCashReserves?.() ??
+      controlledCorporation?.cashReserves ??
+      0
+    );
+    const getPlayerCredits = () => Number(player?.credits || 0);
+
+    return {
+      availableCredits: getCorporationCredits() + getPlayerCredits(),
+      spendCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        let remainingCredits = normalizedAmount;
+        const availableCorporationCredits = getCorporationCredits();
+        const corporationSpend = Math.min(remainingCredits, availableCorporationCredits);
+
+        if (corporationSpend > 0) {
+          const spent = typeof controlledCorporation?.spendCashReserve === 'function'
+            ? controlledCorporation.spendCashReserve(corporationSpend)
+            : (() => {
+                if (availableCorporationCredits < corporationSpend) {
+                  return false;
+                }
+                controlledCorporation.cashReserves = availableCorporationCredits - corporationSpend;
+                return true;
+              })();
+
+          if (!spent) {
+            return false;
+          }
+
+          remainingCredits -= corporationSpend;
+        }
+
+        if (remainingCredits <= 0) {
+          return true;
+        }
+
+        return typeof player?.removeCredits === 'function' && player.removeCredits(remainingCredits);
+      }
+    };
+  }
+
+  /**
    * Queue construction of a building at the player's current object.
    * @param {string} buildingType - Building type from buildings.json
    * @returns {Object} Build result
@@ -249,7 +322,8 @@ class Game {
     }
 
     const buildingsData = this.getBuildingsData();
-    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData);
+    const creditSupport = this.getConstructionCreditSupport(stellarObject);
+    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);
     if (!buildResult.success) {
       return buildResult;
     }
