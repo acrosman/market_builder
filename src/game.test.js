@@ -838,6 +838,31 @@ describe('Game Module', () => {
         expect(game.player.corporation.cashReserves).toBe(0);
         expect(game.player.credits).toBe(100);
       });
+
+      test('buildBuildingAtCurrentObject rolls back earlier deductions when a later funder fails', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Test Corp',
+            description: 'A test corporation',
+            cashReserves: 200
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 400;
+        game.player.removeCredits = jest.fn(() => false);
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.spendCredits(500)).toBe(false);
+        expect(game.player.corporation.cashReserves).toBe(200);
+        expect(game.player.credits).toBe(400);
+      });
     });
   });
 

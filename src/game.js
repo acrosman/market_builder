@@ -287,6 +287,19 @@ class Game {
 
           controlledCorporation.cashReserves = availableCorporationCredits - normalizedAmount;
           return true;
+        },
+        refundCredits: (amount) => {
+          const normalizedAmount = Number(amount);
+          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+            return true;
+          }
+
+          if (typeof controlledCorporation.addCashReserve === 'function') {
+            return controlledCorporation.addCashReserve(normalizedAmount);
+          }
+
+          controlledCorporation.cashReserves = getCorporationCredits() + normalizedAmount;
+          return true;
         }
       });
     }
@@ -300,6 +313,19 @@ class Game {
             return true;
           }
           return player.removeCredits(normalizedAmount);
+        },
+        refundCredits: (amount) => {
+          const normalizedAmount = Number(amount);
+          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+            return true;
+          }
+
+          if (typeof player.addCredits === 'function') {
+            player.addCredits(normalizedAmount);
+            return true;
+          }
+
+          return false;
         }
       });
     }
@@ -316,6 +342,7 @@ class Game {
         }
 
         let remainingCredits = normalizedAmount;
+        const withdrawals = [];
 
         for (const source of creditSources) {
           const availableCredits = Number(source.getAvailableCredits() || 0);
@@ -326,9 +353,13 @@ class Game {
           }
 
           if (!source.spendCredits(spendAmount)) {
+            for (let i = withdrawals.length - 1; i >= 0; i -= 1) {
+              withdrawals[i].source.refundCredits(withdrawals[i].amount);
+            }
             return false;
           }
 
+          withdrawals.push({ source, amount: spendAmount });
           remainingCredits -= spendAmount;
           if (remainingCredits <= 0) {
             return true;
