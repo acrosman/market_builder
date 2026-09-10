@@ -70,6 +70,7 @@ describe('logger', () => {
   test('sanitizeLogScope accepts valid scopes', () => {
     expect(sanitizeLogScope('interface')).toBe('interface');
     expect(sanitizeLogScope('ui.modal_manager')).toBe('ui.modal_manager');
+    expect(sanitizeLogScope('scope:colon')).toBe('scope:colon');
   });
 
   test('sanitizeLogScope rejects invalid scope types and lengths', () => {
@@ -81,6 +82,5 @@ describe('logger', () => {
   test('sanitizeLogScope rejects multiline and unsafe content', () => {
     expect(sanitizeLogScope('line1\nline2')).toBeNull();
     expect(sanitizeLogScope('scope with spaces')).toBeNull();
-    expect(sanitizeLogScope('scope:colon')).toBeNull();
   });
 });

@@ -59,7 +59,7 @@ function sanitizeLogScope(scope) {
     return null;
   }
 
-  if (!/^[a-zA-Z0-9._-]+$/.test(normalizedScope)) {
+  if (!/^[:a-zA-Z0-9._-]+$/.test(normalizedScope)) {
     return null;
   }
 
