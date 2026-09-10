@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Listen for validation errors
 window.api.receive('player-creation-error', (error) => {
+  // TODO: Replace alert call with a more refined error display mechanism
   alert(error.message);
 });
 

@@ -140,6 +140,7 @@ function renderUniverseDiagram(universe) {
     .join("circle")
     .attr("class", "universe-node")
     .attr("r", 8)
+    // TODO: Move color assignment to CSS classes based on system type
     .attr("fill", d => d.type ? color(d.type) : "#888")
     .call(drag(simulation));
 
