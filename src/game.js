@@ -331,10 +331,12 @@ class Game {
     }
 
     return {
-      availableCredits: creditSources.reduce(
-        (totalCredits, source) => totalCredits + Number(source.getAvailableCredits() || 0),
-        0
-      ),
+      get availableCredits() {
+        return creditSources.reduce(
+          (totalCredits, source) => totalCredits + Number(source.getAvailableCredits() || 0),
+          0
+        );
+      },
       spendCredits: (amount) => {
         const normalizedAmount = Number(amount);
         if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
