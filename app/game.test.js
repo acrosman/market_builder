@@ -887,6 +887,18 @@ describe('game.js coordinator', () => {
       expect(window.api.invoke).toHaveBeenCalledWith('get-game-messages', 'save_load.load_failed');
     });
 
+    test('load-game-error triggers load_failed message', async () => {
+      window.api = createMockApi();
+      window.api.getLocationState.mockResolvedValue({ playerState: { name: 'TestCaptain' } });
+      window.api.invoke.mockResolvedValue('Failed to load: {reason}');
+
+      await loadGameJs();
+      const loadErrorHandler = window.api.receive.mock.calls.find(c => c[0] === 'load-game-error')?.[1];
+      loadErrorHandler({ reason: 'file not found' });
+      await new Promise(resolve => setTimeout(resolve, 50));
+      expect(window.api.invoke).toHaveBeenCalledWith('get-game-messages', 'save_load.load_failed');
+    });
+
     test('save-files-list with empty array sends no-saves message', async () => {
       await loadGameJs();
       const saveFilesHandler = window.api.receive.mock.calls.find(c => c[0] === 'save-files-list')?.[1];

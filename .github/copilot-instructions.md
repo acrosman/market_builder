@@ -24,10 +24,9 @@ This is a **multi-process Electron app** with strict security boundaries:
 
 1. **Main Process** (`main.js`) - Node.js environment
 
-- Manages game state via `currentGame` global variable
 - Window lifecycle, app security, and startup wiring
 - File system access (saves, data loading)
-- Game logic coordination through Game/Universe instances
+- Delegates IPC registration and game/session coordination to `src/windowManager.js`
 
 2. **Window Manager Module** (`src/windowManager.js`) - Main-process IPC registration
 

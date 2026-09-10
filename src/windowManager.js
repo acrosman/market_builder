@@ -1,43 +1,34 @@
 const { createUniverse } = require('./universe');
 const { Game } = require('./game');
+const { dialog } = require('electron');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { createLogger, validLogLevels } = require('./logger');
 
 /**
  * Register all main-process IPC listeners and handlers.
- * @param {Object} dependencies - Module dependencies and callbacks.
+ * @param {Object} dependencies - Required callbacks and runtime state.
  * @param {Object} dependencies.ipcMain - Electron ipcMain instance.
- * @param {Object} dependencies.dialog - Electron dialog instance.
- * @param {Object} dependencies.logger - Application logger.
- * @param {Function} dependencies.createLogger - Logger factory.
- * @param {Set<string>} dependencies.validLogLevels - Allowed renderer log levels.
  * @param {Object} dependencies.gameSettings - Loaded game settings.
- * @param {Object} dependencies.fs - Node fs module.
- * @param {Object} dependencies.path - Node path module.
- * @param {Object} dependencies.os - Node os module.
  * @param {Function} dependencies.getGameSetupWindow - Returns active setup window.
  * @param {Function} dependencies.openGameSetupWindow - Opens setup window.
  * @param {Function} dependencies.openGameWindow - Opens main game window.
  * @param {Function} dependencies.getMainWindow - Returns active main window.
- * @param {string} dependencies.baseDir - Project base directory for data file paths.
  * @returns {void}
  * @example
- * registerIpcHandlers({ ipcMain, dialog, logger, createLogger, validLogLevels, gameSettings, fs, path, os, getGameSetupWindow, openGameSetupWindow, openGameWindow, getMainWindow, baseDir: __dirname });
+ * registerIpcHandlers({ ipcMain, gameSettings, getGameSetupWindow, openGameSetupWindow, openGameWindow, getMainWindow });
  */
 function registerIpcHandlers({
   ipcMain,
-  dialog,
-  logger,
-  createLogger,
-  validLogLevels,
   gameSettings,
-  fs,
-  path,
-  os,
   getGameSetupWindow,
   openGameSetupWindow,
   openGameWindow,
-  getMainWindow,
-  baseDir
+  getMainWindow
 }) {
+  const logger = createLogger('main');
+  const baseDir = path.join(__dirname, '..');
   let currentUniverse = null;
   let currentGame = null;
 
@@ -162,7 +153,7 @@ function registerIpcHandlers({
   ipcMain.on('proceed-to-player-creation', () => {
     const setupWindow = getGameSetupWindow();
     if (setupWindow) {
-      setupWindow.loadURL(`file://${baseDir}/app/player_creation.html`);
+      setupWindow.loadURL(`file://${path.join(baseDir, 'app', 'player_creation.html')}`);
     }
   });
 
@@ -192,7 +183,7 @@ function registerIpcHandlers({
   ipcMain.on('return-to-universe-creation', () => {
     const setupWindow = getGameSetupWindow();
     if (setupWindow) {
-      setupWindow.loadURL(`file://${baseDir}/app/new_game.html`);
+      setupWindow.loadURL(`file://${path.join(baseDir, 'app', 'new_game.html')}`);
     }
   });
 
@@ -557,7 +548,6 @@ function registerIpcHandlers({
     } catch (error) {
       logger.error('Error loading game:', error);
       event.reply('load-game-error', { reason: 'Error loading game' });
-      event.reply('load-game-result', { success: false, reason: 'Error loading game' });
     }
   });
 

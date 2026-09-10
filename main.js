@@ -2,7 +2,7 @@ const electron = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { app, BrowserWindow, dialog } = electron;
-const { configureLogger, createLogger, validLogLevels } = require('./src/logger');
+const { configureLogger, createLogger } = require('./src/logger');
 const { registerIpcHandlers } = require('./src/windowManager');
 
 // Developer Mode Setup
@@ -177,17 +177,9 @@ function openGameWindow() {
 
 registerIpcHandlers({
   ipcMain: electron.ipcMain,
-  dialog,
-  logger,
-  createLogger,
-  validLogLevels,
   gameSettings,
-  fs,
-  path,
-  os: require('os'),
   getGameSetupWindow: () => gameSetupWindow,
   openGameSetupWindow,
   openGameWindow,
-  getMainWindow: () => mainWindow,
-  baseDir: __dirname
+  getMainWindow: () => mainWindow
 });

@@ -109,6 +109,7 @@ contextBridge.exposeInMainWorld('api', {
       'land-result',
       'build-result',
       'save-game-result',
+      'load-game-error',
       'load-game-result',
       'save-files-list',
       'takeoff-result'
