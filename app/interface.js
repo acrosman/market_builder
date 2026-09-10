@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         console.error('Error opening load game dialog:', error);
       }
-      alert('Error opening file dialog');
     }
   });
 });
