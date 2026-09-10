@@ -485,6 +485,10 @@ document.addEventListener(
       window.api.send('load-game', mostRecentSave);
     });
 
+    window.api.receive('load-game-error', (result) => {
+      addMessage('message:save_load.load_failed', { reason: result.reason });
+    });
+
     window.api.receive('load-game-result', (result) => {
       if (result.success) {
         addMessage('message:save_load.load_success');

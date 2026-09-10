@@ -22,26 +22,31 @@ Follow the conventions outlined in this document, including code style, architec
 
 This is a **multi-process Electron app** with strict security boundaries:
 
-1. **Main Process** (main.js) - Node.js environment
+1. **Main Process** (`main.js`) - Node.js environment
 
-- Manages game state via `currentGame` global variable
-- Window lifecycle and IPC handlers
+- Window lifecycle, app security, and startup wiring
 - File system access (saves, data loading)
-- Game logic coordination through Game/Universe instances
+- Delegates IPC registration and game/session coordination to `src/windowManager.js`
 
-2. **Renderer Process** (`app/*.html`, `app/*.js`) - Browser environment
+2. **Window Manager Module** (`src/windowManager.js`) - Main-process IPC registration
+
+- Owns all `ipcMain.on()` and `ipcMain.handle()` registrations
+- Contains IPC-specific game/session state for universe and active game setup flow
+- Handles routing between renderer IPC calls and main-process game logic
+
+3. **Renderer Process** (`app/*.html`, `app/*.js`) - Browser environment
 
 - NO direct Node.js access (contextIsolation enabled)
 - ALL main process communication via `app/preload.js` bridge
 - UI updates and user interaction handling
 
-3. **Preload Script** (app/preload.js) - Secure IPC bridge
+4. **Preload Script** (app/preload.js) - Secure IPC bridge
 
 - Whitelisted channels only (see `validChannels` arrays)
 - Pattern: renderer calls `window.api.send()` or `window.api.invoke()`
 - **Critical**: When adding new IPC, update THREE places:
   1. preload.js validChannels array
-  2. main.js ipcMain handler (use `ipcMain.on` for send, `ipcMain.handle` for invoke)
+  2. src/windowManager.js ipcMain handler (use `ipcMain.on` for send, `ipcMain.handle` for invoke)
   3. renderer JS file calling the API
 
 ### Core Game Logic (`src/`)
@@ -196,7 +201,7 @@ container.appendChild(item);
 ### Debugging IPC Issues
 
 1. Check `app/preload.js` - Is channel whitelisted in both `send`/`invoke` validChannels AND `receive`?
-2. Check `main.js` - Is there a matching `ipcMain.on()` or `ipcMain.handle()`?
+2. Check `src/windowManager.js` - Is there a matching `ipcMain.on()` or `ipcMain.handle()`?
 3. Check renderer - Using correct API? `window.api.send()` (fire-and-forget) vs `window.api.invoke()` (returns Promise)
    - For `window.api.invoke()` calls, always wrap in `try/catch` and surface failures to users via `addMessage('message:error.ipc_failure', { action })` (or an equivalent existing error message key). Do not silently swallow IPC errors.
 4. Console logs: Main process logs in terminal, renderer logs in DevTools
@@ -351,7 +356,8 @@ When modifying code:
 
 ## Key Files Reference
 
-- `main.js` - Electron main process, IPC handlers, game state manager
+- `main.js` - Electron main process bootstrap, window creation, and security setup
+- `src/windowManager.js` - Centralized IPC listener/handler registration for renderer ↔ main communication
 - `app/preload.js` - IPC whitelist and bridge
 - `src/game.js` - Core game logic and player state
 - `src/universe.js` - World generation and graph algorithms

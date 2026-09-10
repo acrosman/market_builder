@@ -1,7 +1,6 @@
 // Preload script.
 const { contextBridge, ipcRenderer } = require('electron');
-
-const validLogLevels = require('../src/logger').validLogLevels;
+const validLogLevels = new Set(['debug', 'info', 'warn', 'error']);
 
 /**
  * Convert unsupported values (like Error instances) to serializable payloads.
@@ -109,6 +108,7 @@ contextBridge.exposeInMainWorld('api', {
       'land-result',
       'build-result',
       'save-game-result',
+      'load-game-error',
       'load-game-result',
       'save-files-list',
       'takeoff-result'

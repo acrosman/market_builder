@@ -11,8 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.api.send('load-game', result.filePath);
       }
     } catch (error) {
-      window.logger.error('Error opening load game dialog:', error);
-      alert('Error opening file dialog');
+      window.gameHelpers.logClientError('Error opening load game dialog:', error);
     }
   });
 });
