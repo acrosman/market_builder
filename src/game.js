@@ -6,6 +6,7 @@ const { Player } = require('./player');
 const { NPC } = require('./npc');
 const { Market } = require('./market');
 const { createLogger } = require('./logger');
+const { getLocalizedMessage } = require('./messages');
 
 const logger = createLogger('Game');
 
@@ -243,6 +244,10 @@ class Game {
   getConstructionCreditSupport(stellarObject) {
     const player = this.player;
     const ownedCorporations = player?.getOwnedCorporations(this.corporations) || [];
+
+    // Prefer the corporation that directly owns the local object, but fall back
+    // to the controlled asset list so stale owner labels do not prevent a build
+    // from drawing funds from the company that still controls the asset.
     const controlledCorporation = ownedCorporations.find((corporation) => {
       if (!corporation) {
         return false;
@@ -268,6 +273,8 @@ class Game {
     const creditSources = [];
 
     if (controlledCorporation) {
+      // Use corporation reserves first so builds on company assets charge the
+      // company before the captain's personal credits are touched.
       creditSources.push({
         getAvailableCredits: getCorporationCredits,
         spendCredits: (amount) => {
@@ -305,6 +312,8 @@ class Game {
     }
 
     if (player && typeof player.removeCredits === 'function') {
+      // Personal credits remain a fallback pool when the company cannot fully
+      // cover the construction order on its own.
       creditSources.push({
         getAvailableCredits: getPlayerCredits,
         spendCredits: (amount) => {
@@ -332,6 +341,8 @@ class Game {
 
     return {
       get availableCredits() {
+        // Recompute on every access so validation sees the same live balances
+        // that the eventual spend path will use.
         return creditSources.reduce(
           (totalCredits, source) => totalCredits + Number(source.getAvailableCredits() || 0),
           0
@@ -355,6 +366,8 @@ class Game {
           }
 
           if (!source.spendCredits(spendAmount)) {
+            // Roll back prior debits if any later source rejects its share so
+            // multi-source funding behaves like one atomic construction charge.
             for (let i = withdrawals.length - 1; i >= 0; i -= 1) {
               withdrawals[i].source.refundCredits(withdrawals[i].amount);
             }
@@ -381,12 +394,26 @@ class Game {
   buildBuildingAtCurrentObject(buildingType) {
     const stellarObject = this.getCurrentLocalObject();
     if (!stellarObject) {
-      return { success: false, reason: 'You must be docked or landed to build' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.not_docked_or_landed',
+          {},
+          'You must be docked or landed to build'
+        )
+      };
     }
 
     const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
     if (!isControlledByPlayer) {
-      return { success: false, reason: 'You do not control this stellar object' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.not_controlled',
+          {},
+          'You do not control this stellar object'
+        )
+      };
     }
     const buildingsData = this.getBuildingsData();
     const creditSupport = this.getConstructionCreditSupport(stellarObject);
@@ -399,6 +426,20 @@ class Game {
       ...buildResult,
       objectId: stellarObject.id
     };
+  }
+
+  /**
+   * Resolve a localized construction-related message.
+   * @param {string} messageKey - Dot-delimited message key from game_messages.json
+   * @param {Object} [vars={}] - Template variables for replacement
+   * @param {string} fallback - Fallback English message when lookup fails
+   * @returns {string} Localized message text
+   * @example
+   * const reason = game.getConstructionMessage('construction.reasons.not_controlled');
+   */
+  getConstructionMessage(messageKey, vars = {}, fallback = '') {
+    const dataDir = this.settings.data_directory || 'data/default/en-us';
+    return getLocalizedMessage(dataDir, messageKey, vars) || fallback;
   }
 
   /**

@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createLogger, validLogLevels } = require('./logger');
+const { getLocalizedMessage } = require('./messages');
 
 /**
  * Register all main-process IPC listeners and handlers.
@@ -109,6 +110,20 @@ function registerIpcHandlers({
       typeTotals: universe.getStellarObjectTypeTotals(),
       typeCountsBySystem: universe.getStellarObjectTypeCountsBySystem()
     };
+  }
+
+  /**
+   * Resolve a localized construction-related message for IPC responses.
+   * @param {string} messageKey - Dot-delimited message key from game_messages.json
+   * @param {Object} [vars={}] - Template variables for replacement
+   * @param {string} fallback - Fallback English message when lookup fails
+   * @returns {string} Localized message text
+   * @example
+   * const reason = getConstructionMessage('construction.reasons.no_active_game');
+   */
+  function getConstructionMessage(messageKey, vars = {}, fallback = '') {
+    const dataDir = gameSettings.data_directory || 'data/default/en-us';
+    return getLocalizedMessage(dataDir, messageKey, vars) || fallback;
   }
 
   // IPC: Open or focus the new game setup modal window.
@@ -582,7 +597,14 @@ function registerIpcHandlers({
   // IPC: Attempt building construction at current location.
   ipcMain.on('construct-building', (event, buildingType) => {
     if (!currentGame) {
-      event.reply('build-result', { success: false, reason: 'No active game' });
+      event.reply('build-result', {
+        success: false,
+        reason: getConstructionMessage(
+          'construction.reasons.no_active_game',
+          {},
+          'No active game'
+        )
+      });
       return;
     }
 

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { getLocalizedMessage } = require('./messages');
 
 /**
  * Represents a stellar object (planet, station, asteroid) in the universe.
@@ -241,11 +242,25 @@ class StellarObject {
   constructBuilding(buildingType, buildingsData, externalCreditSupport = {}) {
     const buildingData = buildingsData?.[buildingType];
     if (!buildingData) {
-      return { success: false, reason: 'Unknown building type' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.unknown_building_type',
+          {},
+          'Unknown building type'
+        )
+      };
     }
 
     if (!this.supportsBuilding(buildingData)) {
-      return { success: false, reason: `${buildingType} is not supported here` };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.unsupported_building',
+          { buildingType },
+          `${buildingType} is not supported here`
+        )
+      };
     }
 
     const buildCost = buildingData.buildCost || {};
@@ -256,18 +271,40 @@ class StellarObject {
     const availableGoods = this.marketState?.inventory || {};
 
     for (const [goodName, quantity] of Object.entries(requiredGoods)) {
-      if ((availableGoods[goodName] || 0) < quantity) {
-        return { success: false, reason: `Insufficient ${goodName} at this location` };
+      const availableQuantity = Number(availableGoods[goodName] || 0);
+      if (availableQuantity < quantity) {
+        return {
+          success: false,
+          reason: this.getConstructionMessage(
+            'construction.reasons.insufficient_good',
+            { goodName, requiredQuantity: quantity, availableQuantity },
+            `Insufficient ${goodName} at this location. Need ${quantity}, have ${availableQuantity}`
+          )
+        };
       }
     }
 
     if (localCredits + externalCredits < requiredCredits) {
-      return { success: false, reason: 'Insufficient building credits at this location' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.insufficient_building_credits',
+          {},
+          'Insufficient building credits at this location'
+        )
+      };
     }
 
     const queued = this.addBuilding(buildingType, buildingsData);
     if (!queued) {
-      return { success: false, reason: 'Building limit reached or cannot construct building' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.building_limit_reached',
+          {},
+          'Building limit reached or cannot construct building'
+        )
+      };
     }
 
     const localCreditsToSpend = Math.min(localCredits, requiredCredits);
@@ -279,7 +316,14 @@ class StellarObject {
       !externalCreditSupport.spendCredits(externalCreditsToSpend))
     ) {
       this.buildingsUnderConstruction.pop();
-      return { success: false, reason: 'Insufficient building credits at this location' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.insufficient_building_credits',
+          {},
+          'Insufficient building credits at this location'
+        )
+      };
     }
 
     this.buildingCredits = localCredits - localCreditsToSpend;
@@ -295,6 +339,19 @@ class StellarObject {
       buildingType,
       ticksRemaining: buildingData.buildCost?.ticks || 0
     };
+  }
+
+  /**
+   * Resolve a localized construction failure message.
+   * @param {string} messageKey - Dot-delimited message key from game_messages.json
+   * @param {Object} [vars={}] - Template variables for replacement
+   * @param {string} fallback - Fallback English message when lookup fails
+   * @returns {string} Localized message text
+   * @example
+   * const reason = obj.getConstructionMessage('construction.reasons.insufficient_building_credits', {}, 'Insufficient building credits at this location');
+   */
+  getConstructionMessage(messageKey, vars = {}, fallback = '') {
+    return getLocalizedMessage(this.dataDir, messageKey, vars) || fallback;
   }
 
   /**

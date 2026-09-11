@@ -464,7 +464,7 @@ describe('StellarObject', () => {
       const result = obj.constructBuilding('Mine', mockBuildingsData);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toBe('Insufficient metal at this location');
+      expect(result.reason).toBe('Insufficient metal at this location. Need 10, have 5');
     });
 
     test('should fail when total construction credits are insufficient', () => {
