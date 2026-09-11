@@ -167,19 +167,6 @@ function registerIpcHandlers({
     }
   }
 
-  /**
-   * Resolve a localized construction-related message for IPC responses.
-   * @param {string} messageKey - Dot-delimited message key from game_messages.json
-   * @param {Object} [vars={}] - Template variables for replacement
-   * @param {string} fallback - Fallback English message when lookup fails
-   * @returns {string} Localized message text
-   * @example
-   * const reason = getConstructionMessage('construction.reasons.no_active_game');
-   */
-  function getConstructionMessage(messageKey, vars = {}, fallback = '') {
-    return replaceMessageVariables(getGameMessages(messageKey), vars) || fallback;
-  }
-
   // IPC: Open or focus the new game setup modal window.
   ipcMain.on('open-new-game', () => {
     try {
@@ -629,11 +616,10 @@ function registerIpcHandlers({
     if (!currentGame) {
       event.reply('build-result', {
         success: false,
-        reason: getConstructionMessage(
-          'construction.reasons.no_active_game',
-          {},
-          'No active game'
-        )
+        reason: replaceMessageVariables(
+          getGameMessages('construction.reasons.no_active_game'),
+          {}
+        ) || 'No active game'
       });
       return;
     }
