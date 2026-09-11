@@ -6,9 +6,29 @@ const { Player } = require('./player');
 const { NPC } = require('./npc');
 const { Market } = require('./market');
 const { createLogger } = require('./logger');
-const { getLocalizedMessage } = require('./messages');
 
 const logger = createLogger('Game');
+
+/**
+ * Replace message template variables with provided values.
+ * @param {string} message - Message template containing {tokens}
+ * @param {Object} [vars={}] - Replacement values keyed by token name
+ * @returns {string|null} Localized message text, or null for invalid input
+ * @example
+ * const text = replaceMessageVariables('Need {required}, have {available}', { required: 10, available: 5 });
+ */
+function replaceMessageVariables(message, vars = {}) {
+  if (typeof message !== 'string') {
+    return null;
+  }
+
+  return message.replace(/\{(\w+)\}/g, (match, variableName) => {
+    if (Object.prototype.hasOwnProperty.call(vars, variableName)) {
+      return String(vars[variableName]);
+    }
+    return match;
+  });
+}
 
 /**
  * Main game state manager
@@ -340,6 +360,7 @@ class Game {
     }
 
     return {
+      getMessage: (messageKey, vars = {}, fallback = '') => this.getConstructionMessage(messageKey, vars, fallback),
       get availableCredits() {
         // Recompute on every access so validation sees the same live balances
         // that the eventual spend path will use.
@@ -439,7 +460,25 @@ class Game {
    */
   getConstructionMessage(messageKey, vars = {}, fallback = '') {
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    return getLocalizedMessage(dataDir, messageKey, vars) || fallback;
+    const messagesPath = path.join(__dirname, '..', dataDir, 'game_messages.json');
+
+    try {
+      const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+      const keys = messageKey.split('.');
+      let result = messagesData;
+
+      for (const key of keys) {
+        if (result && typeof result === 'object' && key in result) {
+          result = result[key];
+        } else {
+          return fallback;
+        }
+      }
+
+      return replaceMessageVariables(result, vars) || fallback;
+    } catch (error) {
+      return fallback;
+    }
   }
 
   /**

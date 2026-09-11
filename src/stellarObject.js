@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { getLocalizedMessage } = require('./messages');
 
 /**
  * Represents a stellar object (planet, station, asteroid) in the universe.
@@ -244,7 +243,8 @@ class StellarObject {
     if (!buildingData) {
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
           'construction.reasons.unknown_building_type',
           {},
           'Unknown building type'
@@ -255,7 +255,8 @@ class StellarObject {
     if (!this.supportsBuilding(buildingData)) {
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
           'construction.reasons.unsupported_building',
           { buildingType },
           `${buildingType} is not supported here`
@@ -275,7 +276,8 @@ class StellarObject {
       if (availableQuantity < quantity) {
         return {
           success: false,
-          reason: this.getConstructionMessage(
+          reason: this.resolveConstructionMessage(
+            externalCreditSupport,
             'construction.reasons.insufficient_good',
             { goodName, requiredQuantity: quantity, availableQuantity },
             `Insufficient ${goodName} at this location. Need ${quantity}, have ${availableQuantity}`
@@ -287,7 +289,8 @@ class StellarObject {
     if (localCredits + externalCredits < requiredCredits) {
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
           'construction.reasons.insufficient_building_credits',
           {},
           'Insufficient building credits at this location'
@@ -299,7 +302,8 @@ class StellarObject {
     if (!queued) {
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
           'construction.reasons.building_limit_reached',
           {},
           'Building limit reached or cannot construct building'
@@ -318,7 +322,8 @@ class StellarObject {
       this.buildingsUnderConstruction.pop();
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
           'construction.reasons.insufficient_building_credits',
           {},
           'Insufficient building credits at this location'
@@ -342,16 +347,21 @@ class StellarObject {
   }
 
   /**
-   * Resolve a localized construction failure message.
+   * Resolve a localized construction failure message from external support.
+   * Falls back to the provided English message when no resolver is supplied.
+   * @param {Object} [externalCreditSupport={}] - External construction helpers
    * @param {string} messageKey - Dot-delimited message key from game_messages.json
    * @param {Object} [vars={}] - Template variables for replacement
    * @param {string} fallback - Fallback English message when lookup fails
    * @returns {string} Localized message text
    * @example
-   * const reason = obj.getConstructionMessage('construction.reasons.insufficient_building_credits', {}, 'Insufficient building credits at this location');
+   * const reason = obj.resolveConstructionMessage({ getMessage: () => 'Localized text' }, 'construction.reasons.insufficient_building_credits', {}, 'Insufficient building credits at this location');
    */
-  getConstructionMessage(messageKey, vars = {}, fallback = '') {
-    return getLocalizedMessage(this.dataDir, messageKey, vars) || fallback;
+  resolveConstructionMessage(externalCreditSupport = {}, messageKey, vars = {}, fallback = '') {
+    if (typeof externalCreditSupport?.getMessage === 'function') {
+      return externalCreditSupport.getMessage(messageKey, vars, fallback);
+    }
+    return fallback;
   }
 
   /**

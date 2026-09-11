@@ -4,7 +4,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createLogger, validLogLevels } = require('./logger');
-const { getLocalizedMessage } = require('./messages');
 
 /**
  * Register all main-process IPC listeners and handlers.
@@ -113,6 +112,62 @@ function registerIpcHandlers({
   }
 
   /**
+   * Replace message template variables with provided values.
+   * @param {string} message - Message template containing {tokens}
+   * @param {Object} [vars={}] - Replacement values keyed by token name
+   * @returns {string|null} Localized message text, or null for invalid input
+   * @example
+   * const text = replaceMessageVariables('Need {required}, have {available}', { required: 10, available: 5 });
+   */
+  function replaceMessageVariables(message, vars = {}) {
+    if (typeof message !== 'string') {
+      return null;
+    }
+
+    return message.replace(/\{(\w+)\}/g, (match, variableName) => {
+      if (Object.prototype.hasOwnProperty.call(vars, variableName)) {
+        return String(vars[variableName]);
+      }
+      return match;
+    });
+  }
+
+  /**
+   * Load game messages data, optionally by nested dot-notation key.
+   * @param {string} [messageKey] - Optional nested message key
+   * @returns {Object|string|null} Message object, string, or null when missing
+   * @example
+   * const text = getGameMessages('construction.reasons.no_active_game');
+   */
+  function getGameMessages(messageKey) {
+    try {
+      const dataDir = gameSettings.data_directory || 'data/default/en-us';
+      const messagesPath = path.join(baseDir, dataDir, 'game_messages.json');
+      const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+
+      if (!messageKey) {
+        return messagesData;
+      }
+
+      const keys = messageKey.split('.');
+      let result = messagesData;
+
+      for (const key of keys) {
+        if (result && typeof result === 'object' && key in result) {
+          result = result[key];
+        } else {
+          return null;
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error loading game messages:', error);
+      return null;
+    }
+  }
+
+  /**
    * Resolve a localized construction-related message for IPC responses.
    * @param {string} messageKey - Dot-delimited message key from game_messages.json
    * @param {Object} [vars={}] - Template variables for replacement
@@ -122,8 +177,7 @@ function registerIpcHandlers({
    * const reason = getConstructionMessage('construction.reasons.no_active_game');
    */
   function getConstructionMessage(messageKey, vars = {}, fallback = '') {
-    const dataDir = gameSettings.data_directory || 'data/default/en-us';
-    return getLocalizedMessage(dataDir, messageKey, vars) || fallback;
+    return replaceMessageVariables(getGameMessages(messageKey), vars) || fallback;
   }
 
   // IPC: Open or focus the new game setup modal window.
@@ -362,31 +416,7 @@ function registerIpcHandlers({
 
   // IPC: Return game messages data, optionally by nested dot-notation key.
   ipcMain.handle('get-game-messages', (event, messageKey) => {
-    try {
-      const dataDir = gameSettings.data_directory || 'data/default/en-us';
-      const messagesPath = path.join(baseDir, dataDir, 'game_messages.json');
-      const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
-
-      if (messageKey) {
-        const keys = messageKey.split('.');
-        let result = messagesData;
-
-        for (const key of keys) {
-          if (result && typeof result === 'object' && key in result) {
-            result = result[key];
-          } else {
-            return null;
-          }
-        }
-
-        return result;
-      }
-
-      return messagesData;
-    } catch (error) {
-      logger.error('Error loading game messages:', error);
-      return null;
-    }
+    return getGameMessages(messageKey);
   });
 
   // IPC: Return simplified system list for jump planner UI.
