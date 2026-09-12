@@ -33,4 +33,17 @@ describe('gameMessages', () => {
       getLocalizedGameMessage('data/default/en-us', 'construction.reasons.blank', {}, 'fallback')
     ).toBe('');
   });
+
+  test('caches failed message loads to avoid repeated reads', () => {
+    const readFileSpy = jest.spyOn(fs, 'readFileSync').mockImplementation(() => {
+      throw new Error('read failed');
+    });
+    const logger = { error: jest.fn() };
+    const { getGameMessages } = require('./gameMessages');
+
+    expect(getGameMessages('data/default/en-us', 'navigation.jumping', { logger })).toBeNull();
+    expect(getGameMessages('data/default/en-us', 'navigation.jumping', { logger })).toBeNull();
+    expect(readFileSpy).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledTimes(1);
+  });
 });

@@ -23,28 +23,23 @@ function getGameMessages(dataDir, messageKey, options = {}) {
 
   try {
     const messagesPath = path.join(baseDir, dataDir, 'game_messages.json');
-    let messagesData = gameMessagesCache.get(messagesPath);
-    if (!messagesData) {
-      messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
-      gameMessagesCache.set(messagesPath, messagesData);
-    }
-
-    if (!messageKey) {
-      return messagesData;
-    }
-
-    const keys = messageKey.split('.');
-    let result = messagesData;
-
-    for (const key of keys) {
-      if (result && typeof result === 'object' && key in result) {
-        result = result[key];
-      } else {
+    if (gameMessagesCache.has(messagesPath)) {
+      const cachedMessages = gameMessagesCache.get(messagesPath);
+      if (cachedMessages === null) {
         return null;
       }
+      return resolveMessageKey(cachedMessages, messageKey);
     }
 
-    return result;
+    let messagesData;
+    try {
+      messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+      gameMessagesCache.set(messagesPath, messagesData);
+    } catch (error) {
+      gameMessagesCache.set(messagesPath, null);
+      throw error;
+    }
+    return resolveMessageKey(messagesData, messageKey);
   } catch (error) {
     if (logger && typeof logger.error === 'function') {
       logger.error('Error loading game messages:', error);
@@ -72,6 +67,33 @@ function getLocalizedGameMessage(dataDir, messageKey, vars = {}, fallback = '', 
 
   const localizedMessage = replaceMessageVariables(message, vars);
   return localizedMessage === null ? fallback : localizedMessage;
+}
+
+/**
+ * Resolve an optional nested key from loaded game messages.
+ * @param {Object} messagesData - Parsed game_messages.json contents
+ * @param {string} [messageKey] - Optional nested message key
+ * @returns {Object|string|null} Matching message value or null
+ * @example
+ * const text = resolveMessageKey(messagesData, 'construction.reasons.no_active_game');
+ */
+function resolveMessageKey(messagesData, messageKey) {
+  if (!messageKey) {
+    return messagesData;
+  }
+
+  const keys = messageKey.split('.');
+  let result = messagesData;
+
+  for (const key of keys) {
+    if (result && typeof result === 'object' && key in result) {
+      result = result[key];
+    } else {
+      return null;
+    }
+  }
+
+  return result;
 }
 
 module.exports = {

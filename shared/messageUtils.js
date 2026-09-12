@@ -22,7 +22,11 @@
 
     return message.replace(/\{(\w+)\}/g, (match, variable) => {
       if (Object.prototype.hasOwnProperty.call(vars, variable)) {
-        return String(vars[variable]);
+        const replacementValue = vars[variable];
+        if (replacementValue === null || replacementValue === undefined) {
+          return match;
+        }
+        return String(replacementValue);
       }
       return match;
     });
