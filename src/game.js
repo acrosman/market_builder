@@ -268,21 +268,17 @@ class Game {
     // Prefer the corporation that directly owns the local object, but fall back
     // to the controlled asset list so stale owner labels do not prevent a build
     // from drawing funds from the company that still controls the asset.
-    const controlledCorporation = ownedCorporations.find((corporation) => {
-      if (!corporation) {
-        return false;
-      }
-
-      if (corporation.name && corporation.name === stellarObject?.owner) {
-        return true;
-      }
-
-      if (!Array.isArray(corporation.stellarObjects)) {
-        return false;
-      }
-
-      return corporation.stellarObjects.some((assetId) => Number(assetId) === Number(stellarObject?.id));
-    }) || null;
+    const controlledCorporation =
+      ownedCorporations.find((corporation) =>
+        corporation?.name && corporation.name === stellarObject?.owner
+      ) ||
+      ownedCorporations.find((corporation) =>
+        Array.isArray(corporation?.stellarObjects) &&
+        corporation.stellarObjects.some(
+          (assetId) => Number(assetId) === Number(stellarObject?.id)
+        )
+      ) ||
+      null;
 
     const getCorporationCredits = () => Number(
       controlledCorporation?.getTotalCashReserves?.() ??
