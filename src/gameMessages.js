@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { replaceMessageVariables } = require('../app/gameHelpers');
+const { replaceMessageVariables } = require('../shared/messageUtils');
 
 /**
  * Load game messages data, optionally by nested dot-notation key.
