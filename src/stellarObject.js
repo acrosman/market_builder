@@ -478,6 +478,7 @@ class StellarObject {
       !externalCreditSupport.spendCredits(externalCreditsToSpend))
     ) {
       this.buildingsUnderConstruction.pop();
+      this.buildingCredits = localCredits;
       return {
         success: false,
         reason: this.resolveConstructionMessage(

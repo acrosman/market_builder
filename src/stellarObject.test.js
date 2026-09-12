@@ -510,6 +510,29 @@ describe('StellarObject', () => {
       expect(spendCredits).toHaveBeenCalledWith(500);
     });
 
+    test('should leave local credits unchanged when external funding fails', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 200;
+      obj.marketState = { inventory: { metal: 20 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData, {
+        availableCredits: 400,
+        spendCredits: jest.fn(() => false)
+      });
+
+      expect(result.success).toBe(false);
+      expect(obj.buildingCredits).toBe(200);
+      expect(obj.buildingsUnderConstruction).toEqual([]);
+      expect(obj.marketState.inventory.metal).toEqual(20);
+    });
+
     test('building completion should occur only after required ticks elapse', () => {
       const obj = new StellarObject(
         1,
