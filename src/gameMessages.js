@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { replaceMessageVariables } = require('../shared/messageUtils');
 
+const gameMessagesCache = new Map();
+
 /**
  * Load game messages data, optionally by nested dot-notation key.
  * @param {string} dataDir - Data directory containing game_messages.json
@@ -21,7 +23,11 @@ function getGameMessages(dataDir, messageKey, options = {}) {
 
   try {
     const messagesPath = path.join(baseDir, dataDir, 'game_messages.json');
-    const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+    let messagesData = gameMessagesCache.get(messagesPath);
+    if (!messagesData) {
+      messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+      gameMessagesCache.set(messagesPath, messagesData);
+    }
 
     if (!messageKey) {
       return messagesData;
@@ -60,7 +66,12 @@ function getGameMessages(dataDir, messageKey, options = {}) {
  */
 function getLocalizedGameMessage(dataDir, messageKey, vars = {}, fallback = '', options = {}) {
   const message = getGameMessages(dataDir, messageKey, options);
-  return replaceMessageVariables(message, vars) || fallback;
+  if (message === null) {
+    return fallback;
+  }
+
+  const localizedMessage = replaceMessageVariables(message, vars);
+  return localizedMessage === null ? fallback : localizedMessage;
 }
 
 module.exports = {

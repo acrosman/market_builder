@@ -520,6 +520,7 @@ describe('StellarObject', () => {
         'Test Planet'
       );
       obj.buildingCredits = 200;
+      obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 3 }];
       obj.marketState = { inventory: { metal: 20 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData, {
@@ -529,7 +530,7 @@ describe('StellarObject', () => {
 
       expect(result.success).toBe(false);
       expect(obj.buildingCredits).toBe(200);
-      expect(obj.buildingsUnderConstruction).toEqual([]);
+      expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Warehouse', ticksRemaining: 3 }]);
       expect(obj.marketState.inventory.metal).toEqual(20);
     });
 

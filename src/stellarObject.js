@@ -456,6 +456,7 @@ class StellarObject {
       };
     }
 
+    const queuedConstructionIndex = this.buildingsUnderConstruction.length;
     const queued = this.addBuilding(buildingType, buildingsData);
     if (!queued) {
       return {
@@ -477,7 +478,7 @@ class StellarObject {
       (typeof externalCreditSupport?.spendCredits !== 'function' ||
       !externalCreditSupport.spendCredits(externalCreditsToSpend))
     ) {
-      this.buildingsUnderConstruction.pop();
+      this.buildingsUnderConstruction.splice(queuedConstructionIndex, 1);
       this.buildingCredits = localCredits;
       return {
         success: false,
