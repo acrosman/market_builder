@@ -3,6 +3,7 @@ const { Game } = require('./game');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { getGameMessages: loadGameMessages, getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger, validLogLevels } = require('./logger');
 
 /**
@@ -109,6 +110,21 @@ function registerIpcHandlers({
       typeTotals: universe.getStellarObjectTypeTotals(),
       typeCountsBySystem: universe.getStellarObjectTypeCountsBySystem()
     };
+  }
+
+  /**
+   * Load game messages data, optionally by nested dot-notation key.
+   * @param {string} [messageKey] - Optional nested message key
+   * @returns {Object|string|null} Message object, string, or null when missing
+   * @example
+   * const text = getGameMessages('construction.reasons.no_active_game');
+   */
+  function getGameMessages(messageKey) {
+    return loadGameMessages(
+      gameSettings.data_directory || 'data/default/en-us',
+      messageKey,
+      { baseDir, logger }
+    );
   }
 
   // IPC: Open or focus the new game setup modal window.
@@ -347,31 +363,7 @@ function registerIpcHandlers({
 
   // IPC: Return game messages data, optionally by nested dot-notation key.
   ipcMain.handle('get-game-messages', (event, messageKey) => {
-    try {
-      const dataDir = gameSettings.data_directory || 'data/default/en-us';
-      const messagesPath = path.join(baseDir, dataDir, 'game_messages.json');
-      const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
-
-      if (messageKey) {
-        const keys = messageKey.split('.');
-        let result = messagesData;
-
-        for (const key of keys) {
-          if (result && typeof result === 'object' && key in result) {
-            result = result[key];
-          } else {
-            return null;
-          }
-        }
-
-        return result;
-      }
-
-      return messagesData;
-    } catch (error) {
-      logger.error('Error loading game messages:', error);
-      return null;
-    }
+    return getGameMessages(messageKey);
   });
 
   // IPC: Return simplified system list for jump planner UI.
@@ -582,7 +574,16 @@ function registerIpcHandlers({
   // IPC: Attempt building construction at current location.
   ipcMain.on('construct-building', (event, buildingType) => {
     if (!currentGame) {
-      event.reply('build-result', { success: false, reason: 'No active game' });
+      event.reply('build-result', {
+        success: false,
+        reason: getLocalizedGameMessage(
+          gameSettings.data_directory || 'data/default/en-us',
+          'construction.reasons.no_active_game',
+          {},
+          'No active game',
+          { baseDir, logger }
+        ) || 'No active game'
+      });
       return;
     }
 

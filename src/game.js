@@ -5,7 +5,9 @@ const { EventBus } = require('./eventBus');
 const { Player } = require('./player');
 const { NPC } = require('./npc');
 const { Market } = require('./market');
+const { getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger } = require('./logger');
+const { createConstructionCreditSupport } = require('./stellarObject');
 
 const logger = createLogger('Game');
 
@@ -240,16 +242,35 @@ class Game {
   buildBuildingAtCurrentObject(buildingType) {
     const stellarObject = this.getCurrentLocalObject();
     if (!stellarObject) {
-      return { success: false, reason: 'You must be docked or landed to build' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.not_docked_or_landed',
+          {},
+          'You must be docked or landed to build'
+        )
+      };
     }
 
     const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
     if (!isControlledByPlayer) {
-      return { success: false, reason: 'You do not control this stellar object' };
+      return {
+        success: false,
+        reason: this.getConstructionMessage(
+          'construction.reasons.not_controlled',
+          {},
+          'You do not control this stellar object'
+        )
+      };
     }
-
     const buildingsData = this.getBuildingsData();
-    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData);
+    const creditSupport = createConstructionCreditSupport(
+      stellarObject,
+      this.player,
+      this.corporations,
+      (messageKey, vars = {}, fallback = '') => this.getConstructionMessage(messageKey, vars, fallback)
+    );
+    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);
     if (!buildResult.success) {
       return buildResult;
     }
@@ -258,6 +279,24 @@ class Game {
       ...buildResult,
       objectId: stellarObject.id
     };
+  }
+
+  /**
+   * Resolve a localized construction-related message.
+   * @param {string} messageKey - Dot-delimited message key from game_messages.json
+   * @param {Object} [vars={}] - Template variables for replacement
+   * @param {string} fallback - Fallback English message when lookup fails
+   * @returns {string} Localized message text
+   * @example
+   * const reason = game.getConstructionMessage('construction.reasons.not_controlled');
+   */
+  getConstructionMessage(messageKey, vars = {}, fallback = '') {
+    return getLocalizedGameMessage(
+      this.settings.data_directory || 'data/default/en-us',
+      messageKey,
+      vars,
+      fallback
+    );
   }
 
   /**

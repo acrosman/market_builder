@@ -66,6 +66,18 @@
     "route_cancelled": "Route to System {systemId} was cancelled.",
     "route_confirm_prompt": "Plot route to System {destinationId} ({jumps} jumps, {cost} ticks) and start jump sequence?"
   },
+  "construction": {
+    "reasons": {
+      "unknown_building_type": "Unknown building type",
+      "unsupported_building": "{buildingType} is not supported here",
+      "insufficient_good": "Insufficient {goodName} at this location. Need {requiredQuantity}, have {availableQuantity}",
+      "insufficient_building_credits": "Insufficient building credits at this location",
+      "building_limit_reached": "Building limit reached or cannot construct building",
+      "not_docked_or_landed": "You must be docked or landed to build",
+      "not_controlled": "You do not control this stellar object",
+      "no_active_game": "No active game"
+    }
+  },
   "company_management": {
     "modal_title": "Company Management",
     "tabs": {

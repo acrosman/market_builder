@@ -2,6 +2,164 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Find the player-controlled corporation that should fund construction here.
+ * Prefers a direct owner-name match, then falls back to the asset list.
+ * @param {Object} stellarObject - Controlled stellar object.
+ * @param {Object} player - Active player state.
+ * @param {Object[]} corporations - All game corporations.
+ * @returns {Object|null} Matching corporation or null.
+ * @example
+ * const corporation = findControllingCorporationForConstruction(object, player, corporations);
+ */
+function findControllingCorporationForConstruction(stellarObject, player, corporations) {
+  const ownedCorporations = player?.getOwnedCorporations(corporations) || [];
+
+  return ownedCorporations.find((corporation) =>
+    corporation?.name && corporation.name === stellarObject?.owner
+  ) ||
+  ownedCorporations.find((corporation) =>
+    Array.isArray(corporation?.stellarObjects) &&
+    corporation.stellarObjects.some(
+      (assetId) => Number(assetId) === Number(stellarObject?.id)
+    )
+  ) ||
+  null;
+}
+
+/**
+ * Create external credit support for construction at a controlled object.
+ * Uses player-owned corporation reserves first, then falls back to player credits.
+ * @param {Object} stellarObject - Controlled local object.
+ * @param {Object} player - Active player state.
+ * @param {Object[]} corporations - All game corporations.
+ * @param {Function} getMessage - Construction message resolver.
+ * @returns {Object} External credit support for construction.
+ * @example
+ * const creditSupport = createConstructionCreditSupport(object, player, corporations, getMessage);
+ */
+function createConstructionCreditSupport(stellarObject, player, corporations, getMessage) {
+  const controlledCorporation = findControllingCorporationForConstruction(stellarObject, player, corporations);
+  const getCorporationCredits = () => Number(
+    controlledCorporation?.getTotalCashReserves?.() ??
+    controlledCorporation?.cashReserves ??
+    0
+  );
+  const getPlayerCredits = () => Number(player?.credits || 0);
+  const creditSources = [];
+
+  if (controlledCorporation) {
+    creditSources.push({
+      getAvailableCredits: getCorporationCredits,
+      spendCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        const availableCorporationCredits = getCorporationCredits();
+        if (typeof controlledCorporation.spendCashReserve === 'function') {
+          return controlledCorporation.spendCashReserve(normalizedAmount);
+        }
+
+        if (availableCorporationCredits < normalizedAmount) {
+          return false;
+        }
+
+        controlledCorporation.cashReserves = availableCorporationCredits - normalizedAmount;
+        return true;
+      },
+      refundCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        if (typeof controlledCorporation.addCashReserve === 'function') {
+          return controlledCorporation.addCashReserve(normalizedAmount);
+        }
+
+        controlledCorporation.cashReserves = getCorporationCredits() + normalizedAmount;
+        return true;
+      }
+    });
+  }
+
+  if (player && typeof player.removeCredits === 'function') {
+    creditSources.push({
+      getAvailableCredits: getPlayerCredits,
+      spendCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+        return player.removeCredits(normalizedAmount);
+      },
+      refundCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        if (typeof player.addCredits === 'function') {
+          player.addCredits(normalizedAmount);
+          return true;
+        }
+
+        return false;
+      }
+    });
+  }
+
+  return {
+    getMessage: (messageKey, vars = {}, fallback = '') => {
+      if (typeof getMessage === 'function') {
+        return getMessage(messageKey, vars, fallback);
+      }
+      return fallback;
+    },
+    get availableCredits() {
+      return creditSources.reduce(
+        (totalCredits, source) => totalCredits + Number(source.getAvailableCredits() || 0),
+        0
+      );
+    },
+    spendCredits: (amount) => {
+      const normalizedAmount = Number(amount);
+      if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        return true;
+      }
+
+      let remainingCredits = normalizedAmount;
+      const withdrawals = [];
+
+      for (const source of creditSources) {
+        const availableCredits = Number(source.getAvailableCredits() || 0);
+        const spendAmount = Math.min(remainingCredits, availableCredits);
+
+        if (spendAmount <= 0) {
+          continue;
+        }
+
+        if (!source.spendCredits(spendAmount)) {
+          for (let i = withdrawals.length - 1; i >= 0; i -= 1) {
+            withdrawals[i].source.refundCredits(withdrawals[i].amount);
+          }
+          return false;
+        }
+
+        withdrawals.push({ source, amount: spendAmount });
+        remainingCredits -= spendAmount;
+        if (remainingCredits <= 0) {
+          return true;
+        }
+      }
+
+      return remainingCredits <= 0;
+    }
+  };
+}
+
+/**
  * Represents a stellar object (planet, station, asteroid) in the universe.
  * Stellar objects are the primary locations for economic activity and player interaction.
  */
@@ -233,42 +391,107 @@ class StellarObject {
    * Queue construction and deduct local object resources.
    * @param {string} buildingType - Type of building to construct
    * @param {Object} buildingsData - Building definitions from buildings.json
+   * @param {Object} [externalCreditSupport={}] - External credits available to fund construction
    * @returns {Object} Construction result
    * @example
-   * const result = obj.constructBuilding('Mine', buildingsData);
+   * const result = obj.constructBuilding('Mine', buildingsData, { availableCredits: 500, spendCredits: () => true });
    */
-  constructBuilding(buildingType, buildingsData) {
+  constructBuilding(buildingType, buildingsData, externalCreditSupport = {}) {
     const buildingData = buildingsData?.[buildingType];
     if (!buildingData) {
-      return { success: false, reason: 'Unknown building type' };
+      return {
+        success: false,
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
+          'construction.reasons.unknown_building_type',
+          {},
+          'Unknown building type'
+        )
+      };
     }
 
     if (!this.supportsBuilding(buildingData)) {
-      return { success: false, reason: `${buildingType} is not supported here` };
+      return {
+        success: false,
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
+          'construction.reasons.unsupported_building',
+          { buildingType },
+          `${buildingType} is not supported here`
+        )
+      };
     }
 
     const buildCost = buildingData.buildCost || {};
     const requiredCredits = Number(buildCost.credits || 0);
     const requiredGoods = buildCost.goods || {};
-    const availableCredits = Number(this.buildingCredits || 0);
+    const localCredits = Number(this.buildingCredits || 0);
+    const externalCredits = Number(externalCreditSupport?.availableCredits || 0);
     const availableGoods = this.marketState?.inventory || {};
 
-    if (availableCredits < requiredCredits) {
-      return { success: false, reason: 'Insufficient building credits at this location' };
-    }
-
     for (const [goodName, quantity] of Object.entries(requiredGoods)) {
-      if ((availableGoods[goodName] || 0) < quantity) {
-        return { success: false, reason: `Insufficient ${goodName} at this location` };
+      const availableQuantity = Number(availableGoods[goodName] || 0);
+      if (availableQuantity < quantity) {
+        return {
+          success: false,
+          reason: this.resolveConstructionMessage(
+            externalCreditSupport,
+            'construction.reasons.insufficient_good',
+            { goodName, requiredQuantity: quantity, availableQuantity },
+            `Insufficient ${goodName} at this location. Need ${quantity}, have ${availableQuantity}`
+          )
+        };
       }
     }
 
-    const queued = this.addBuilding(buildingType, buildingsData);
-    if (!queued) {
-      return { success: false, reason: 'Building limit reached or cannot construct building' };
+    if (localCredits + externalCredits < requiredCredits) {
+      return {
+        success: false,
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
+          'construction.reasons.insufficient_building_credits',
+          {},
+          'Insufficient building credits at this location'
+        )
+      };
     }
 
-    this.buildingCredits = availableCredits - requiredCredits;
+    const queuedConstructionIndex = this.buildingsUnderConstruction.length;
+    const queued = this.addBuilding(buildingType, buildingsData);
+    if (!queued) {
+      return {
+        success: false,
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
+          'construction.reasons.building_limit_reached',
+          {},
+          'Building limit reached or cannot construct building'
+        )
+      };
+    }
+
+    const localCreditsToSpend = Math.min(localCredits, requiredCredits);
+    const externalCreditsToSpend = requiredCredits - localCreditsToSpend;
+
+    if (
+      externalCreditsToSpend > 0 &&
+      (typeof externalCreditSupport?.spendCredits !== 'function' ||
+      !externalCreditSupport.spendCredits(externalCreditsToSpend))
+    ) {
+      this.buildingsUnderConstruction.splice(queuedConstructionIndex, 1);
+      this.buildingCredits = localCredits;
+      return {
+        success: false,
+        reason: this.resolveConstructionMessage(
+          externalCreditSupport,
+          'construction.reasons.insufficient_building_credits',
+          {},
+          'Insufficient building credits at this location'
+        )
+      };
+    }
+
+    this.buildingCredits = localCredits - localCreditsToSpend;
     Object.entries(requiredGoods).forEach(([goodName, quantity]) => {
       availableGoods[goodName] -= quantity;
       if (availableGoods[goodName] <= 0) {
@@ -281,6 +504,24 @@ class StellarObject {
       buildingType,
       ticksRemaining: buildingData.buildCost?.ticks || 0
     };
+  }
+
+  /**
+   * Resolve a localized construction failure message from external support.
+   * Falls back to the provided English message when no resolver is supplied.
+   * @param {Object} [externalCreditSupport={}] - External construction helpers
+   * @param {string} messageKey - Dot-delimited message key from game_messages.json
+   * @param {Object} [vars={}] - Template variables for replacement
+   * @param {string} fallback - Fallback English message when lookup fails
+   * @returns {string} Localized message text
+   * @example
+   * const reason = obj.resolveConstructionMessage({ getMessage: () => 'Localized text' }, 'construction.reasons.insufficient_building_credits', {}, 'Insufficient building credits at this location');
+   */
+  resolveConstructionMessage(externalCreditSupport = {}, messageKey, vars = {}, fallback = '') {
+    if (typeof externalCreditSupport?.getMessage === 'function') {
+      return externalCreditSupport.getMessage(messageKey, vars, fallback);
+    }
+    return fallback;
   }
 
   /**
@@ -500,4 +741,7 @@ class StellarObject {
   }
 }
 
-module.exports = { StellarObject };
+module.exports = {
+  StellarObject,
+  createConstructionCreditSupport
+};
