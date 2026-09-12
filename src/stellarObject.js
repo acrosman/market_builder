@@ -2,6 +2,164 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Find the player-controlled corporation that should fund construction here.
+ * Prefers a direct owner-name match, then falls back to the asset list.
+ * @param {Object} stellarObject - Controlled stellar object.
+ * @param {Object} player - Active player state.
+ * @param {Object[]} corporations - All game corporations.
+ * @returns {Object|null} Matching corporation or null.
+ * @example
+ * const corporation = findControllingCorporationForConstruction(object, player, corporations);
+ */
+function findControllingCorporationForConstruction(stellarObject, player, corporations) {
+  const ownedCorporations = player?.getOwnedCorporations(corporations) || [];
+
+  return ownedCorporations.find((corporation) =>
+    corporation?.name && corporation.name === stellarObject?.owner
+  ) ||
+  ownedCorporations.find((corporation) =>
+    Array.isArray(corporation?.stellarObjects) &&
+    corporation.stellarObjects.some(
+      (assetId) => Number(assetId) === Number(stellarObject?.id)
+    )
+  ) ||
+  null;
+}
+
+/**
+ * Create external credit support for construction at a controlled object.
+ * Uses player-owned corporation reserves first, then falls back to player credits.
+ * @param {Object} stellarObject - Controlled local object.
+ * @param {Object} player - Active player state.
+ * @param {Object[]} corporations - All game corporations.
+ * @param {Function} getMessage - Construction message resolver.
+ * @returns {Object} External credit support for construction.
+ * @example
+ * const creditSupport = createConstructionCreditSupport(object, player, corporations, getMessage);
+ */
+function createConstructionCreditSupport(stellarObject, player, corporations, getMessage) {
+  const controlledCorporation = findControllingCorporationForConstruction(stellarObject, player, corporations);
+  const getCorporationCredits = () => Number(
+    controlledCorporation?.getTotalCashReserves?.() ??
+    controlledCorporation?.cashReserves ??
+    0
+  );
+  const getPlayerCredits = () => Number(player?.credits || 0);
+  const creditSources = [];
+
+  if (controlledCorporation) {
+    creditSources.push({
+      getAvailableCredits: getCorporationCredits,
+      spendCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        const availableCorporationCredits = getCorporationCredits();
+        if (typeof controlledCorporation.spendCashReserve === 'function') {
+          return controlledCorporation.spendCashReserve(normalizedAmount);
+        }
+
+        if (availableCorporationCredits < normalizedAmount) {
+          return false;
+        }
+
+        controlledCorporation.cashReserves = availableCorporationCredits - normalizedAmount;
+        return true;
+      },
+      refundCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        if (typeof controlledCorporation.addCashReserve === 'function') {
+          return controlledCorporation.addCashReserve(normalizedAmount);
+        }
+
+        controlledCorporation.cashReserves = getCorporationCredits() + normalizedAmount;
+        return true;
+      }
+    });
+  }
+
+  if (player && typeof player.removeCredits === 'function') {
+    creditSources.push({
+      getAvailableCredits: getPlayerCredits,
+      spendCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+        return player.removeCredits(normalizedAmount);
+      },
+      refundCredits: (amount) => {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+          return true;
+        }
+
+        if (typeof player.addCredits === 'function') {
+          player.addCredits(normalizedAmount);
+          return true;
+        }
+
+        return false;
+      }
+    });
+  }
+
+  return {
+    getMessage: (messageKey, vars = {}, fallback = '') => {
+      if (typeof getMessage === 'function') {
+        return getMessage(messageKey, vars, fallback);
+      }
+      return fallback;
+    },
+    get availableCredits() {
+      return creditSources.reduce(
+        (totalCredits, source) => totalCredits + Number(source.getAvailableCredits() || 0),
+        0
+      );
+    },
+    spendCredits: (amount) => {
+      const normalizedAmount = Number(amount);
+      if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        return true;
+      }
+
+      let remainingCredits = normalizedAmount;
+      const withdrawals = [];
+
+      for (const source of creditSources) {
+        const availableCredits = Number(source.getAvailableCredits() || 0);
+        const spendAmount = Math.min(remainingCredits, availableCredits);
+
+        if (spendAmount <= 0) {
+          continue;
+        }
+
+        if (!source.spendCredits(spendAmount)) {
+          for (let i = withdrawals.length - 1; i >= 0; i -= 1) {
+            withdrawals[i].source.refundCredits(withdrawals[i].amount);
+          }
+          return false;
+        }
+
+        withdrawals.push({ source, amount: spendAmount });
+        remainingCredits -= spendAmount;
+        if (remainingCredits <= 0) {
+          return true;
+        }
+      }
+
+      return remainingCredits <= 0;
+    }
+  };
+}
+
+/**
  * Represents a stellar object (planet, station, asteroid) in the universe.
  * Stellar objects are the primary locations for economic activity and player interaction.
  */
@@ -581,4 +739,7 @@ class StellarObject {
   }
 }
 
-module.exports = { StellarObject };
+module.exports = {
+  StellarObject,
+  createConstructionCreditSupport
+};

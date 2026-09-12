@@ -5,30 +5,11 @@ const { EventBus } = require('./eventBus');
 const { Player } = require('./player');
 const { NPC } = require('./npc');
 const { Market } = require('./market');
+const { getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger } = require('./logger');
+const { createConstructionCreditSupport } = require('./stellarObject');
 
 const logger = createLogger('Game');
-
-/**
- * Replace message template variables with provided values.
- * @param {string} message - Message template containing {tokens}
- * @param {Object} [vars={}] - Replacement values keyed by token name
- * @returns {string|null} Localized message text, or null for invalid input
- * @example
- * const text = replaceMessageVariables('Need {required}, have {available}', { required: 10, available: 5 });
- */
-function replaceMessageVariables(message, vars = {}) {
-  if (typeof message !== 'string') {
-    return null;
-  }
-
-  return message.replace(/\{(\w+)\}/g, (match, variableName) => {
-    if (Object.prototype.hasOwnProperty.call(vars, variableName)) {
-      return String(vars[variableName]);
-    }
-    return match;
-  });
-}
 
 /**
  * Main game state manager
@@ -254,156 +235,6 @@ class Game {
   }
 
   /**
-   * Create external credit support for construction at a controlled object.
-   * Uses player-owned corporation reserves first, then falls back to player credits.
-   * @param {Object} stellarObject - Controlled local object.
-   * @returns {Object} External credit support for construction.
-   * @example
-   * const creditSupport = game.getConstructionCreditSupport(stellarObject);
-   */
-  getConstructionCreditSupport(stellarObject) {
-    const player = this.player;
-    const ownedCorporations = player?.getOwnedCorporations(this.corporations) || [];
-
-    // Prefer the corporation that directly owns the local object, but fall back
-    // to the controlled asset list so stale owner labels do not prevent a build
-    // from drawing funds from the company that still controls the asset.
-    const controlledCorporation =
-      ownedCorporations.find((corporation) =>
-        corporation?.name && corporation.name === stellarObject?.owner
-      ) ||
-      ownedCorporations.find((corporation) =>
-        Array.isArray(corporation?.stellarObjects) &&
-        corporation.stellarObjects.some(
-          (assetId) => Number(assetId) === Number(stellarObject?.id)
-        )
-      ) ||
-      null;
-
-    const getCorporationCredits = () => Number(
-      controlledCorporation?.getTotalCashReserves?.() ??
-      controlledCorporation?.cashReserves ??
-      0
-    );
-    const getPlayerCredits = () => Number(player?.credits || 0);
-    const creditSources = [];
-
-    if (controlledCorporation) {
-      // Use corporation reserves first so builds on company assets charge the
-      // company before the captain's personal credits are touched.
-      creditSources.push({
-        getAvailableCredits: getCorporationCredits,
-        spendCredits: (amount) => {
-          const normalizedAmount = Number(amount);
-          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-            return true;
-          }
-
-          const availableCorporationCredits = getCorporationCredits();
-          if (typeof controlledCorporation.spendCashReserve === 'function') {
-            return controlledCorporation.spendCashReserve(normalizedAmount);
-          }
-
-          if (availableCorporationCredits < normalizedAmount) {
-            return false;
-          }
-
-          controlledCorporation.cashReserves = availableCorporationCredits - normalizedAmount;
-          return true;
-        },
-        refundCredits: (amount) => {
-          const normalizedAmount = Number(amount);
-          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-            return true;
-          }
-
-          if (typeof controlledCorporation.addCashReserve === 'function') {
-            return controlledCorporation.addCashReserve(normalizedAmount);
-          }
-
-          controlledCorporation.cashReserves = getCorporationCredits() + normalizedAmount;
-          return true;
-        }
-      });
-    }
-
-    if (player && typeof player.removeCredits === 'function') {
-      // Personal credits remain a fallback pool when the company cannot fully
-      // cover the construction order on its own.
-      creditSources.push({
-        getAvailableCredits: getPlayerCredits,
-        spendCredits: (amount) => {
-          const normalizedAmount = Number(amount);
-          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-            return true;
-          }
-          return player.removeCredits(normalizedAmount);
-        },
-        refundCredits: (amount) => {
-          const normalizedAmount = Number(amount);
-          if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-            return true;
-          }
-
-          if (typeof player.addCredits === 'function') {
-            player.addCredits(normalizedAmount);
-            return true;
-          }
-
-          return false;
-        }
-      });
-    }
-
-    return {
-      getMessage: (messageKey, vars = {}, fallback = '') => this.getConstructionMessage(messageKey, vars, fallback),
-      get availableCredits() {
-        // Recompute on every access so validation sees the same live balances
-        // that the eventual spend path will use.
-        return creditSources.reduce(
-          (totalCredits, source) => totalCredits + Number(source.getAvailableCredits() || 0),
-          0
-        );
-      },
-      spendCredits: (amount) => {
-        const normalizedAmount = Number(amount);
-        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-          return true;
-        }
-
-        let remainingCredits = normalizedAmount;
-        const withdrawals = [];
-
-        for (const source of creditSources) {
-          const availableCredits = Number(source.getAvailableCredits() || 0);
-          const spendAmount = Math.min(remainingCredits, availableCredits);
-
-          if (spendAmount <= 0) {
-            continue;
-          }
-
-          if (!source.spendCredits(spendAmount)) {
-            // Roll back prior debits if any later source rejects its share so
-            // multi-source funding behaves like one atomic construction charge.
-            for (let i = withdrawals.length - 1; i >= 0; i -= 1) {
-              withdrawals[i].source.refundCredits(withdrawals[i].amount);
-            }
-            return false;
-          }
-
-          withdrawals.push({ source, amount: spendAmount });
-          remainingCredits -= spendAmount;
-          if (remainingCredits <= 0) {
-            return true;
-          }
-        }
-
-        return remainingCredits <= 0;
-      }
-    };
-  }
-
-  /**
    * Queue construction of a building at the player's current object.
    * @param {string} buildingType - Building type from buildings.json
    * @returns {Object} Build result
@@ -433,7 +264,12 @@ class Game {
       };
     }
     const buildingsData = this.getBuildingsData();
-    const creditSupport = this.getConstructionCreditSupport(stellarObject);
+    const creditSupport = createConstructionCreditSupport(
+      stellarObject,
+      this.player,
+      this.corporations,
+      (messageKey, vars = {}, fallback = '') => this.getConstructionMessage(messageKey, vars, fallback)
+    );
     const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);
     if (!buildResult.success) {
       return buildResult;
@@ -455,26 +291,12 @@ class Game {
    * const reason = game.getConstructionMessage('construction.reasons.not_controlled');
    */
   getConstructionMessage(messageKey, vars = {}, fallback = '') {
-    const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const messagesPath = path.join(__dirname, '..', dataDir, 'game_messages.json');
-
-    try {
-      const messagesData = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
-      const keys = messageKey.split('.');
-      let result = messagesData;
-
-      for (const key of keys) {
-        if (result && typeof result === 'object' && key in result) {
-          result = result[key];
-        } else {
-          return fallback;
-        }
-      }
-
-      return replaceMessageVariables(result, vars) || fallback;
-    } catch (error) {
-      return fallback;
-    }
+    return getLocalizedGameMessage(
+      this.settings.data_directory || 'data/default/en-us',
+      messageKey,
+      vars,
+      fallback
+    );
   }
 
   /**

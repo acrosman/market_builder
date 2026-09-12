@@ -98,6 +98,15 @@ describe('gameHelpers', () => {
       expect(replaceMessageVariables('no {braces here', { braces: 'X' }))
         .toBe('no {braces here');
     });
+
+    test('returns null for non-string messages', () => {
+      expect(replaceMessageVariables(null, { name: 'Captain' })).toBeNull();
+    });
+
+    test('handles missing variables object', () => {
+      expect(replaceMessageVariables('Hello {name}!', undefined))
+        .toBe('Hello {name}!');
+    });
   });
 
   describe('loadTemplate', () => {

@@ -34,12 +34,19 @@
    * Replace {token} variables in a message string.
    * Unmatched tokens are left as-is in the output.
    * @param {string} message - Message template with {variable} tokens.
-   * @param {Object} vars - Map of variable names to replacement values.
-   * @returns {string} Message with variables replaced.
+   * @param {Object} [vars={}] - Map of variable names to replacement values.
+   * @returns {string|null} Message with variables replaced, or null for invalid input.
    */
-  function replaceMessageVariables(message, vars) {
+  function replaceMessageVariables(message, vars = {}) {
+    if (typeof message !== 'string') {
+      return null;
+    }
+
     return message.replace(/\{(\w+)\}/g, (match, variable) => {
-      return vars[variable] !== undefined ? vars[variable] : match;
+      if (Object.prototype.hasOwnProperty.call(vars, variable)) {
+        return String(vars[variable]);
+      }
+      return match;
     });
   }
 
