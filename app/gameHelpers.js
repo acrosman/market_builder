@@ -1,4 +1,8 @@
 (function () {
+  const { replaceMessageVariables } = typeof module !== 'undefined' && module.exports
+    ? require('../shared/messageUtils')
+    : window.messageUtils;
+
   /**
    * Calculate total cargo mass from a cargo object and goods data.
    * Passengers are counted at 10 people per metric ton.
@@ -28,19 +32,6 @@
     }
 
     return cargoUsed;
-  }
-
-  /**
-   * Replace {token} variables in a message string.
-   * Unmatched tokens are left as-is in the output.
-   * @param {string} message - Message template with {variable} tokens.
-   * @param {Object} vars - Map of variable names to replacement values.
-   * @returns {string} Message with variables replaced.
-   */
-  function replaceMessageVariables(message, vars) {
-    return message.replace(/\{(\w+)\}/g, (match, variable) => {
-      return vars[variable] !== undefined ? vars[variable] : match;
-    });
   }
 
   /**

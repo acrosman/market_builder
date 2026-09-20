@@ -49,11 +49,7 @@ document.addEventListener(
               }
 
               for (const [key, message] of Object.entries(messages).filter(([k]) => k !== 'title')) {
-                const processedMessage = message.replace(/\{(\w+)\}/g, (match, variable) => {
-                  if (variable === 'playerName') return playerName;
-                  if (variable === 'corporationName') return corporationName;
-                  return match;
-                });
+                const processedMessage = window.gameHelpers.replaceMessageVariables(message, { playerName, corporationName });
                 addMessage(processedMessage);
               }
 

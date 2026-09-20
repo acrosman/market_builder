@@ -405,8 +405,11 @@ describe('windowManager IPC registration', () => {
     expect(handleHandlers['get-game-messages']({}, 'navigation.bad')).toBeNull();
     expect(handleHandlers['get-game-messages']()).toEqual(expect.objectContaining({ navigation: expect.any(Object) }));
 
+    const failingContext = registerWithMocks({
+      gameSettings: { data_directory: 'data/default/cache-miss' }
+    });
     mockReadFileSync.mockImplementationOnce(() => { throw new Error('read failed'); });
-    expect(handleHandlers['get-game-messages']({}, 'navigation.jumping')).toBeNull();
+    expect(failingContext.handleHandlers['get-game-messages']({}, 'navigation.jumping')).toBeNull();
     expect(mockLogger.error).toHaveBeenCalled();
   });
 

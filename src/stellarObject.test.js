@@ -449,7 +449,7 @@ describe('StellarObject', () => {
       expect(obj.marketState.inventory.metal).toBe(10);
     });
 
-    test('should fail when local resources are insufficient', () => {
+    test('should report missing goods before missing credits', () => {
       const obj = new StellarObject(
         1,
         'Planet',
@@ -464,7 +464,74 @@ describe('StellarObject', () => {
       const result = obj.constructBuilding('Mine', mockBuildingsData);
 
       expect(result.success).toBe(false);
+      expect(result.reason).toBe('Insufficient metal at this location. Need 10, have 5');
+    });
+
+    test('should fail when total construction credits are insufficient', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 400;
+      obj.marketState = { inventory: { metal: 20 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData);
+
+      expect(result.success).toBe(false);
       expect(result.reason).toBe('Insufficient building credits at this location');
+    });
+
+    test('should allow external credits to fund construction when local credits are low', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      const spendCredits = jest.fn(() => true);
+      obj.buildingCredits = 0;
+      obj.marketState = { inventory: { metal: 20 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData, {
+        availableCredits: 600,
+        spendCredits
+      });
+
+      expect(result.success).toBe(true);
+      expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 10 }]);
+      expect(obj.buildingCredits).toBe(0);
+      expect(obj.marketState.inventory.metal).toBe(10);
+      expect(spendCredits).toHaveBeenCalledWith(500);
+    });
+
+    test('should leave local credits unchanged when external funding fails', () => {
+      const obj = new StellarObject(
+        1,
+        'Planet',
+        'Earth-like',
+        5,
+        mockTypeDetails,
+        'Test Planet'
+      );
+      obj.buildingCredits = 200;
+      obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 3 }];
+      obj.marketState = { inventory: { metal: 20 } };
+
+      const result = obj.constructBuilding('Mine', mockBuildingsData, {
+        availableCredits: 400,
+        spendCredits: jest.fn(() => false)
+      });
+
+      expect(result.success).toBe(false);
+      expect(obj.buildingCredits).toBe(200);
+      expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Warehouse', ticksRemaining: 3 }]);
+      expect(obj.marketState.inventory.metal).toEqual(20);
     });
 
     test('building completion should occur only after required ticks elapse', () => {

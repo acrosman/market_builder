@@ -626,6 +626,20 @@ describe('Game Module', () => {
           buildingLimit: 10,
           buildingCredits: 5000,
           marketState: { inventory: { metal: 200 } },
+          findControllingCorporation(player, corporations) {
+            const ownedCorporations = player?.getOwnedCorporations(corporations) || [];
+
+            return ownedCorporations.find((corporation) =>
+              corporation?.name && corporation.name === this.owner
+            ) ||
+            ownedCorporations.find((corporation) =>
+              Array.isArray(corporation?.stellarObjects) &&
+              corporation.stellarObjects.some(
+                (assetId) => Number(assetId) === Number(this.id)
+              )
+            ) ||
+            null;
+          },
           getBuildableBuildingOptions: jest.fn((buildingsData) => {
             if (!buildingsData || !buildingsData.Mine) {
               return [];
@@ -761,8 +775,145 @@ describe('Game Module', () => {
         expect(result.success).toBe(true);
         expect(result.ticksRemaining).toBe(10);
         expect(result.objectId).toBe(object.id);
-        expect(object.constructBuilding).toHaveBeenCalledWith('Mine', expect.any(Object));
+        expect(object.constructBuilding).toHaveBeenCalledWith(
+          'Mine',
+          expect.any(Object),
+          expect.objectContaining({
+            availableCredits: expect.any(Number),
+            spendCredits: expect.any(Function)
+          })
+        );
         expect(object.constructBuilding.mock.calls[0][1]).toEqual(expect.objectContaining({ Mine: expect.any(Object) }));
+      });
+
+      test('buildBuildingAtCurrentObject exposes corporation reserves for controlled assets', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Test Corp',
+            description: 'A test corporation',
+            cashReserves: 700
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 0;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(700);
+        expect(creditSupport.spendCredits(500)).toBe(true);
+        expect(game.player.corporation.cashReserves).toBe(200);
+      });
+
+      test('buildBuildingAtCurrentObject falls back to player credits for controlled assets', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.player.location = 0;
+        game.player.corporation.cashReserves = 0;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(mockSettings.starting_credits);
+        expect(creditSupport.spendCredits(500)).toBe(true);
+        expect(game.player.credits).toBe(mockSettings.starting_credits - 500);
+      });
+
+      test('buildBuildingAtCurrentObject combines corporation and player funding when needed', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Test Corp',
+            description: 'A test corporation',
+            cashReserves: 200
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 400;
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(600);
+        expect(creditSupport.spendCredits(500)).toBe(true);
+        expect(game.player.corporation.cashReserves).toBe(0);
+        expect(game.player.credits).toBe(100);
+      });
+
+      test('buildBuildingAtCurrentObject rolls back earlier deductions when a later funder fails', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Test Corp',
+            description: 'A test corporation',
+            cashReserves: 200
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 400;
+        game.player.removeCredits = jest.fn(() => false);
+
+        const object = createBuildableObject({ buildingCredits: 0 });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.spendCredits(500)).toBe(false);
+        expect(game.player.corporation.cashReserves).toBe(200);
+        expect(game.player.credits).toBe(400);
+      });
+
+      test('buildBuildingAtCurrentObject charges the exact owner-name match over an earlier corporation with a stale asset match', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData({
+          corporation: {
+            name: 'Stale Asset Corp',
+            description: 'Owns a stale asset reference to the object',
+            cashReserves: 900
+          }
+        }));
+        game.player.location = 0;
+        game.player.credits = 0;
+
+        const object = createBuildableObject({ buildingCredits: 0, owner: 'Real Owner Corp' });
+        game.universe.stellarObjects = [object];
+        game.player.landedOn = object.id;
+
+        // The player's primary corporation (first in owned-corporation order) has a
+        // stale asset reference to this object but is not its actual owner. A second,
+        // later corporation is the object's exact owner and must be the one charged.
+        game.player.corporation.stellarObjects = [object.id];
+        game.corporations = [
+          game.player.corporation,
+          {
+            name: 'Real Owner Corp',
+            isPlayerOwned: true,
+            cashReserves: 300
+          }
+        ];
+
+        game.buildBuildingAtCurrentObject('Mine');
+
+        const creditSupport = object.constructBuilding.mock.calls[0][2];
+        expect(creditSupport.availableCredits).toBe(300);
+        expect(creditSupport.spendCredits(200)).toBe(true);
+        expect(game.corporations[1].cashReserves).toBe(100);
+        expect(game.player.corporation.cashReserves).toBe(900);
       });
     });
   });
