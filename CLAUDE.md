@@ -14,8 +14,8 @@ When in doubt about the best solution or request details ask. Propose potential 
 ### Environment
 
 - Electron: 39.x or greater
-- Node: 22.x
-- npm: >=10
+- Node: 22.x (recommended; not currently enforced via `package.json` engines)
+- npm: >=10 (recommended; not currently enforced via `package.json` engines)
 - Dependencies: d3 (visualization), uuid (IDs), electron-log (logger)
 
 ## Commands
@@ -27,6 +27,8 @@ When in doubt about the best solution or request details ask. Propose potential 
 - Check coverage: npm run test:coverage
 
 ## Architecture Overview
+
+`app/`, `src/`, and `data/` each have their own `CLAUDE.md` with module-level detail (class responsibilities, data shapes, shared-helper inventories) that this file does not restate. Read the nested file for the directory you're working in alongside this one.
 
 ### Process Model (Electron-specific)
 
@@ -91,7 +93,7 @@ This is a **multi-process Electron app** with strict security boundaries:
 1. Check `app/preload.js` - Is channel whitelisted in both `send`/`invoke` validChannels AND `receive`?
 2. Check `src/windowManager.js` - Is there a matching `ipcMain.on()` or `ipcMain.handle()`?
 3. Check renderer - Using correct API? `window.api.send()` (fire-and-forget) vs `window.api.invoke()` (returns Promise)
-   - For `window.api.invoke()` calls, always wrap in `try/catch` and surface failures to users via `addMessage('message:error.ipc_failure', { action })` (or an equivalent existing error message key). Do not silently swallow IPC errors.
+   - For `window.api.invoke()` calls, always wrap in `try/catch` and surface failures to users via an `addMessage('message:...')` call using an existing error message key where one fits the failure (for example `save_load.load_dialog_error` for save/load failures). No generic `error.*` namespace exists in `game_messages.json` yet — if no existing key fits, add one following the "No hardcoded UI strings" convention below rather than hardcoding text. Do not silently swallow IPC errors.
 
 ### Game State Management
 
@@ -221,10 +223,15 @@ See also Code Style Section above.
 - `src/windowManager.js` - Centralized IPC listener/handler registration for renderer ↔ main communication
 - `app/preload.js` - IPC whitelist and bridge
 - `src/game.js` - Core game logic and player state
+- `src/trader.js` - Shared base class for `Player`/`NPC`; always use its methods (`addCredits()`, `removeCargo()`, etc.) instead of direct property mutation — see `src/CLAUDE.md`
+- `src/player.js` - Player character (extends `Trader`)
+- `src/npc.js` - AI traders (extends `Trader`)
+- `src/corporation.js` - Economic entities: owned assets and asset valuation
 - `src/universe.js` - World generation and graph algorithms
 - `src/market.js` - Market initialization, trading, and dynamic pricing
 - `src/stellarObject.js` - Stellar object state and capabilities management
 - `src/eventBus.js` - Event system for game-wide notifications
+- `app/gameHelpers.js` - Canonical shared renderer helper module (`loadTemplate()`, `calculateCargoMass()`, `replaceMessageVariables()`) - see `app/CLAUDE.md`
 - `jest.config.js` - Test configuration (dual environments)
 - `data/default/en-us/game_settings.json` - Game configuration
 - `data/default/en-us/game_messages.json` - Localized text templates
