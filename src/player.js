@@ -40,7 +40,7 @@ class Player extends Trader {
    * @param {Object[]} corporations - All game corporations
    * @returns {Object[]} Player-owned corporations
    * @example
-   * const ownedCorporations = player.getOwnedCorporations(game.corporations);
+   * const ownedCorporations = player.getOwnedCorporations(game.getCorporations());
    */
   getOwnedCorporations(corporations = []) {
     const ownedCorporations = [];
@@ -77,7 +77,7 @@ class Player extends Trader {
    * @param {Object[]} corporations - All game corporations
    * @returns {boolean} True if the player controls the stellar object
    * @example
-   * const isControlled = player.controlsStellarObject(stellarObject, game.corporations);
+   * const isControlled = player.controlsStellarObject(stellarObject, game.getCorporations());
    */
   controlsStellarObject(stellarObject, corporations = []) {
     if (!stellarObject) {

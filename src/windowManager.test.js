@@ -111,6 +111,43 @@ function registerWithMocks(overrides = {}) {
 }
 
 /**
+ * Build a Game mock exposing the accessor methods windowManager calls.
+ * @param {Object} [state={}] - Backing state plus any Game method overrides.
+ * @param {Object} [state.universe] - Universe returned by getUniverse().
+ * @param {Object} [state.player] - Player returned by getPlayer().
+ * @param {Object[]} [state.corporations] - Corporations returned by getCorporations().
+ * @param {number[]} [state.exploredSystems] - Ids returned by getExploredSystems().
+ * @returns {Object} Game mock.
+ * @example
+ * const game = createGameMock({ universe, getSaveData: jest.fn(() => ({ test: true })) });
+ */
+function createGameMock(state = {}) {
+  const {
+    universe = null,
+    player = { getOwnedCorporations: jest.fn(() => []) },
+    corporations = [],
+    exploredSystems = [],
+    ...methodOverrides
+  } = state;
+
+  let currentUniverse = universe;
+
+  return {
+    initializeGame: jest.fn(),
+    getCurrentLocationState: jest.fn(() => ({})),
+    getPlayerState: jest.fn(() => ({})),
+    getUniverse: jest.fn(() => currentUniverse),
+    setUniverse: jest.fn((nextUniverse) => {
+      currentUniverse = nextUniverse;
+    }),
+    getPlayer: jest.fn(() => player),
+    getCorporations: jest.fn(() => corporations),
+    getExploredSystems: jest.fn(() => exploredSystems),
+    ...methodOverrides
+  };
+}
+
+/**
  * Create default valid player creation payload.
  * @returns {Object} Player payload.
  */
@@ -274,14 +311,12 @@ describe('windowManager IPC registration', () => {
       getStellarObjectTypeTotals: jest.fn(() => ({ Planet: 1 })),
       getStellarObjectTypeCountsBySystem: jest.fn(() => ({ 1: { Planet: 1 } }))
     };
-    const mockGame = {
+    const mockGame = createGameMock({
       universe,
       exploredSystems: [1],
-      initializeGame: jest.fn(),
       getCurrentLocationState: jest.fn(() => ({ locationId: 1 })),
-      getPlayerState: jest.fn(() => ({ name: 'Trader', shipEnergy: 50, shipMaxEnergy: 100 })),
-      player: { getOwnedCorporations: jest.fn(() => []) }
-    };
+      getPlayerState: jest.fn(() => ({ name: 'Trader', shipEnergy: 50, shipMaxEnergy: 100 }))
+    });
 
     const context = registerWithMocks();
     initializeGame(context, universe, mockGame);
@@ -331,14 +366,13 @@ describe('windowManager IPC registration', () => {
       getStellarObjectTypeCountsBySystem: jest.fn(() => ({ 1: { Station: 1 } }))
     };
 
-    const mockGame = {
+    const mockGame = createGameMock({
       universe,
-      initializeGame: jest.fn(),
       getCurrentLocationState: jest.fn(() => ({ locationId: 1 })),
       getPlayerState: jest.fn(() => ({ name: 'Trader' })),
       player: { getOwnedCorporations: jest.fn(() => [corporation]) },
       corporations: [corporation]
-    };
+    });
 
     const context = registerWithMocks();
     initializeGame(context, universe, mockGame);
@@ -429,18 +463,12 @@ describe('windowManager IPC registration', () => {
       getStellarObjectTypeTotals: jest.fn(() => ({})),
       getStellarObjectTypeCountsBySystem: jest.fn(() => ({}))
     };
-    const gameNoUniverseSystems = {
-      universe: {},
-      initializeGame: jest.fn(),
-      getCurrentLocationState: jest.fn(() => ({})),
-      getPlayerState: jest.fn(() => ({})),
-      player: { getOwnedCorporations: jest.fn(() => []) }
-    };
+    const gameNoUniverseSystems = createGameMock({ universe: {} });
 
     initializeGame(context, universe, gameNoUniverseSystems);
     expect(context.handleHandlers['get-all-systems']()).toEqual([]);
 
-    gameNoUniverseSystems.universe = universe;
+    gameNoUniverseSystems.setUniverse(universe);
     expect(context.handleHandlers['get-all-systems']()).toEqual([{ id: 2, name: 'Beta' }]);
   });
 
@@ -459,13 +487,11 @@ describe('windowManager IPC registration', () => {
     universe.getStellarObjectTypeTotals = jest.fn(() => ({}));
     universe.getStellarObjectTypeCountsBySystem = jest.fn(() => ({}));
 
-    const mockGame = {
+    const mockGame = createGameMock({
       universe,
-      initializeGame: jest.fn(),
-      getCurrentLocationState: jest.fn(() => ({})),
       getPlayerState: jest.fn(() => ({ shipEnergy: 50, shipMaxEnergy: 100 })),
       player: { energyPerJump: 6, getOwnedCorporations: jest.fn(() => []) }
-    };
+    });
 
     const context = registerWithMocks();
     initializeGame(context, universe, mockGame);
@@ -506,18 +532,14 @@ describe('windowManager IPC registration', () => {
       getStellarObjectTypeCountsBySystem: jest.fn(() => ({}))
     };
 
-    const mockGame = {
+    const mockGame = createGameMock({
       universe,
-      initializeGame: jest.fn(),
-      getCurrentLocationState: jest.fn(() => ({})),
-      getPlayerState: jest.fn(() => ({})),
-      player: { getOwnedCorporations: jest.fn(() => []) },
       jumpToSystem: jest.fn(() => ({ success: true })),
       dockAtStation: jest.fn(() => ({ success: true })),
       landOnPlanet: jest.fn(() => ({ success: true })),
       takeOff: jest.fn(() => ({ success: true })),
       buildBuildingAtCurrentObject: jest.fn(() => ({ success: true }))
-    };
+    });
 
     const context = registerWithMocks();
     initializeGame(context, universe, mockGame);
@@ -549,14 +571,10 @@ describe('windowManager IPC registration', () => {
       getStellarObjectTypeTotals: jest.fn(() => ({})),
       getStellarObjectTypeCountsBySystem: jest.fn(() => ({}))
     };
-    const mockGame = {
+    const mockGame = createGameMock({
       universe,
-      initializeGame: jest.fn(),
-      getCurrentLocationState: jest.fn(() => ({})),
-      getPlayerState: jest.fn(() => ({})),
-      player: { getOwnedCorporations: jest.fn(() => []) },
       getSaveData: jest.fn(() => ({ test: true }))
-    };
+    });
 
     const context = registerWithMocks();
     initializeGame(context, universe, mockGame);
@@ -618,7 +636,7 @@ describe('windowManager IPC registration', () => {
   });
 
   test('loads game successfully and emits load-game-error on failures', () => {
-    const loadedGame = {
+    const loadedGame = createGameMock({
       universe: {
         systems: [{ id: 1, name: 'Alpha' }],
         stellarObjects: [{ id: 1, type: 'Station', location: 1 }],
@@ -626,9 +644,8 @@ describe('windowManager IPC registration', () => {
         getStellarObjectTypeCountsBySystem: jest.fn(() => ({ 1: { Station: 1 } }))
       },
       getCurrentLocationState: jest.fn(() => ({ locationId: 1 })),
-      getPlayerState: jest.fn(() => ({ name: 'Loaded Player' })),
-      player: { getOwnedCorporations: jest.fn(() => []) }
-    };
+      getPlayerState: jest.fn(() => ({ name: 'Loaded Player' }))
+    });
 
     const { onHandlers, handleHandlers, dependencies } = registerWithMocks();
     const event = { reply: jest.fn() };
@@ -674,19 +691,15 @@ describe('windowManager IPC registration', () => {
       getStellarObjectTypeCountsBySystem: jest.fn(() => ({ 1: { Station: 1 } }))
     };
 
-    const mockGame = {
+    const mockGame = createGameMock({
       universe,
-      initializeGame: jest.fn(),
-      getCurrentLocationState: jest.fn(() => ({})),
-      getPlayerState: jest.fn(() => ({})),
-      player: { getOwnedCorporations: jest.fn(() => []) },
       getBuildableBuildingsForCurrentObject: jest.fn(() => ['Mine']),
       calculateMarketPrice: jest.fn(() => 42),
       buyGood: jest.fn(() => ({ success: true, action: 'buy' })),
       sellGood: jest.fn(() => ({ success: true, action: 'sell' })),
       loadPassengers: jest.fn(() => ({ success: true, loaded: 2 })),
       unloadPassengers: jest.fn(() => ({ success: true, unloaded: 2 }))
-    };
+    });
 
     const context = registerWithMocks();
     initializeGame(context, universe, mockGame);

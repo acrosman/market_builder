@@ -161,25 +161,60 @@ describe('get-game-messages IPC handler', () => {
     });
   });
 });
+/**
+ * Build a Game-shaped mock exposing the accessors the IPC handlers use.
+ * @param {Object} [state={}] - Backing state for the mock.
+ * @param {Object} [state.universe] - Universe returned by getUniverse().
+ * @param {number[]} [state.exploredSystems=[]] - Ids returned by getExploredSystems().
+ * @returns {Object} Game mock with accessor methods.
+ * @example
+ * const game = createGameStateMock({ universe, exploredSystems: [1, 2] });
+ */
+function createGameStateMock({ universe = null, exploredSystems = [] } = {}) {
+  return {
+    getUniverse: () => universe,
+    getExploredSystems: () => [...exploredSystems]
+  };
+}
+
+/**
+ * Mirror of the get-universe-state IPC handler in src/windowManager.js.
+ * @param {Object|null} currentGame - Active game session, or null.
+ * @returns {Object|null} Universe state payload, or null without a game.
+ * @example
+ * const state = getUniverseState(createGameStateMock({ universe }));
+ */
+function getUniverseState(currentGame) {
+  if (!currentGame || !currentGame.getUniverse()) return null;
+  return {
+    systems: currentGame.getUniverse().systems,
+    stellarObjects: currentGame.getUniverse().stellarObjects
+  };
+}
+
+/**
+ * Mirror of the get-universe-map-data IPC handler in src/windowManager.js.
+ * @param {Object|null} currentGame - Active game session, or null.
+ * @returns {Object|null} Map data payload, or null without a game.
+ * @example
+ * const mapData = getUniverseMapData(createGameStateMock({ universe }));
+ */
+function getUniverseMapData(currentGame) {
+  if (!currentGame || !currentGame.getUniverse()) return null;
+  return {
+    systems: currentGame.getUniverse().systems,
+    stellarObjects: currentGame.getUniverse().stellarObjects,
+    exploredSystems: currentGame.getExploredSystems()
+  };
+}
 
 describe('get-universe-state IPC handler', () => {
   test('should return null when no current game exists', () => {
-    const currentGame = null;
-
-    const getUniverseState = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects
-      };
-    };
-
-    const result = getUniverseState();
-    expect(result).toBeNull();
+    expect(getUniverseState(null)).toBeNull();
   });
 
   test('should return universe state with systems and stellarObjects', () => {
-    const currentGame = {
+    const currentGame = createGameStateMock({
       universe: {
         systems: [
           { id: 1, name: 'Alpha' },
@@ -191,17 +226,9 @@ describe('get-universe-state IPC handler', () => {
           { id: 3, name: 'Station One', type: 'Station', location: 2 }
         ]
       }
-    };
+    });
 
-    const getUniverseState = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects
-      };
-    };
-
-    const result = getUniverseState();
+    const result = getUniverseState(currentGame);
 
     expect(result).not.toBeNull();
     expect(result.systems).toHaveLength(2);
@@ -211,43 +238,17 @@ describe('get-universe-state IPC handler', () => {
   });
 
   test('should return null when universe is missing', () => {
-    const currentGame = {
-      player: { name: 'Test' }
-      // universe is missing
-    };
-
-    const getUniverseState = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects
-      };
-    };
-
-    const result = getUniverseState();
-    expect(result).toBeNull();
+    expect(getUniverseState(createGameStateMock())).toBeNull();
   });
 });
 
 describe('get-universe-map-data IPC handler', () => {
   test('should return null when no current game exists', () => {
-    const currentGame = null;
-
-    const getUniverseMapData = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects,
-        exploredSystems: currentGame.exploredSystems || []
-      };
-    };
-
-    const result = getUniverseMapData();
-    expect(result).toBeNull();
+    expect(getUniverseMapData(null)).toBeNull();
   });
 
   test('should return universe map data with systems, stellarObjects, and exploredSystems', () => {
-    const currentGame = {
+    const currentGame = createGameStateMock({
       universe: {
         systems: [
           { id: 1, name: 'Alpha', connections: { 2: 5 } },
@@ -261,18 +262,9 @@ describe('get-universe-map-data IPC handler', () => {
         ]
       },
       exploredSystems: [1, 2]
-    };
+    });
 
-    const getUniverseMapData = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects,
-        exploredSystems: currentGame.exploredSystems || []
-      };
-    };
-
-    const result = getUniverseMapData();
+    const result = getUniverseMapData(currentGame);
 
     expect(result).not.toBeNull();
     expect(result.systems).toHaveLength(3);
@@ -283,46 +275,20 @@ describe('get-universe-map-data IPC handler', () => {
   });
 
   test('should return empty exploredSystems array when not initialized', () => {
-    const currentGame = {
+    const currentGame = createGameStateMock({
       universe: {
         systems: [{ id: 1, name: 'Alpha' }],
         stellarObjects: [{ id: 1, name: 'Earth', type: 'Planet', location: 1 }]
       }
-      // exploredSystems not set
-    };
+    });
 
-    const getUniverseMapData = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects,
-        exploredSystems: currentGame.exploredSystems || []
-      };
-    };
-
-    const result = getUniverseMapData();
+    const result = getUniverseMapData(currentGame);
 
     expect(result).not.toBeNull();
     expect(result.exploredSystems).toEqual([]);
   });
 
   test('should return null when universe is missing', () => {
-    const currentGame = {
-      player: { name: 'Test' },
-      exploredSystems: [1]
-      // universe is missing
-    };
-
-    const getUniverseMapData = () => {
-      if (!currentGame || !currentGame.universe) return null;
-      return {
-        systems: currentGame.universe.systems,
-        stellarObjects: currentGame.universe.stellarObjects,
-        exploredSystems: currentGame.exploredSystems || []
-      };
-    };
-
-    const result = getUniverseMapData();
-    expect(result).toBeNull();
+    expect(getUniverseMapData(createGameStateMock({ exploredSystems: [1] }))).toBeNull();
   });
 });

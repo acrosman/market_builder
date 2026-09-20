@@ -51,7 +51,7 @@ function registerIpcHandlers(dependencies) {
       return null;
     }
 
-    return corporation.getCompanyManagementState(getCurrentGame()?.universe);
+    return corporation.getCompanyManagementState(getCurrentGame()?.getUniverse());
   }
 
   /**
@@ -62,11 +62,11 @@ function registerIpcHandlers(dependencies) {
    */
   function getPlayerControlledCorporations() {
     const currentGame = getCurrentGame();
-    if (!currentGame || !currentGame.player) {
+    if (!currentGame || !currentGame.getPlayer()) {
       return [];
     }
 
-    return currentGame.player.getOwnedCorporations(currentGame.corporations);
+    return currentGame.getPlayer().getOwnedCorporations(currentGame.getCorporations());
   }
 
   /**
@@ -243,10 +243,10 @@ function registerIpcHandlers(dependencies) {
   // IPC: Return full universe state for active game session.
   ipcMain.handle('get-universe-state', () => {
     const currentGame = getCurrentGame();
-    if (!currentGame || !currentGame.universe) return null;
+    if (!currentGame || !currentGame.getUniverse()) return null;
     return {
-      systems: currentGame.universe.systems,
-      stellarObjects: currentGame.universe.stellarObjects
+      systems: currentGame.getUniverse().systems,
+      stellarObjects: currentGame.getUniverse().stellarObjects
     };
   });
 
@@ -280,7 +280,7 @@ function registerIpcHandlers(dependencies) {
     }
 
     if (previousName !== corporation.name) {
-      currentGame.universe.stellarObjects.forEach((stellarObject) => {
+      currentGame.getUniverse().stellarObjects.forEach((stellarObject) => {
         if (stellarObject.owner === previousName) {
           stellarObject.setOwner(corporation.name);
         }
@@ -359,11 +359,11 @@ function registerIpcHandlers(dependencies) {
   // IPC: Return map data, including explored systems, for map rendering.
   ipcMain.handle('get-universe-map-data', () => {
     const currentGame = getCurrentGame();
-    if (!currentGame || !currentGame.universe) return null;
+    if (!currentGame || !currentGame.getUniverse()) return null;
     return {
-      systems: currentGame.universe.systems,
-      stellarObjects: currentGame.universe.stellarObjects,
-      exploredSystems: currentGame.exploredSystems || []
+      systems: currentGame.getUniverse().systems,
+      stellarObjects: currentGame.getUniverse().stellarObjects,
+      exploredSystems: currentGame.getExploredSystems()
     };
   });
 
@@ -386,16 +386,12 @@ function registerIpcHandlers(dependencies) {
       logger.error('[DEBUG get-all-systems] currentGame is not initialized');
       return [];
     }
-    if (!currentGame.universe) {
-      logger.error('[DEBUG get-all-systems] currentGame.universe is not initialized');
+    const universe = currentGame.getUniverse();
+    if (!universe || !universe.systems) {
+      logger.error('[get-all-systems] Universe systems are not initialized');
       return [];
     }
-    if (!currentGame.universe.systems) {
-      logger.error('[DEBUG get-all-systems] currentGame.universe.systems is not initialized');
-      return [];
-    }
-    logger.debug('[DEBUG get-all-systems] Returning', currentGame.universe.systems.length, 'systems');
-    return currentGame.universe.systems.map(sys => ({ id: sys.id, name: sys.name }));
+    return universe.systems.map(sys => ({ id: sys.id, name: sys.name }));
   });
 
   // IPC: Calculate shortest jump route and required energy between systems.
@@ -406,7 +402,7 @@ function registerIpcHandlers(dependencies) {
       return { success: false, reason: 'No active game' };
     }
 
-    const route = currentGame.universe.findShortestPath(start, destination);
+    const route = currentGame.getUniverse().findShortestPath(start, destination);
     logger.debug('[DEBUG calculate-jump-route] route result:', route);
 
     if (!route) {
@@ -415,7 +411,7 @@ function registerIpcHandlers(dependencies) {
 
     const playerState = currentGame.getPlayerState();
     const energyPerJump = playerState.shipEnergy / (playerState.shipMaxEnergy || 1) > 0
-      ? currentGame.player.energyPerJump
+      ? currentGame.getPlayer().energyPerJump
       : 0;
     const energyRequired = (route.path.length - 1) * energyPerJump;
 
@@ -560,7 +556,7 @@ function registerIpcHandlers(dependencies) {
         throw new Error('Loaded save did not produce a valid game');
       }
       setCurrentGame(loadedGame);
-      currentUniverse = loadedGame.universe || null;
+      currentUniverse = loadedGame.getUniverse() || null;
       event.reply('load-game-result', { success: true });
       openGameWindow();
     } catch (error) {
@@ -621,7 +617,7 @@ function registerIpcHandlers(dependencies) {
     }
 
     try {
-      const stellarObject = currentGame.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+      const stellarObject = currentGame.getUniverse().stellarObjects.find(obj => obj.id === stellarObjectId);
       if (!stellarObject) {
         logger.error('Stellar object not found:', stellarObjectId);
         return null;
