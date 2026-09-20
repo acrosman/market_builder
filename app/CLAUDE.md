@@ -1,0 +1,50 @@
+All interface code lives in this directory tree.
+
+- **index.html** - Main menu
+- **new_game.html/js** - Universe creation (parameters) → player_creation flow
+- **player_creation.html/js** - Character creation form → initializes game
+- **game.html/js** - Main gameplay interface
+  - Location display with dynamic images
+  - Ship status panel
+  - Action buttons (context-sensitive: jump/dock/land/takeoff)
+  - Console for messages (uses template system)
+  - Modals: player status, corporation status, jump planner
+- **images** - This is for universal game images, like the logo. These images cannot be overridden by the data directory content.
+
+## Shared patterns
+
+- Load HTML templates from `app/templates/` or `app/modals/` via shared helpers (`window.gameHelpers.loadTemplate()` in renderer modules)
+- Use available shared helpers in `app/gameHelpers.js`: `loadTemplate(templatePath)`, `calculateCargoMass(cargo, goodsData)`, `replaceMessageVariables(message, vars)`
+- For new cross-module utility logic, add it to `app/gameHelpers.js` and export it via `window.gameHelpers` instead of duplicating per file
+- See Code Style: No HTML in JS rule
+- CSS files in `app/css/` (one per page + shared)
+- **Modal pattern**: Fetch from `app/modals/`, create overlay div, append modal content, add close handlers
+- **Data directory pattern**: Thread `dataDir` parameter through constructors (defaults to `data/default/en-us`), use `path.join(__dirname, '..', dataDir, 'file.json')` for file access
+
+### Template Loading Pattern
+
+When building dynamic UI content, **always** use HTML templates:
+
+1. **Create template file**: Place in `app/templates/` or `app/modals/`
+2. **Load template**: `const template = await window.gameHelpers.loadTemplate('./templates/file.html')`
+3. **Insert into DOM**: `container.innerHTML = template` or create wrapper div
+4. **Populate data**: Use `querySelector()` and `textContent` to fill in dynamic values
+
+**Example**:
+
+```javascript
+// Load template
+const itemTemplate = await window.gameHelpers.loadTemplate('./templates/item.html');
+const itemDiv = document.createElement('div');
+itemDiv.innerHTML = itemTemplate;
+const item = itemDiv.firstElementChild;
+
+// Populate with data
+item.querySelector('#item-name').textContent = name;
+item.querySelector('#item-price').textContent = price;
+
+// Add to DOM
+container.appendChild(item);
+```
+
+**Why**: Separates presentation (HTML) from logic (JS), maintains security (prevents XSS), supports localization, and keeps code maintainable.
