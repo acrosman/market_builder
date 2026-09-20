@@ -130,16 +130,13 @@ function createGameMock(state = {}) {
     ...methodOverrides
   } = state;
 
-  let currentUniverse = universe;
+  const currentUniverse = universe;
 
   return {
     initializeGame: jest.fn(),
     getCurrentLocationState: jest.fn(() => ({})),
     getPlayerState: jest.fn(() => ({})),
     getUniverse: jest.fn(() => currentUniverse),
-    setUniverse: jest.fn((nextUniverse) => {
-      currentUniverse = nextUniverse;
-    }),
     getPlayer: jest.fn(() => player),
     getCorporations: jest.fn(() => corporations),
     getExploredSystems: jest.fn(() => exploredSystems),
@@ -468,7 +465,7 @@ describe('windowManager IPC registration', () => {
     initializeGame(context, universe, gameNoUniverseSystems);
     expect(context.handleHandlers['get-all-systems']()).toEqual([]);
 
-    gameNoUniverseSystems.setUniverse(universe);
+    gameNoUniverseSystems.getUniverse.mockReturnValue(universe);
     expect(context.handleHandlers['get-all-systems']()).toEqual([{ id: 2, name: 'Beta' }]);
   });
 

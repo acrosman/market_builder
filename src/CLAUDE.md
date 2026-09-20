@@ -8,8 +8,12 @@ Overview of src files. These are backend modules that only run on the main proce
     write `game.player`, `game.universe`, `game.turn`, etc. directly from outside the class.
     - Read: `getUniverse()`, `getSettings()`, `getDataDirectory()`, `getEventBus()`, `getMarket()`,
       `getPlayer()`, `getNPCs()`, `getCorporations()`, `getTurn()`, `getTicks()`, `getExploredSystems()`
-    - Write: `setUniverse()`, `setPlayer()`, `setNPCs()`, `addNPC()`, `setCorporations()`,
+    - Write: `setPlayer()`, `setNPCs()`, `addNPC()`, `setCorporations()`,
       `addCorporation()`, `setTurn()`, `setTicks()`, `setExploredSystems()`, `addExploredSystem()`
+    - `universe`, `settings`, `eventBus`, and `market` are session-scoped collaborators set
+      in the constructor and have no setters. `Market` caches its own universe reference and
+      stellar objects subscribe to tick events at setup, so swapping either on a live `Game`
+      would desync them — build a new `Game` instead (that is what `loadGame()` does).
     - Lookups: `findCorporation(name)`, `findStellarObject(id)`, `hasExploredSystem(id)`
     - Setters validate types and throw `TypeError` on bad input; the array getters
       (`getNPCs()`, `getCorporations()`, `getExploredSystems()`) return shallow copies, so

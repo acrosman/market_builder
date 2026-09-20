@@ -95,25 +95,15 @@ class Game {
 
   /**
    * Get the universe for this game session.
+   * Read-only by design: Market caches its own universe reference and stellar
+   * objects subscribe to tick events at setup, so swapping the universe on a
+   * live Game would leave both out of sync. Build a new Game instead.
    * @returns {Object} Universe instance.
    * @example
    * const systems = game.getUniverse().systems;
    */
   getUniverse() {
     return this.universe;
-  }
-
-  /**
-   * Replace the universe for this game session.
-   * @param {Object} universe - Universe instance.
-   * @returns {void}
-   * @throws {TypeError} When the universe is not an object.
-   * @example
-   * game.setUniverse(rebuiltUniverse);
-   */
-  setUniverse(universe) {
-    assertObject(universe, 'universe');
-    this.universe = universe;
   }
 
   /**
@@ -976,8 +966,44 @@ class Game {
       };
     }
 
-    // Calculate available passengers
+    const player = this.getPlayer();
+
+    // Check if player is docked or landed at the location
+    if (player.dockedAt !== stellarObjectId && player.landedOn !== stellarObjectId) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.not_at_location',
+          {},
+          'You must be docked or landed at this location'
+        )
+      };
+    }
+
+    // Ensure passengerCount is a positive integer before any arithmetic runs
+    const requestedCount = parseInt(passengerCount, 10);
+    if (isNaN(requestedCount) || requestedCount <= 0) {
+      return {
+        success: false,
+        message: this.getMessage('passengers.invalid_count', {}, 'Invalid passenger count')
+      };
+    }
+
+    // Calculate available passengers. A zero or missing population limit (for
+    // example an Abandoned Station) makes the percentage NaN, which would slip
+    // past every comparison below and drive population negative.
     const population = stellarObject.population;
+    if (!population || !(population.limit > 0)) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.population_too_low',
+          {},
+          'Population is too low. People are not willing to leave.'
+        )
+      };
+    }
+
     const populationPercent = (population.current / population.limit) * 100;
 
     if (populationPercent < 25) {
@@ -994,7 +1020,7 @@ class Game {
     const willingPercent = ((populationPercent - 25) / 75) * 50;
     const availablePassengers = Math.floor((population.current * willingPercent) / 100);
 
-    if (passengerCount > availablePassengers) {
+    if (requestedCount > availablePassengers) {
       return {
         success: false,
         message: this.getMessage(
@@ -1006,8 +1032,7 @@ class Game {
     }
 
     // Check cargo capacity (10 people per ton)
-    const cargoNeeded = passengerCount / 10;
-    const player = this.getPlayer();
+    const cargoNeeded = requestedCount / 10;
     const currentCargo = this.calculateCargoUsed();
     const shipsPath = path.join(__dirname, '..', this.getDataDirectory(), 'ships.json');
     const shipsData = JSON.parse(fs.readFileSync(shipsPath, 'utf-8'));
@@ -1028,15 +1053,15 @@ class Game {
     }
 
     // Execute transaction
-    stellarObject.population.current -= passengerCount;
-    player.cargo.passengers = (player.cargo.passengers || 0) + passengerCount;
+    stellarObject.population.current -= requestedCount;
+    player.cargo.passengers = (player.cargo.passengers || 0) + requestedCount;
 
     return {
       success: true,
       message: this.getMessage(
         'passengers.load_success',
-        { passengerCount, cargoUsed: cargoNeeded.toFixed(2) },
-        `Loaded ${passengerCount} passengers (${cargoNeeded.toFixed(2)} tons)`
+        { passengerCount: requestedCount, cargoUsed: cargoNeeded.toFixed(2) },
+        `Loaded ${requestedCount} passengers (${cargoNeeded.toFixed(2)} tons)`
       )
     };
   }

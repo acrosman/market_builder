@@ -1375,6 +1375,43 @@ describe('Game Module', () => {
       game.getPlayer().landedOn = 1;
     });
 
+    test('loadPassengers rejects a NaN passenger count without corrupting state', () => {
+      const result = game.loadPassengers(1, parseInt('', 10));
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Invalid passenger count');
+      expect(stellarObject.population.current).toBe(500000);
+      expect(game.getPlayer().cargo.passengers).toBeUndefined();
+      expect(game.calculateCargoUsed()).not.toBeNaN();
+    });
+
+    test('loadPassengers rejects a zero or negative passenger count', () => {
+      expect(game.loadPassengers(1, 0).message).toBe('Invalid passenger count');
+      expect(game.loadPassengers(1, -5).message).toBe('Invalid passenger count');
+      expect(stellarObject.population.current).toBe(500000);
+    });
+
+    test('loadPassengers fails when the location has no population limit', () => {
+      stellarObject.population = { current: 0, limit: 0, growthRate: -100 };
+
+      const result = game.loadPassengers(1, 50);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('too low');
+      expect(stellarObject.population.current).toBe(0);
+    });
+
+    test('loadPassengers fails when the player is not docked or landed there', () => {
+      game.getPlayer().landedOn = null;
+      game.getPlayer().dockedAt = null;
+
+      const result = game.loadPassengers(1, 10);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('docked or landed');
+      expect(stellarObject.population.current).toBe(500000);
+    });
+
     test('loadPassengers fails when stellar object not found', () => {
       const result = game.loadPassengers(999, 10);
       expect(result.success).toBe(false);
@@ -1538,16 +1575,9 @@ describe('Game Module', () => {
         expect(game.getUniverse()).toBe(mockUniverse);
       });
 
-      test('setUniverse replaces the universe', () => {
-        const replacement = { systems: [], stellarObjects: [] };
-        game.setUniverse(replacement);
-        expect(game.getUniverse()).toBe(replacement);
-      });
-
-      test('setUniverse rejects non-object values', () => {
-        expect(() => game.setUniverse(null)).toThrow(TypeError);
-        expect(() => game.setUniverse('universe')).toThrow(TypeError);
-        expect(game.getUniverse()).toBe(mockUniverse);
+      test('exposes no universe setter, because Market caches its own reference', () => {
+        expect(game.setUniverse).toBeUndefined();
+        expect(game.getMarket().universe).toBe(game.getUniverse());
       });
 
       test('getSettings returns the configured settings', () => {
