@@ -123,6 +123,9 @@ app.on('activate', () => {
 
 let gameSetupWindow = null;
 
+// Single source of truth for the active game session.
+let currentGame = null;
+
 function openGameSetupWindow() {
   if (gameSetupWindow) {
     gameSetupWindow.focus();
@@ -191,5 +194,9 @@ registerIpcHandlers({
   getGameSetupWindow: () => gameSetupWindow,
   openGameSetupWindow,
   openGameWindow,
-  getMainWindow: () => mainWindow
+  getMainWindow: () => mainWindow,
+  getCurrentGame: () => currentGame,
+  setCurrentGame: (game) => {
+    currentGame = game;
+  }
 });

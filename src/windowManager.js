@@ -15,22 +15,29 @@ const { createLogger, validLogLevels } = require('./logger');
  * @param {Function} dependencies.openGameSetupWindow - Opens setup window.
  * @param {Function} dependencies.openGameWindow - Opens main game window.
  * @param {Function} dependencies.getMainWindow - Returns active main window.
+ * @param {Function} dependencies.getCurrentGame - Returns the active game session (single source of truth lives in main.js).
+ * @param {Function} dependencies.setCurrentGame - Replaces the active game session (single source of truth lives in main.js).
  * @returns {void}
  * @example
- * registerIpcHandlers({ ipcMain, gameSettings, getGameSetupWindow, openGameSetupWindow, openGameWindow, getMainWindow });
+ * registerIpcHandlers({
+ *   ipcMain, gameSettings, getGameSetupWindow, openGameSetupWindow, openGameWindow, getMainWindow,
+ *   getCurrentGame, setCurrentGame
+ * });
  */
-function registerIpcHandlers({
-  ipcMain,
-  gameSettings,
-  getGameSetupWindow,
-  openGameSetupWindow,
-  openGameWindow,
-  getMainWindow
-}) {
+function registerIpcHandlers(dependencies) {
+  const {
+    ipcMain,
+    gameSettings,
+    getGameSetupWindow,
+    openGameSetupWindow,
+    openGameWindow,
+    getMainWindow,
+    getCurrentGame,
+    setCurrentGame
+  } = dependencies;
   const logger = createLogger('main');
   const baseDir = path.join(__dirname, '..');
   let currentUniverse = null;
-  let currentGame = null;
 
   /**
    * Get a renderer-friendly company management snapshot.
@@ -44,7 +51,7 @@ function registerIpcHandlers({
       return null;
     }
 
-    return corporation.getCompanyManagementState(currentGame?.universe);
+    return corporation.getCompanyManagementState(getCurrentGame()?.universe);
   }
 
   /**
@@ -54,6 +61,7 @@ function registerIpcHandlers({
    * const companies = getPlayerControlledCorporations();
    */
   function getPlayerControlledCorporations() {
+    const currentGame = getCurrentGame();
     if (!currentGame || !currentGame.player) {
       return [];
     }
@@ -190,8 +198,9 @@ function registerIpcHandlers({
       return;
     }
 
-    currentGame = new Game(currentUniverse, gameSettings);
-    currentGame.initializeGame(playerData);
+    const newGame = new Game(currentUniverse, gameSettings);
+    newGame.initializeGame(playerData);
+    setCurrentGame(newGame);
 
     const setupWindow = getGameSetupWindow();
     if (setupWindow) {
@@ -222,6 +231,7 @@ function registerIpcHandlers({
 
   // IPC: Return current location state and player snapshot for gameplay UI.
   ipcMain.handle('get-location-state', () => {
+    const currentGame = getCurrentGame();
     if (!currentGame) return null;
     const locationState = currentGame.getCurrentLocationState();
     return {
@@ -232,6 +242,7 @@ function registerIpcHandlers({
 
   // IPC: Return full universe state for active game session.
   ipcMain.handle('get-universe-state', () => {
+    const currentGame = getCurrentGame();
     if (!currentGame || !currentGame.universe) return null;
     return {
       systems: currentGame.universe.systems,
@@ -252,6 +263,7 @@ function registerIpcHandlers({
 
   // IPC: Update company profile details and synchronize owned object ownership names.
   ipcMain.handle('update-company-profile', (event, payload = {}) => {
+    const currentGame = getCurrentGame();
     const corporation = findPlayerControlledCorporation(payload.currentName);
     if (!corporation) {
       return { success: false };
@@ -346,6 +358,7 @@ function registerIpcHandlers({
 
   // IPC: Return map data, including explored systems, for map rendering.
   ipcMain.handle('get-universe-map-data', () => {
+    const currentGame = getCurrentGame();
     if (!currentGame || !currentGame.universe) return null;
     return {
       systems: currentGame.universe.systems,
@@ -368,6 +381,7 @@ function registerIpcHandlers({
 
   // IPC: Return simplified system list for jump planner UI.
   ipcMain.handle('get-all-systems', () => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       logger.error('[DEBUG get-all-systems] currentGame is not initialized');
       return [];
@@ -387,6 +401,7 @@ function registerIpcHandlers({
   // IPC: Calculate shortest jump route and required energy between systems.
   ipcMain.handle('calculate-jump-route', (event, { start, destination }) => {
     logger.debug('[DEBUG calculate-jump-route] start:', start, 'destination:', destination);
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       return { success: false, reason: 'No active game' };
     }
@@ -415,6 +430,7 @@ function registerIpcHandlers({
 
   // IPC: Attempt to jump player ship to another system.
   ipcMain.on('jump-to-system', (event, targetSystemId) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       event.reply('jump-result', { success: false, reason: 'No active game' });
       return;
@@ -427,6 +443,7 @@ function registerIpcHandlers({
 
   // IPC: Attempt to dock at a station in the current system.
   ipcMain.on('dock-at-station', (event, objectId) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       event.reply('dock-result', { success: false, reason: 'No active game' });
       return;
@@ -439,6 +456,7 @@ function registerIpcHandlers({
 
   // IPC: Attempt to land on a planetary surface in the current system.
   ipcMain.on('land-on-surface', (event, objectId) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       event.reply('land-result', { success: false, reason: 'No active game' });
       return;
@@ -451,6 +469,7 @@ function registerIpcHandlers({
 
   // IPC: Attempt player ship takeoff from current landed location.
   ipcMain.on('take-off', (event) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       event.reply('takeoff-result', { success: false, reason: 'No active game' });
       return;
@@ -466,6 +485,7 @@ function registerIpcHandlers({
 
   // IPC: Save current game state to user save directory.
   ipcMain.on('save-game', (event) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       event.reply('save-game-result', { success: false, reason: 'No active game' });
       return;
@@ -539,7 +559,7 @@ function registerIpcHandlers({
       if (!loadedGame || typeof loadedGame !== 'object') {
         throw new Error('Loaded save did not produce a valid game');
       }
-      currentGame = loadedGame;
+      setCurrentGame(loadedGame);
       currentUniverse = loadedGame.universe || null;
       event.reply('load-game-result', { success: true });
       openGameWindow();
@@ -565,6 +585,7 @@ function registerIpcHandlers({
 
   // IPC: Return list of buildings available at current location.
   ipcMain.handle('get-buildable-buildings', () => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       return [];
     }
@@ -573,6 +594,7 @@ function registerIpcHandlers({
 
   // IPC: Attempt building construction at current location.
   ipcMain.on('construct-building', (event, buildingType) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       event.reply('build-result', {
         success: false,
@@ -593,6 +615,7 @@ function registerIpcHandlers({
 
   // IPC: Calculate market price for a good at a specific location.
   ipcMain.handle('get-market-price', (event, { stellarObjectId, goodName, priceType }) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       return null;
     }
@@ -612,6 +635,7 @@ function registerIpcHandlers({
 
   // IPC: Execute a buy or sell goods trade action.
   ipcMain.handle('trade-goods', (event, tradeData) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       return { success: false, message: 'No active game' };
     }
@@ -631,6 +655,7 @@ function registerIpcHandlers({
 
   // IPC: Load passengers at current location.
   ipcMain.handle('load-passengers', (event, passengerData) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       return { success: false, message: 'No active game' };
     }
@@ -641,6 +666,7 @@ function registerIpcHandlers({
 
   // IPC: Unload passengers at current location.
   ipcMain.handle('unload-passengers', (event, passengerData) => {
+    const currentGame = getCurrentGame();
     if (!currentGame) {
       return { success: false, message: 'No active game' };
     }

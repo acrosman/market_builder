@@ -84,6 +84,7 @@ function registerWithMocks(overrides = {}) {
       send: jest.fn()
     }
   };
+  let currentGame = null;
 
   const dependencies = {
     ipcMain,
@@ -92,6 +93,10 @@ function registerWithMocks(overrides = {}) {
     openGameSetupWindow: jest.fn(),
     openGameWindow: jest.fn(),
     getMainWindow: jest.fn(() => ({ id: 'main-window' })),
+    getCurrentGame: jest.fn(() => currentGame),
+    setCurrentGame: jest.fn((game) => {
+      currentGame = game;
+    }),
     ...overrides
   };
 
