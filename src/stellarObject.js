@@ -2,31 +2,6 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Find the player-controlled corporation that should fund construction here.
- * Prefers a direct owner-name match, then falls back to the asset list.
- * @param {Object} stellarObject - Controlled stellar object.
- * @param {Object} player - Active player state.
- * @param {Object[]} corporations - All game corporations.
- * @returns {Object|null} Matching corporation or null.
- * @example
- * const corporation = findControllingCorporationForConstruction(object, player, corporations);
- */
-function findControllingCorporationForConstruction(stellarObject, player, corporations) {
-  const ownedCorporations = player?.getOwnedCorporations(corporations) || [];
-
-  return ownedCorporations.find((corporation) =>
-    corporation?.name && corporation.name === stellarObject?.owner
-  ) ||
-  ownedCorporations.find((corporation) =>
-    Array.isArray(corporation?.stellarObjects) &&
-    corporation.stellarObjects.some(
-      (assetId) => Number(assetId) === Number(stellarObject?.id)
-    )
-  ) ||
-  null;
-}
-
-/**
  * Create external credit support for construction at a controlled object.
  * Uses player-owned corporation reserves first, then falls back to player credits.
  * @param {Object} stellarObject - Controlled local object.
@@ -38,7 +13,7 @@ function findControllingCorporationForConstruction(stellarObject, player, corpor
  * const creditSupport = createConstructionCreditSupport(object, player, corporations, getMessage);
  */
 function createConstructionCreditSupport(stellarObject, player, corporations, getMessage) {
-  const controlledCorporation = findControllingCorporationForConstruction(stellarObject, player, corporations);
+  const controlledCorporation = stellarObject?.findControllingCorporation(player, corporations) || null;
   const getCorporationCredits = () => Number(
     controlledCorporation?.getTotalCashReserves?.() ??
     controlledCorporation?.cashReserves ??
@@ -385,6 +360,30 @@ class StellarObject {
         builtCount: this.buildings?.[buildingType]?.count || 0,
         isBuilt: (this.buildings?.[buildingType]?.count || 0) > 0
       }));
+  }
+
+  /**
+   * Find the player-controlled corporation that should fund construction here.
+   * Prefers a direct owner-name match, then falls back to the asset list.
+   * @param {Object} player - Active player state.
+   * @param {Object[]} corporations - All game corporations.
+   * @returns {Object|null} Matching corporation or null.
+   * @example
+   * const corporation = stellarObject.findControllingCorporation(player, corporations);
+   */
+  findControllingCorporation(player, corporations) {
+    const ownedCorporations = player?.getOwnedCorporations(corporations) || [];
+
+    return ownedCorporations.find((corporation) =>
+      corporation?.name && corporation.name === this.owner
+    ) ||
+    ownedCorporations.find((corporation) =>
+      Array.isArray(corporation?.stellarObjects) &&
+      corporation.stellarObjects.some(
+        (assetId) => Number(assetId) === Number(this.id)
+      )
+    ) ||
+    null;
   }
 
   /**

@@ -244,7 +244,8 @@ class Game {
     if (!stellarObject) {
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: getLocalizedGameMessage(
+          this.settings.data_directory || 'data/default/en-us',
           'construction.reasons.not_docked_or_landed',
           {},
           'You must be docked or landed to build'
@@ -256,7 +257,8 @@ class Game {
     if (!isControlledByPlayer) {
       return {
         success: false,
-        reason: this.getConstructionMessage(
+        reason: getLocalizedGameMessage(
+          this.settings.data_directory || 'data/default/en-us',
           'construction.reasons.not_controlled',
           {},
           'You do not control this stellar object'
@@ -268,7 +270,12 @@ class Game {
       stellarObject,
       this.player,
       this.corporations,
-      (messageKey, vars = {}, fallback = '') => this.getConstructionMessage(messageKey, vars, fallback)
+      (messageKey, vars = {}, fallback = '') => getLocalizedGameMessage(
+        this.settings.data_directory || 'data/default/en-us',
+        messageKey,
+        vars,
+        fallback
+      )
     );
     const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);
     if (!buildResult.success) {
@@ -279,24 +286,6 @@ class Game {
       ...buildResult,
       objectId: stellarObject.id
     };
-  }
-
-  /**
-   * Resolve a localized construction-related message.
-   * @param {string} messageKey - Dot-delimited message key from game_messages.json
-   * @param {Object} [vars={}] - Template variables for replacement
-   * @param {string} fallback - Fallback English message when lookup fails
-   * @returns {string} Localized message text
-   * @example
-   * const reason = game.getConstructionMessage('construction.reasons.not_controlled');
-   */
-  getConstructionMessage(messageKey, vars = {}, fallback = '') {
-    return getLocalizedGameMessage(
-      this.settings.data_directory || 'data/default/en-us',
-      messageKey,
-      vars,
-      fallback
-    );
   }
 
   /**
