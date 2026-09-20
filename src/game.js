@@ -11,12 +11,76 @@ const { createConstructionCreditSupport } = require('./stellarObject');
 
 const logger = createLogger('Game');
 
+const DEFAULT_DATA_DIRECTORY = 'data/default/en-us';
+
 /**
- * Main game state manager
+ * Throw when a value is not a non-null object.
+ * @param {*} value - Value to validate.
+ * @param {string} label - Property name used in the error message.
+ * @returns {void}
+ * @throws {TypeError} When the value is not a non-null object.
+ * @example
+ * assertObject(universe, 'universe');
+ */
+function assertObject(value, label) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${label} must be a non-null object`);
+  }
+}
+
+/**
+ * Throw when a value is not an array of non-null objects.
+ * @param {*} value - Value to validate.
+ * @param {string} label - Property name used in the error message.
+ * @returns {void}
+ * @throws {TypeError} When the value is not an array of objects.
+ * @example
+ * assertObjectArray(npcs, 'npcs');
+ */
+function assertObjectArray(value, label) {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${label} must be an array`);
+  }
+  if (value.some(entry => entry === null || typeof entry !== 'object')) {
+    throw new TypeError(`${label} must only contain non-null objects`);
+  }
+}
+
+/**
+ * Throw when a value is not an integer greater than or equal to zero.
+ * @param {*} value - Value to validate.
+ * @param {string} label - Property name used in the error message.
+ * @returns {void}
+ * @throws {TypeError} When the value is not a non-negative integer.
+ * @example
+ * assertNonNegativeInteger(ticks, 'ticks');
+ */
+function assertNonNegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(`${label} must be a non-negative integer`);
+  }
+}
+
+/**
+ * Main game state manager.
+ *
+ * All mutable state is reached through the accessor methods below. Callers
+ * should never read or write the backing properties directly so that type and
+ * range checks stay in one place.
  */
 class Game {
 
+  /**
+   * Create a game session.
+   * @param {Object} universe - Universe instance holding systems and stellar objects.
+   * @param {Object} settings - Resolved game settings.
+   * @example
+   * const game = new Game(universe, gameSettings);
+   */
   constructor(universe, settings) {
+    assertObject(universe, 'universe');
+    assertObject(settings, 'settings');
+
     this.universe = universe;
     this.settings = settings;
     this.player = null;
@@ -30,15 +94,292 @@ class Game {
   }
 
   /**
-   * Initialize a new game
-   * @param {Object} playerData - Player information
+   * Get the universe for this game session.
+   * Read-only by design: Market caches its own universe reference and stellar
+   * objects subscribe to tick events at setup, so swapping the universe on a
+   * live Game would leave both out of sync. Build a new Game instead.
+   * @returns {Object} Universe instance.
+   * @example
+   * const systems = game.getUniverse().systems;
+   */
+  getUniverse() {
+    return this.universe;
+  }
+
+  /**
+   * Get the resolved game settings.
+   * @returns {Object} Game settings.
+   * @example
+   * const startingCredits = game.getSettings().starting_credits;
+   */
+  getSettings() {
+    return this.settings;
+  }
+
+  /**
+   * Get the configured content data directory, falling back to the default.
+   * @returns {string} Relative data directory path.
+   * @example
+   * const dataDir = game.getDataDirectory();
+   */
+  getDataDirectory() {
+    return this.settings.data_directory || DEFAULT_DATA_DIRECTORY;
+  }
+
+  /**
+   * Get the event bus used for tick notifications.
+   * @returns {Object} EventBus instance.
+   * @example
+   * game.getEventBus().subscribe('tick', stellarObject);
+   */
+  getEventBus() {
+    return this.eventBus;
+  }
+
+  /**
+   * Get the market manager for this game session.
+   * @returns {Object} Market instance.
+   * @example
+   * game.getMarket().initializeMarkets();
+   */
+  getMarket() {
+    return this.market;
+  }
+
+  /**
+   * Get the active player.
+   * @returns {Object|null} Player instance, or null before initialization.
+   * @example
+   * const credits = game.getPlayer().credits;
+   */
+  getPlayer() {
+    return this.player;
+  }
+
+  /**
+   * Set the active player.
+   * @param {Object} player - Player instance.
+   * @returns {void}
+   * @throws {TypeError} When the value is not a Player instance.
+   * @example
+   * game.setPlayer(new Player('Captain', settings));
+   */
+  setPlayer(player) {
+    if (!(player instanceof Player)) {
+      throw new TypeError('player must be a Player instance');
+    }
+    this.player = player;
+  }
+
+  /**
+   * Get the NPC traders in this game session.
+   * @returns {Object[]} Shallow copy of the NPC list.
+   * @example
+   * const localNpcs = game.getNPCs().filter(npc => npc.currentSystem === 1);
+   */
+  getNPCs() {
+    return [...this.npcs];
+  }
+
+  /**
+   * Replace the NPC trader list.
+   * @param {Object[]} npcs - NPC instances or serialized NPC data.
+   * @returns {void}
+   * @throws {TypeError} When the value is not an array of objects.
+   * @example
+   * game.setNPCs(saveData.npcs);
+   */
+  setNPCs(npcs) {
+    assertObjectArray(npcs, 'npcs');
+    this.npcs = [...npcs];
+  }
+
+  /**
+   * Add a single NPC trader to the game.
+   * @param {Object} npc - NPC instance.
+   * @returns {void}
+   * @throws {TypeError} When the NPC is not an object.
+   * @example
+   * game.addNPC(new NPC(2, 'trader', 2));
+   */
+  addNPC(npc) {
+    assertObject(npc, 'npc');
+    this.npcs.push(npc);
+  }
+
+  /**
+   * Get every corporation in this game session.
+   * @returns {Object[]} Shallow copy of the corporation list.
+   * @example
+   * const playerCompanies = player.getOwnedCorporations(game.getCorporations());
+   */
+  getCorporations() {
+    return [...this.corporations];
+  }
+
+  /**
+   * Replace the corporation list.
+   * @param {Object[]} corporations - Corporation instances.
+   * @returns {void}
+   * @throws {TypeError} When the value is not an array of objects.
+   * @example
+   * game.setCorporations(rebuiltCorporations);
+   */
+  setCorporations(corporations) {
+    assertObjectArray(corporations, 'corporations');
+    this.corporations = [...corporations];
+  }
+
+  /**
+   * Add a corporation to the game.
+   * @param {Object} corporation - Corporation instance.
+   * @returns {void}
+   * @throws {TypeError} When the corporation is not an object.
+   * @example
+   * game.addCorporation(new Corporation('Acme', 'A trading company', true, 0));
+   */
+  addCorporation(corporation) {
+    assertObject(corporation, 'corporation');
+    this.corporations.push(corporation);
+  }
+
+  /**
+   * Find a corporation by name.
+   * @param {string} name - Corporation name to match.
+   * @returns {Object|null} Matching corporation, or null when not found.
+   * @example
+   * const corporation = game.findCorporation('Acme Corp');
+   */
+  findCorporation(name) {
+    if (typeof name !== 'string' || name.length === 0) {
+      return null;
+    }
+    return this.corporations.find(corporation => corporation.name === name) || null;
+  }
+
+  /**
+   * Get the current turn counter.
+   * @returns {number} Completed turns.
+   * @example
+   * const turn = game.getTurn();
+   */
+  getTurn() {
+    return this.turn;
+  }
+
+  /**
+   * Set the turn counter.
+   * @param {number} turn - Non-negative turn count.
+   * @returns {void}
+   * @throws {TypeError} When the turn is not a non-negative integer.
+   * @example
+   * game.setTurn(saveData.turn);
+   */
+  setTurn(turn) {
+    assertNonNegativeInteger(turn, 'turn');
+    this.turn = turn;
+  }
+
+  /**
+   * Get the elapsed game time in ticks.
+   * @returns {number} Total ticks elapsed.
+   * @example
+   * const elapsed = game.getTicks();
+   */
+  getTicks() {
+    return this.ticks;
+  }
+
+  /**
+   * Set the elapsed game time in ticks.
+   * @param {number} ticks - Non-negative tick count.
+   * @returns {void}
+   * @throws {TypeError} When the tick count is not a non-negative integer.
+   * @example
+   * game.setTicks(saveData.ticks);
+   */
+  setTicks(ticks) {
+    assertNonNegativeInteger(ticks, 'ticks');
+    this.ticks = ticks;
+  }
+
+  /**
+   * Get the system ids the player has visited.
+   * @returns {number[]} Shallow copy of explored system ids.
+   * @example
+   * const explored = game.getExploredSystems();
+   */
+  getExploredSystems() {
+    return [...this.exploredSystems];
+  }
+
+  /**
+   * Replace the explored system list.
+   * @param {number[]} systemIds - System ids the player has visited.
+   * @returns {void}
+   * @throws {TypeError} When the value is not an array.
+   * @example
+   * game.setExploredSystems(saveData.exploredSystems);
+   */
+  setExploredSystems(systemIds) {
+    if (!Array.isArray(systemIds)) {
+      throw new TypeError('exploredSystems must be an array');
+    }
+    this.exploredSystems = [...systemIds];
+  }
+
+  /**
+   * Check whether a system has already been explored.
+   * @param {number} systemId - System id to check.
+   * @returns {boolean} True when the system has been visited.
+   * @example
+   * const seen = game.hasExploredSystem(3);
+   */
+  hasExploredSystem(systemId) {
+    return this.exploredSystems.includes(systemId);
+  }
+
+  /**
+   * Record a system as explored, ignoring duplicates.
+   * @param {number} systemId - System id to record.
+   * @returns {boolean} True when the system was newly recorded.
+   * @example
+   * game.addExploredSystem(game.getPlayer().location);
+   */
+  addExploredSystem(systemId) {
+    if (this.hasExploredSystem(systemId)) {
+      return false;
+    }
+    this.exploredSystems.push(systemId);
+    return true;
+  }
+
+  /**
+   * Resolve a localized message for results returned to the renderer.
+   * @param {string} messageKey - Dot-delimited key from game_messages.json.
+   * @param {Object} [vars={}] - Template variables for token replacement.
+   * @param {string} [fallback=''] - English fallback when the key is missing.
+   * @returns {string} Localized message text.
+   * @example
+   * const reason = game.getMessage('navigation.reasons.cannot_dock', {}, 'Cannot dock at this object');
+   */
+  getMessage(messageKey, vars = {}, fallback = '') {
+    return getLocalizedGameMessage(this.getDataDirectory(), messageKey, vars, fallback, { logger });
+  }
+
+  /**
+   * Initialize a new game.
+   * @param {Object} playerData - Player information from the creation screen.
+   * @returns {void}
+   * @example
+   * game.initializeGame({ name: 'Captain', pronouns, description, corporation });
    */
   initializeGame(playerData) {
-    // Create player with proper starting location
-    this.player = new Player(playerData.name, this.settings);
-    // Player starts at location 1 (set in constructor), no need to reassign
-    this.player.pronouns = playerData.pronouns;
-    this.player.description = playerData.description;
+    // Create player with proper starting location (location 1, set in the constructor)
+    const player = new Player(playerData.name, this.getSettings());
+    player.pronouns = playerData.pronouns;
+    player.description = playerData.description;
+    this.setPlayer(player);
 
     // Create player's corporation
     const playerCorp = new Corporation(
@@ -47,56 +388,61 @@ class Game {
       true,  // isPlayerOwned
       playerData.corporation?.cashReserves || 0
     );
-    this.corporations.push(playerCorp);
-    this.player.corporation = playerCorp;
+    this.addCorporation(playerCorp);
+    player.corporation = playerCorp;
 
     // Initialize stellar object values and ownership
     this.initializeStellarObjects();
 
     // Find a Farm World planet (not in system 1) and assign it to the player's corporation
-    logger.debug('[DEBUG initializeGame] Looking for Farm World...');
-    logger.debug('[DEBUG initializeGame] Total stellar objects:', this.universe.stellarObjects.length);
-    const planets = this.universe.stellarObjects.filter(obj => obj.type === 'Planet');
-    logger.debug('[DEBUG initializeGame] Planets:', planets.map(p => ({ id: p.id, className: p.className, location: p.location })));
-
-    const farmPlanet = this.universe.stellarObjects.find(obj =>
+    const farmPlanet = this.getUniverse().stellarObjects.find(obj =>
       obj.type === 'Planet' &&
       obj.className === 'Farm World' &&
       obj.location !== 1
     );
-    logger.debug('[DEBUG initializeGame] Farm World found:', farmPlanet ? { id: farmPlanet.id, location: farmPlanet.location } : 'NONE');
 
     if (farmPlanet) {
       farmPlanet.setOwner(playerCorp.name);
       playerCorp.addStellarObject(farmPlanet.id);
-      logger.debug('[DEBUG initializeGame] Assigned Farm World to corporation');
-      logger.debug('[DEBUG initializeGame] Corporation stellar objects:', playerCorp.stellarObjects);
     } else {
-      logger.warn('[WARN initializeGame] No Farm World found outside system 1!');
+      logger.warn('No Farm World found outside system 1; player corporation starts without a planet');
     }
 
     // Create NPCs (one trader per system for now)
-    this.universe.systems.forEach((system) => {
+    this.getUniverse().systems.forEach((system) => {
       if (system.id === 1) return; // Skip player's starting system
-      this.npcs.push(new NPC(system.id, 'trader', system.id));
+      this.addNPC(new NPC(system.id, 'trader', system.id));
     });
 
     // Initialize market prices and quantities
-    this.market.initializeMarkets();
+    this.getMarket().initializeMarkets();
 
     // Mark starting system as explored
-    if (!this.exploredSystems.includes(this.player.location)) {
-      this.exploredSystems.push(this.player.location);
-    }
+    this.addExploredSystem(player.location);
 
     // Subscribe all stellar objects to tick events for automatic updates
-    this.universe.stellarObjects.forEach(obj => {
-      this.eventBus.subscribe('tick', obj);
+    this.subscribeStellarObjectsToTicks();
+  }
+
+  /**
+   * Subscribe every stellar object to tick events for automatic updates.
+   * EventBus listeners are not persisted, so this runs on new games and loads.
+   * @returns {void}
+   * @example
+   * game.subscribeStellarObjectsToTicks();
+   */
+  subscribeStellarObjectsToTicks() {
+    const eventBus = this.getEventBus();
+    this.getUniverse().stellarObjects.forEach(obj => {
+      eventBus.subscribe('tick', obj);
     });
   }
 
   /**
-   * Initialize stellar object values and ownership
+   * Initialize stellar object values and ownership.
+   * @returns {void}
+   * @example
+   * game.initializeStellarObjects();
    */
   initializeStellarObjects() {
     // Base values for calculating stellar object worth
@@ -110,7 +456,7 @@ class Game {
     };
 
     // Calculate value for each stellar object
-    this.universe.stellarObjects.forEach(obj => {
+    this.getUniverse().stellarObjects.forEach(obj => {
       // Calculate the object's value
       obj.value = obj.calculateValue(baseValues);
 
@@ -121,10 +467,13 @@ class Game {
   }
 
   /**
-   * Process one game turn
+   * Process one game turn.
+   * @returns {void}
+   * @example
+   * game.processTurn();
    */
   processTurn() {
-    this.turn++;
+    this.setTurn(this.getTurn() + 1);
 
     // Recharge ship energy
     this.rechargeShipEnergy();
@@ -137,43 +486,51 @@ class Game {
   }
 
   /**
-   * Advance game time by the specified number of ticks
-   * Events are emitted one at a time to allow subscribers to react to each tick
-   * @param {number} numTicks - Number of ticks to advance (default: 1)
-   * @param {string} action - The action that triggered this tick
-   * @returns {Object} Final tick event data
+   * Advance game time by the specified number of ticks.
+   * Events are emitted one at a time to allow subscribers to react to each tick.
+   * @param {number} [numTicks=1] - Number of ticks to advance.
+   * @param {string} [action='unknown'] - The action that triggered this tick.
+   * @returns {Object} Final tick event data.
+   * @example
+   * const tickData = game.advanceTicks(3, 'jump');
    */
   advanceTicks(numTicks = 1, action = 'unknown') {
     let lastTickData;
 
     // Emit events one at a time so subscribers can count/react to each tick
     for (let i = 0; i < numTicks; i++) {
-      this.ticks += 1;
+      this.setTicks(this.getTicks() + 1);
 
       lastTickData = {
-        ticks: this.ticks,
+        ticks: this.getTicks(),
         action
       };
 
       // Emit tick event so other systems can react
-      this.eventBus.emit('tick', lastTickData);
+      this.getEventBus().emit('tick', lastTickData);
     }
 
     return lastTickData;
   }
 
   /**
-   * Process all NPC actions for the current turn
+   * Process all NPC actions for the current turn.
+   * @returns {void}
+   * @example
+   * game.processNPCActions();
    */
   processNPCActions() {
-    this.npcs.forEach(npc => {
+    this.getNPCs().forEach(npc => {
       // TODO: Implement NPC behavior
       // This will be expanded when we add AI behavior
     });
   }
 
   /**
-   * Update market conditions across all systems
+   * Update market conditions across all systems.
+   * @returns {void}
+   * @example
+   * game.updateMarkets();
    */
   updateMarkets() {
     // TODO: Implement market updates
@@ -181,106 +538,116 @@ class Game {
   }
 
   /**
-   * Get the current state of the player's location
-   * @returns {Object} Location state information
+   * Get the current state of the player's location.
+   * @returns {Object} Location state information.
+   * @example
+   * const { system, objects } = game.getCurrentLocationState();
    */
   getCurrentLocationState() {
-    const system = this.universe.systems.find(s => s.id === this.player.location);
-    const objects = this.universe.stellarObjects.filter(obj => obj.location === system.id);
+    const universe = this.getUniverse();
+    const system = universe.systems.find(s => s.id === this.getPlayer().location);
+    const objects = universe.stellarObjects.filter(obj => obj.location === system.id);
 
     return {
       system: system,
       objects: objects,
-      npcs: this.npcs.filter(npc => npc.currentSystem === system.id),
+      npcs: this.getNPCs().filter(npc => npc.currentSystem === system.id),
       playerState: this.getPlayerState()
     };
   }
 
   /**
    * Get the stellar object where the player is currently docked/landed.
-   * @returns {Object|null} Current local stellar object, or null in space
+   * @returns {Object|null} Current local stellar object, or null in space.
+   * @example
+   * const localObject = game.getCurrentLocalObject();
    */
   getCurrentLocalObject() {
-    const objectId = this.player.dockedAt ?? this.player.landedOn;
+    const player = this.getPlayer();
+    const objectId = player.dockedAt ?? player.landedOn;
     if (objectId === null || objectId === undefined) {
       return null;
     }
-    return this.universe.stellarObjects.find(obj => obj.id === objectId) || null;
+    return this.findStellarObject(objectId);
+  }
+
+  /**
+   * Find a stellar object by id.
+   * @param {number} stellarObjectId - Stellar object id.
+   * @returns {Object|null} Matching stellar object, or null when not found.
+   * @example
+   * const station = game.findStellarObject(12);
+   */
+  findStellarObject(stellarObjectId) {
+    return this.getUniverse().stellarObjects.find(obj => obj.id === stellarObjectId) || null;
   }
 
   /**
    * Load building definitions from configured data directory.
-   * @returns {Object} Building definitions keyed by type
+   * @returns {Object} Building definitions keyed by type.
+   * @example
+   * const buildings = game.getBuildingsData();
    */
   getBuildingsData() {
-    const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const buildingsPath = path.join(__dirname, '..', dataDir, 'buildings.json');
-    const buildingsData = JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
-    return buildingsData;
+    const buildingsPath = path.join(__dirname, '..', this.getDataDirectory(), 'buildings.json');
+    return JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
   }
 
   /**
    * Get buildings that can be built at the player's current object.
-   * @returns {Object[]} List of build options
+   * @returns {Object[]} List of build options.
+   * @example
+   * const options = game.getBuildableBuildingsForCurrentObject();
    */
   getBuildableBuildingsForCurrentObject() {
     const stellarObject = this.getCurrentLocalObject();
-    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
+    const isControlledByPlayer = this.getPlayer()?.controlsStellarObject(stellarObject, this.getCorporations());
     if (!stellarObject || !isControlledByPlayer) {
       return [];
     }
 
-    const buildingsData = this.getBuildingsData();
-    return stellarObject.getBuildableBuildingOptions(buildingsData);
+    return stellarObject.getBuildableBuildingOptions(this.getBuildingsData());
   }
 
   /**
    * Queue construction of a building at the player's current object.
-   * @param {string} buildingType - Building type from buildings.json
-   * @returns {Object} Build result
+   * @param {string} buildingType - Building type from buildings.json.
+   * @returns {Object} Build result.
+   * @example
+   * const result = game.buildBuildingAtCurrentObject('Mine');
    */
   buildBuildingAtCurrentObject(buildingType) {
     const stellarObject = this.getCurrentLocalObject();
     if (!stellarObject) {
       return {
         success: false,
-        reason: getLocalizedGameMessage(
-          this.settings.data_directory || 'data/default/en-us',
+        reason: this.getMessage(
           'construction.reasons.not_docked_or_landed',
           {},
-          'You must be docked or landed to build',
-          { logger }
+          'You must be docked or landed to build'
         )
       };
     }
 
-    const isControlledByPlayer = this.player?.controlsStellarObject(stellarObject, this.corporations);
+    const isControlledByPlayer = this.getPlayer()?.controlsStellarObject(stellarObject, this.getCorporations());
     if (!isControlledByPlayer) {
       return {
         success: false,
-        reason: getLocalizedGameMessage(
-          this.settings.data_directory || 'data/default/en-us',
+        reason: this.getMessage(
           'construction.reasons.not_controlled',
           {},
-          'You do not control this stellar object',
-          { logger }
+          'You do not control this stellar object'
         )
       };
     }
-    const buildingsData = this.getBuildingsData();
+
     const creditSupport = createConstructionCreditSupport(
       stellarObject,
-      this.player,
-      this.corporations,
-      (messageKey, vars = {}, fallback = '') => getLocalizedGameMessage(
-        this.settings.data_directory || 'data/default/en-us',
-        messageKey,
-        vars,
-        fallback,
-        { logger }
-      )
+      this.getPlayer(),
+      this.getCorporations(),
+      (messageKey, vars = {}, fallback = '') => this.getMessage(messageKey, vars, fallback)
     );
-    const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);
+    const buildResult = stellarObject.constructBuilding(buildingType, this.getBuildingsData(), creditSupport);
     if (!buildResult.success) {
       return buildResult;
     }
@@ -292,51 +659,61 @@ class Game {
   }
 
   /**
-   * Get the current state of the player
-   * @returns {Object} Player state information
+   * Get the current state of the player.
+   * @returns {Object} Player state information.
+   * @example
+   * const playerState = game.getPlayerState();
    */
   getPlayerState() {
+    const player = this.getPlayer();
+
     // Calculate corporation value if player has a corporation
     let corporationValue = 0;
-    if (this.player.corporation && typeof this.player.corporation.calculateTotalValue === 'function') {
+    if (player.corporation && typeof player.corporation.calculateTotalValue === 'function') {
       // TODO: Add ship values and good prices when available
-      corporationValue = this.player.corporation.calculateTotalValue(this.universe, {}, {});
+      corporationValue = player.corporation.calculateTotalValue(this.getUniverse(), {}, {});
     }
 
     return {
-      name: this.player.name,
-      credits: this.player.credits,
-      location: this.player.location,
-      ship: this.player.ship,
-      shipEnergy: this.player.shipEnergy,
-      shipMaxEnergy: this.player.shipMaxEnergy,
-      cargo: this.player.cargo,
-      stats: this.player.stats,
-      dockedAt: this.player.dockedAt,
-      landedOn: this.player.landedOn,
-      system: this.player.location,
-      ticks: this.ticks,
+      name: player.name,
+      credits: player.credits,
+      location: player.location,
+      ship: player.ship,
+      shipEnergy: player.shipEnergy,
+      shipMaxEnergy: player.shipMaxEnergy,
+      cargo: player.cargo,
+      stats: player.stats,
+      dockedAt: player.dockedAt,
+      landedOn: player.landedOn,
+      system: player.location,
+      ticks: this.getTicks(),
       corporation: {
-        name: this.player.corporation?.name || 'None',
-        description: this.player.corporation?.description || '',
+        name: player.corporation?.name || 'None',
+        description: player.corporation?.description || '',
         value: corporationValue,
-        stellarObjects: this.player.corporation?.stellarObjects || [],
-        cashReserves: this.player.corporation?.cashReserves || 0,
-        totalCashReserves: this.player.corporation?.getTotalCashReserves?.() || 0
+        stellarObjects: player.corporation?.stellarObjects || [],
+        cashReserves: player.corporation?.cashReserves || 0,
+        totalCashReserves: player.corporation?.getTotalCashReserves?.() || 0
       }
     };
   }
 
   /**
-  * Take off from a planet or station (clear docked/landed state)
-  * @returns {Object} Result of the takeoff operation
+  * Take off from a planet or station (clear docked/landed state).
+  * @returns {Object} Result of the takeoff operation.
+  * @example
+  * const result = game.takeOff();
   */
   takeOff() {
-    if (this.player.dockedAt === null && this.player.landedOn === null) {
-      return { success: false, reason: 'Not docked or landed' };
+    const player = this.getPlayer();
+    if (player.dockedAt === null && player.landedOn === null) {
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.not_docked_or_landed', {}, 'Not docked or landed')
+      };
     }
-    this.player.dockedAt = null;
-    this.player.landedOn = null;
+    player.dockedAt = null;
+    player.landedOn = null;
 
     // Advance game time by 1 tick
     this.advanceTicks(1, 'takeoff');
@@ -348,35 +725,51 @@ class Game {
   }
 
   /**
-   * Check if a jump to the target system is valid
-   * @param {number} targetSystemId - ID of the system to jump to
-   * @returns {Object} Result of validation {valid: boolean, reason: string}
+   * Check if a jump to the target system is valid.
+   * @param {number} targetSystemId - ID of the system to jump to.
+   * @returns {Object} Result of validation {valid: boolean, reason: string}.
+   * @example
+   * const { valid, reason } = game.validateJump(4);
    */
   validateJump(targetSystemId) {
+    const universe = this.getUniverse();
+    const player = this.getPlayer();
+
     // Check if the target system exists
-    const targetSystem = this.universe.systems.find(s => s.id === targetSystemId);
+    const targetSystem = universe.systems.find(s => s.id === targetSystemId);
     if (!targetSystem) {
-      return { valid: false, reason: "Target system does not exist" };
+      return {
+        valid: false,
+        reason: this.getMessage('navigation.reasons.target_system_missing', {}, 'Target system does not exist')
+      };
     }
 
     // Check if current system has a connection to the target system
-    const currentSystem = this.universe.systems.find(s => s.id === this.player.location);
+    const currentSystem = universe.systems.find(s => s.id === player.location);
     if (!currentSystem.connections[targetSystemId]) {
-      return { valid: false, reason: "No direct connection to target system" };
+      return {
+        valid: false,
+        reason: this.getMessage('navigation.reasons.no_connection', {}, 'No direct connection to target system')
+      };
     }
 
     // Check if ship has enough energy for the jump
-    if (this.player.shipEnergy < this.player.energyPerJump) {
-      return { valid: false, reason: "Not enough energy for jump" };
+    if (player.shipEnergy < player.energyPerJump) {
+      return {
+        valid: false,
+        reason: this.getMessage('navigation.reasons.insufficient_energy', {}, 'Not enough energy for jump')
+      };
     }
 
     return { valid: true };
   }
 
   /**
-   * Perform a jump to the target system
-   * @param {number} targetSystemId - ID of the system to jump to
-   * @returns {Object} Result of the jump operation
+   * Perform a jump to the target system.
+   * @param {number} targetSystemId - ID of the system to jump to.
+   * @returns {Object} Result of the jump operation.
+   * @example
+   * const result = game.jumpToSystem(4);
    */
   jumpToSystem(targetSystemId) {
     // Validate the jump
@@ -385,23 +778,23 @@ class Game {
       return { success: false, reason: validation.reason };
     }
 
+    const player = this.getPlayer();
+
     // Consume energy for the jump
-    this.player.shipEnergy -= this.player.energyPerJump;
+    player.shipEnergy -= player.energyPerJump;
 
     // Get the current system to find tick cost for this jump
-    const currentSystem = this.universe.systems.find(s => s.id === this.player.location);
+    const currentSystem = this.getUniverse().systems.find(s => s.id === player.location);
     const tickCost = currentSystem?.connections?.[targetSystemId] || 1;
 
     // Update player location
-    this.player.moveTo(targetSystemId);
+    player.moveTo(targetSystemId);
 
     // Update player stats
-    this.player.stats.jumps += 1;
+    player.stats.jumps += 1;
 
     // Mark the new system as explored
-    if (!this.exploredSystems.includes(this.player.location)) {
-      this.exploredSystems.push(this.player.location);
-    }
+    this.addExploredSystem(player.location);
 
     // Advance game time by the connection's tick cost
     this.advanceTicks(tickCost, 'jump');
@@ -414,33 +807,46 @@ class Game {
   }
 
   /**
-   * Dock at a station
-   * @param {number} objectId - ID of the stellar object to dock at
-   * @returns {Object} Result of the dock operation
+   * Dock at a station.
+   * @param {number} objectId - ID of the stellar object to dock at.
+   * @returns {Object} Result of the dock operation.
+   * @example
+   * const result = game.dockAtStation(100);
    */
   dockAtStation(objectId) {
+    const player = this.getPlayer();
+
     // Validate the object exists and is in the current system
-    const object = this.universe.stellarObjects.find(obj => obj.id === objectId);
+    const object = this.findStellarObject(objectId);
     if (!object) {
-      return { success: false, reason: "Station does not exist" };
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.station_missing', {}, 'Station does not exist')
+      };
     }
 
-    if (object.location !== this.player.location) {
-      return { success: false, reason: "Station is not in your current system" };
+    if (object.location !== player.location) {
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.station_not_in_system', {}, 'Station is not in your current system')
+      };
     }
 
     // Check if object is a station
     if (object.type !== 'Space Station') {
-      return { success: false, reason: "Cannot dock at this object" };
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.cannot_dock', {}, 'Cannot dock at this object')
+      };
     }
 
     // Dock at the station
-    this.player.dockedAt = objectId;
-    this.player.landedOn = null; // Clear landed status if previously landed
-    this.player.stats.trades += 1; // Increment trades stat when docking
+    player.dockedAt = objectId;
+    player.landedOn = null; // Clear landed status if previously landed
+    player.stats.trades += 1; // Increment trades stat when docking
 
     // Fully recharge ship energy when docking
-    this.player.shipEnergy = this.player.shipMaxEnergy;
+    player.shipEnergy = player.shipMaxEnergy;
 
     // Advance game time by 1 tick
     this.advanceTicks(1, 'dock');
@@ -453,44 +859,47 @@ class Game {
   }
 
   /**
-   * Land on a planet
-   * @param {number} objectId - ID of the stellar object to land on
-   * @returns {Object} Result of the land operation
+   * Land on a planet or asteroid.
+   * @param {number} objectId - ID of the stellar object to land on.
+   * @returns {Object} Result of the land operation.
+   * @example
+   * const result = game.landOnPlanet(100);
    */
   landOnPlanet(objectId) {
-
-    // Debug: Log objectId, found object, and location types/values
-    logger.debug('[DEBUG] landOnPlanet called with objectId:', objectId);
-    const object = this.universe.stellarObjects.find(obj => obj.id === objectId);
-    logger.debug('[DEBUG] Found object:', object);
-    logger.debug('[DEBUG] object.location:', object && object.location, '(', object && typeof object.location, ')');
-    logger.debug('[DEBUG] player.location:', this.player.location, '(', typeof this.player.location, ')');
+    const player = this.getPlayer();
+    const object = this.findStellarObject(objectId);
     if (!object) {
-      return { success: false, reason: "Planet does not exist" };
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.planet_missing', {}, 'Planet does not exist')
+      };
     }
 
-    if (object.location !== this.player.location) {
-      return { success: false, reason: "Planet is not in your current system" };
+    if (object.location !== player.location) {
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.planet_not_in_system', {}, 'Planet is not in your current system')
+      };
     }
 
     // Check if object is a planet or asteroid
     if (object.type !== 'Planet' && object.type !== 'Asteroid') {
-      return { success: false, reason: "Can only land on planets or asteroids" };
+      return {
+        success: false,
+        reason: this.getMessage('navigation.reasons.cannot_land', {}, 'Can only land on planets or asteroids')
+      };
     }
 
     // Land on the planet
-    this.player.landedOn = objectId;
-    this.player.dockedAt = null; // Clear docked status if previously docked
-    this.player.stats.trades += 1; // Increment trades stat when landing
+    player.landedOn = objectId;
+    player.dockedAt = null; // Clear docked status if previously docked
+    player.stats.trades += 1; // Increment trades stat when landing
 
     // Fully recharge ship energy when landing
-    this.player.shipEnergy = this.player.shipMaxEnergy;
+    player.shipEnergy = player.shipMaxEnergy;
 
     // Advance game time by 1 tick
     this.advanceTicks(1, 'land');
-
-    // Debug: Confirm player state after landing
-    logger.debug('[DEBUG] After landing, player.landedOn:', this.player.landedOn, 'player.dockedAt:', this.player.dockedAt);
 
     return {
       success: true,
@@ -500,164 +909,301 @@ class Game {
   }
 
   /**
-   * Buy goods from a stellar object
-   * @param {number} stellarObjectId - ID of the stellar object
-   * @param {string} goodName - Name of the good to buy
-   * @param {number} quantity - Quantity to buy
-   * @param {number} price - Price per unit (optional, will be recalculated for verification)
-   * @returns {Object} Result object with success status and message
+   * Calculate the market price of a good at a stellar object.
+   * @param {Object} stellarObject - Stellar object with a market.
+   * @param {string} goodName - Name of the good to price.
+   * @param {string} [priceType='buy'] - Either 'buy' or 'sell'.
+   * @returns {number} Price per unit.
+   * @example
+   * const price = game.calculateMarketPrice(stellarObject, 'wheat', 'buy');
+   */
+  calculateMarketPrice(stellarObject, goodName, priceType = 'buy') {
+    return this.getMarket().calculateMarketPrice(stellarObject, goodName, priceType);
+  }
+
+  /**
+   * Buy goods from a stellar object.
+   * @param {number} stellarObjectId - ID of the stellar object.
+   * @param {string} goodName - Name of the good to buy.
+   * @param {number} quantity - Quantity to buy.
+   * @param {number} [price] - Price per unit (recalculated for verification).
+   * @returns {Object} Result object with success status and message.
+   * @example
+   * const result = game.buyGood(1, 'wheat', 5);
    */
   buyGood(stellarObjectId, goodName, quantity, price) {
-    return this.market.buyGood(this.player, stellarObjectId, goodName, quantity, price);
+    return this.getMarket().buyGood(this.getPlayer(), stellarObjectId, goodName, quantity, price);
   }
 
   /**
-   * Sell goods to a stellar object
-   * @param {number} stellarObjectId - ID of the stellar object
-   * @param {string} goodName - Name of the good to sell
-   * @param {number} quantity - Quantity to sell
-   * @param {number} price - Price per unit (optional, will be recalculated for verification)
-   * @returns {Object} Result object with success status and message
+   * Sell goods to a stellar object.
+   * @param {number} stellarObjectId - ID of the stellar object.
+   * @param {string} goodName - Name of the good to sell.
+   * @param {number} quantity - Quantity to sell.
+   * @param {number} [price] - Price per unit (recalculated for verification).
+   * @returns {Object} Result object with success status and message.
+   * @example
+   * const result = game.sellGood(1, 'wheat', 5);
    */
   sellGood(stellarObjectId, goodName, quantity, price) {
-    return this.market.sellGood(this.player, stellarObjectId, goodName, quantity, price);
+    return this.getMarket().sellGood(this.getPlayer(), stellarObjectId, goodName, quantity, price);
   }
 
   /**
-   * Load passengers from a stellar object
-   * @param {number} stellarObjectId - ID of the stellar object
-   * @param {number} passengerCount - Number of passengers to load
-   * @returns {Object} Result object with success status and message
+   * Load passengers from a stellar object.
+   * @param {number} stellarObjectId - ID of the stellar object.
+   * @param {number} passengerCount - Number of passengers to load.
+   * @returns {Object} Result object with success status and message.
+   * @example
+   * const result = game.loadPassengers(1, 10);
    */
   loadPassengers(stellarObjectId, passengerCount) {
-    const stellarObject = this.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    const stellarObject = this.findStellarObject(stellarObjectId);
     if (!stellarObject) {
-      return { success: false, message: 'Stellar object not found' };
+      return {
+        success: false,
+        message: this.getMessage('passengers.stellar_object_missing', {}, 'Stellar object not found')
+      };
     }
 
-    // Calculate available passengers
+    const player = this.getPlayer();
+
+    // Check if player is docked or landed at the location
+    if (player.dockedAt !== stellarObjectId && player.landedOn !== stellarObjectId) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.not_at_location',
+          {},
+          'You must be docked or landed at this location'
+        )
+      };
+    }
+
+    // Ensure passengerCount is a positive integer before any arithmetic runs
+    const requestedCount = parseInt(passengerCount, 10);
+    if (isNaN(requestedCount) || requestedCount <= 0) {
+      return {
+        success: false,
+        message: this.getMessage('passengers.invalid_count', {}, 'Invalid passenger count')
+      };
+    }
+
+    // Calculate available passengers. A zero or missing population limit (for
+    // example an Abandoned Station) makes the percentage NaN, which would slip
+    // past every comparison below and drive population negative.
     const population = stellarObject.population;
+    if (!population || !(population.limit > 0)) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.population_too_low',
+          {},
+          'Population is too low. People are not willing to leave.'
+        )
+      };
+    }
+
     const populationPercent = (population.current / population.limit) * 100;
-    let availablePassengers = 0;
 
     if (populationPercent < 25) {
-      return { success: false, message: 'Population is too low. People are not willing to leave.' };
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.population_too_low',
+          {},
+          'Population is too low. People are not willing to leave.'
+        )
+      };
     }
 
     const willingPercent = ((populationPercent - 25) / 75) * 50;
-    availablePassengers = Math.floor((population.current * willingPercent) / 100);
+    const availablePassengers = Math.floor((population.current * willingPercent) / 100);
 
-    if (passengerCount > availablePassengers) {
-      return { success: false, message: `Only ${availablePassengers} passengers available` };
+    if (requestedCount > availablePassengers) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.insufficient_available',
+          { availablePassengers },
+          `Only ${availablePassengers} passengers available`
+        )
+      };
     }
 
     // Check cargo capacity (10 people per ton)
-    const cargoNeeded = passengerCount / 10;
-    const currentCargo = this.market.calculateCargoUsed(this.player);
-    const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
-    const shipData = shipsData[this.player.ship];
-    const cargoCapacity = shipData.cargoCapacity;
+    const cargoNeeded = requestedCount / 10;
+    const currentCargo = this.calculateCargoUsed();
+    const shipsPath = path.join(__dirname, '..', this.getDataDirectory(), 'ships.json');
+    const shipsData = JSON.parse(fs.readFileSync(shipsPath, 'utf-8'));
+    const cargoCapacity = shipsData[player.ship].cargoCapacity;
 
     if (currentCargo + cargoNeeded > cargoCapacity) {
-      return { success: false, message: `Insufficient cargo space. Need ${cargoNeeded.toFixed(2)} tons, only ${(cargoCapacity - currentCargo).toFixed(2)} available` };
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.insufficient_cargo_space',
+          {
+            cargoNeeded: cargoNeeded.toFixed(2),
+            availableSpace: (cargoCapacity - currentCargo).toFixed(2)
+          },
+          `Insufficient cargo space. Need ${cargoNeeded.toFixed(2)} tons, only ${(cargoCapacity - currentCargo).toFixed(2)} available`
+        )
+      };
     }
 
     // Execute transaction
-    stellarObject.population.current -= passengerCount;
-    this.player.cargo.passengers = (this.player.cargo.passengers || 0) + passengerCount;
+    stellarObject.population.current -= requestedCount;
+    player.cargo.passengers = (player.cargo.passengers || 0) + requestedCount;
 
-    return { success: true, message: `Loaded ${passengerCount} passengers (${cargoNeeded.toFixed(2)} tons)` };
+    return {
+      success: true,
+      message: this.getMessage(
+        'passengers.load_success',
+        { passengerCount: requestedCount, cargoUsed: cargoNeeded.toFixed(2) },
+        `Loaded ${requestedCount} passengers (${cargoNeeded.toFixed(2)} tons)`
+      )
+    };
   }
 
   /**
-   * Unload passengers at a stellar object
-   * @param {number} stellarObjectId - ID of the stellar object
-   * @param {number} passengerCount - Number of passengers to unload
-   * @returns {Object} Result object with success status and message
+   * Unload passengers at a stellar object.
+   * @param {number} stellarObjectId - ID of the stellar object.
+   * @param {number} passengerCount - Number of passengers to unload.
+   * @returns {Object} Result object with success status and message.
+   * @example
+   * const result = game.unloadPassengers(1, 10);
    */
   unloadPassengers(stellarObjectId, passengerCount) {
     // Ensure passengerCount is a valid integer
-    passengerCount = parseInt(passengerCount, 10);
+    const requestedCount = parseInt(passengerCount, 10);
+    const player = this.getPlayer();
 
     // Check if player is landed or docked at the location
-    if (this.player.dockedAt !== stellarObjectId && this.player.landedOn !== stellarObjectId) {
-      return { success: false, message: 'You must be docked or landed at this location' };
+    if (player.dockedAt !== stellarObjectId && player.landedOn !== stellarObjectId) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.not_at_location',
+          {},
+          'You must be docked or landed at this location'
+        )
+      };
     }
 
     // Find the stellar object
-    const stellarObject = this.universe.stellarObjects.find(obj => obj.id === stellarObjectId);
+    const stellarObject = this.findStellarObject(stellarObjectId);
     if (!stellarObject) {
-      return { success: false, message: 'Stellar object not found' };
+      return {
+        success: false,
+        message: this.getMessage('passengers.stellar_object_missing', {}, 'Stellar object not found')
+      };
     }
 
     // Check if player has passengers
-    const currentPassengers = this.player.cargo.passengers || 0;
+    const currentPassengers = player.cargo.passengers || 0;
     if (currentPassengers === 0) {
-      return { success: false, message: 'No passengers in cargo' };
+      return {
+        success: false,
+        message: this.getMessage('passengers.none_in_cargo', {}, 'No passengers in cargo')
+      };
     }
 
-    if (isNaN(passengerCount) || passengerCount <= 0) {
-      return { success: false, message: 'Invalid passenger count' };
+    if (isNaN(requestedCount) || requestedCount <= 0) {
+      return {
+        success: false,
+        message: this.getMessage('passengers.invalid_count', {}, 'Invalid passenger count')
+      };
     }
 
-    if (passengerCount > currentPassengers) {
-      return { success: false, message: `You only have ${currentPassengers} passengers on board` };
+    if (requestedCount > currentPassengers) {
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.insufficient_on_board',
+          { currentPassengers },
+          `You only have ${currentPassengers} passengers on board`
+        )
+      };
     }
 
     // Check population limit
-    if (stellarObject.population.current + passengerCount > stellarObject.population.limit) {
+    if (stellarObject.population.current + requestedCount > stellarObject.population.limit) {
       const availableSpace = stellarObject.population.limit - stellarObject.population.current;
-      return { success: false, message: `Location can only accept ${availableSpace} more passengers` };
+      return {
+        success: false,
+        message: this.getMessage(
+          'passengers.capacity_exceeded',
+          { availableSpace },
+          `Location can only accept ${availableSpace} more passengers`
+        )
+      };
     }
 
     // Execute transaction
-    stellarObject.population.current += passengerCount;
-    this.player.cargo.passengers -= passengerCount;
+    stellarObject.population.current += requestedCount;
+    player.cargo.passengers -= requestedCount;
 
     // Remove passengers from cargo if count reaches 0
-    if (this.player.cargo.passengers === 0) {
-      delete this.player.cargo.passengers;
+    if (player.cargo.passengers === 0) {
+      delete player.cargo.passengers;
     }
 
-    const cargoFreed = (passengerCount / 10).toFixed(2);
-    return { success: true, message: `Unloaded ${passengerCount} passengers (freed ${cargoFreed} tons)` };
+    const cargoFreed = (requestedCount / 10).toFixed(2);
+    return {
+      success: true,
+      message: this.getMessage(
+        'passengers.unload_success',
+        { passengerCount: requestedCount, cargoFreed },
+        `Unloaded ${requestedCount} passengers (freed ${cargoFreed} tons)`
+      )
+    };
   }
 
   /**
-   * Calculate total cargo space used
-   * @returns {number} Cargo space used in tons
+   * Calculate total cargo space used.
+   * @returns {number} Cargo space used in tons.
+   * @example
+   * const used = game.calculateCargoUsed();
    */
   calculateCargoUsed() {
-    return this.market.calculateCargoUsed(this.player);
+    return this.getMarket().calculateCargoUsed(this.getPlayer());
   }
 
   /**
-   * Recharge ship energy (called during turn processing)
+   * Recharge ship energy (called during turn processing).
+   * @returns {void}
+   * @example
+   * game.rechargeShipEnergy();
    */
   rechargeShipEnergy() {
-    if (this.player.shipEnergy < this.player.shipMaxEnergy) {
-      this.player.shipEnergy = Math.min(
-        this.player.shipMaxEnergy,
-        this.player.shipEnergy + this.player.energyRecharge
+    const player = this.getPlayer();
+    if (player.shipEnergy < player.shipMaxEnergy) {
+      player.shipEnergy = Math.min(
+        player.shipMaxEnergy,
+        player.shipEnergy + player.energyRecharge
       );
     }
   }
 
   /**
-   * Get the current game state data for saving
-   * @returns {Object} Save data object with plain serializable objects
+   * Get the current game state data for saving.
+   * @returns {Object} Save data object with plain serializable objects.
+   * @example
+   * const saveData = game.getSaveData();
    */
   getSaveData() {
+    const universe = this.getUniverse();
+
     // Convert universe to plain object to avoid circular references
     const universeData = {
-      systems: this.universe.systems.map(sys => ({
+      systems: universe.systems.map(sys => ({
         id: sys.id,
         name: sys.name,
         connections: sys.connections,
         image: sys.image
       })),
-      stellarObjects: this.universe.stellarObjects.map(obj => ({
+      stellarObjects: universe.stellarObjects.map(obj => ({
         id: obj.id,
         type: obj.type,
         className: obj.className,
@@ -682,33 +1228,37 @@ class Game {
 
     return {
       universe: universeData,
-      player: this.player,
-      corporations: this.corporations,
-      npcs: this.npcs,
-      turn: this.turn,
-      ticks: this.ticks,
-      settings: this.settings,
-      exploredSystems: this.exploredSystems
+      player: this.getPlayer(),
+      corporations: this.getCorporations(),
+      npcs: this.getNPCs(),
+      turn: this.getTurn(),
+      ticks: this.getTicks(),
+      settings: this.getSettings(),
+      exploredSystems: this.getExploredSystems()
     };
   }
 
   /**
    * Save the current game to a file in the repository saves/ directory.
-   * @param {string} filename - Base filename (without extension)
+   * @param {string} filename - Base filename (without extension).
+   * @returns {string} Absolute path to the written save file.
+   * @example
+   * const savePath = game.saveGame('quicksave');
    */
   saveGame(filename) {
     const saveDir = path.join(__dirname, '..', 'saves');
     if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
     const savePath = path.join(saveDir, `${filename}.json`);
-    const data = this.getSaveData();
-    fs.writeFileSync(savePath, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(savePath, JSON.stringify(this.getSaveData(), null, 2), 'utf8');
     return savePath;
   }
 
   /**
-   * Load a saved game state
-   * @param {Object} saveData - Saved game data
-   * @returns {Game} Loaded game instance
+   * Load a saved game state.
+   * @param {Object|string} saveData - Saved game data, or a save filename without extension.
+   * @returns {Game} Loaded game instance.
+   * @example
+   * const game = Game.loadGame('quicksave');
    */
   static loadGame(saveData) {
     // If a filename (string) is provided, read the file from repository saves/ directory
@@ -717,24 +1267,57 @@ class Game {
       if (!fs.existsSync(savePath)) {
         throw new Error(`Save file not found: ${savePath}`);
       }
-      const raw = fs.readFileSync(savePath, 'utf8');
-      saveData = JSON.parse(raw);
+      saveData = JSON.parse(fs.readFileSync(savePath, 'utf8'));
     }
 
-    // Reconstruct Universe from plain data
+    const universe = Game.deserializeUniverse(saveData.universe);
+    const game = new Game(universe, saveData.settings);
+
+    game.setPlayer(Game.deserializePlayer(saveData.player, saveData.settings));
+    game.setNPCs(saveData.npcs || []);
+    game.setTurn(saveData.turn || 0);
+    game.setTicks(saveData.ticks || 0);
+    game.setExploredSystems(saveData.exploredSystems || []);
+
+    // Reconstruct corporations with proper Corporation instances
+    if (Array.isArray(saveData.corporations)) {
+      game.setCorporations(saveData.corporations.map(corpData => Game.deserializeCorporation(corpData)));
+
+      // Restore the player's corporation reference with the proper Corporation instance
+      const player = game.getPlayer();
+      if (player.corporation) {
+        const playerCorp = game.findCorporation(player.corporation.name);
+        if (playerCorp) {
+          player.corporation = playerCorp;
+        }
+      }
+    }
+
+    // Note: EventBus listeners are not persisted; they must be re-registered after load
+    game.subscribeStellarObjectsToTicks();
+
+    return game;
+  }
+
+  /**
+   * Rebuild a Universe instance from saved plain data.
+   * @param {Object} universeData - Serialized universe from a save file.
+   * @returns {Object} Universe instance with systems and stellar objects.
+   * @example
+   * const universe = Game.deserializeUniverse(saveData.universe);
+   */
+  static deserializeUniverse(universeData) {
     const { Universe, System, StellarObject } = require('./universe');
     const universe = new Universe();
 
-    // Reconstruct systems
-    universe.systems = (saveData.universe.systems || []).map(sysData => {
+    universe.systems = (universeData.systems || []).map(sysData => {
       const sys = new System(sysData.id, sysData.name);
       sys.connections = sysData.connections || {};
       sys.image = sysData.image || '';
       return sys;
     });
 
-    // Reconstruct stellar objects
-    universe.stellarObjects = (saveData.universe.stellarObjects || []).map(objData => {
+    universe.stellarObjects = (universeData.stellarObjects || []).map(objData => {
       const obj = new StellarObject(
         objData.id,
         objData.type,
@@ -760,115 +1343,96 @@ class Game {
           }
         }
       );
+
       if (objData.name) obj.name = objData.name;
       if (objData.landedImage) obj.landedImage = objData.landedImage;
       if (objData.owner) obj.owner = objData.owner;
       if (objData.value !== undefined) obj.value = objData.value;
 
-      // Restore population state
-      if (objData.population) {
-        obj.population = { ...objData.population };
-      }
-
-      // Restore buildings state
-      if (objData.buildings) {
-        obj.buildings = { ...objData.buildings };
-      }
+      // Restore population, buildings, and military state
+      if (objData.population) obj.population = { ...objData.population };
+      if (objData.buildings) obj.buildings = { ...objData.buildings };
       if (objData.buildingsUnderConstruction) {
         obj.buildingsUnderConstruction = [...objData.buildingsUnderConstruction];
       }
-
-      // Restore military assets
-      if (objData.fighters !== undefined) {
-        obj.fighters = objData.fighters;
-      }
+      if (objData.fighters !== undefined) obj.fighters = objData.fighters;
 
       // Restore market and shipyard states
-      if (objData.marketState) {
-        obj.marketState = JSON.parse(JSON.stringify(objData.marketState));
-      }
-      if (objData.shipyardState) {
-        obj.shipyardState = JSON.parse(JSON.stringify(objData.shipyardState));
-      }
+      if (objData.marketState) obj.marketState = JSON.parse(JSON.stringify(objData.marketState));
+      if (objData.shipyardState) obj.shipyardState = JSON.parse(JSON.stringify(objData.shipyardState));
 
       return obj;
     });
 
-    const game = new Game(universe, saveData.settings);
-    const savedPlayerData = saveData.player || {};
-    const loadedPlayer = new Player(savedPlayerData.name || 'Player', saveData.settings);
+    return universe;
+  }
 
-    loadedPlayer.location = savedPlayerData.location ?? loadedPlayer.location;
-    loadedPlayer.ship = savedPlayerData.ship ?? loadedPlayer.ship;
-    loadedPlayer.credits = savedPlayerData.credits ?? loadedPlayer.credits;
-    loadedPlayer.cargo = savedPlayerData.cargo ?? loadedPlayer.cargo;
-    loadedPlayer.shipEnergy = savedPlayerData.shipEnergy ?? loadedPlayer.shipEnergy;
-    loadedPlayer.shipMaxEnergy = savedPlayerData.shipMaxEnergy ?? loadedPlayer.shipMaxEnergy;
-    loadedPlayer.energyPerJump = savedPlayerData.energyPerJump ?? loadedPlayer.energyPerJump;
-    loadedPlayer.energyRecharge = savedPlayerData.energyRecharge ?? loadedPlayer.energyRecharge;
-    loadedPlayer.dockedAt = savedPlayerData.dockedAt ?? null;
-    loadedPlayer.landedOn = savedPlayerData.landedOn ?? null;
-    loadedPlayer.pronouns = savedPlayerData.pronouns ?? loadedPlayer.pronouns;
-    loadedPlayer.description = savedPlayerData.description ?? loadedPlayer.description;
-    loadedPlayer.stats = {
-      ...loadedPlayer.stats,
-      ...savedPlayerData.stats
-    };
-    loadedPlayer.corporation = savedPlayerData.corporation;
+  /**
+   * Rebuild a Player instance from saved plain data.
+   * @param {Object} playerData - Serialized player from a save file.
+   * @param {Object} settings - Game settings used to seed defaults.
+   * @returns {Object} Player instance.
+   * @example
+   * const player = Game.deserializePlayer(saveData.player, saveData.settings);
+   */
+  static deserializePlayer(playerData, settings) {
+    const savedPlayerData = playerData || {};
+    const player = new Player(savedPlayerData.name || 'Player', settings);
 
-    game.player = loadedPlayer;
-    game.npcs = saveData.npcs;
-    game.turn = saveData.turn;
-    game.ticks = saveData.ticks || 0;
-    game.exploredSystems = saveData.exploredSystems || [];
+    player.location = savedPlayerData.location ?? player.location;
+    player.ship = savedPlayerData.ship ?? player.ship;
+    player.credits = savedPlayerData.credits ?? player.credits;
+    player.cargo = savedPlayerData.cargo ?? player.cargo;
+    player.shipEnergy = savedPlayerData.shipEnergy ?? player.shipEnergy;
+    player.shipMaxEnergy = savedPlayerData.shipMaxEnergy ?? player.shipMaxEnergy;
+    player.energyPerJump = savedPlayerData.energyPerJump ?? player.energyPerJump;
+    player.energyRecharge = savedPlayerData.energyRecharge ?? player.energyRecharge;
+    player.dockedAt = savedPlayerData.dockedAt ?? null;
+    player.landedOn = savedPlayerData.landedOn ?? null;
+    player.pronouns = savedPlayerData.pronouns ?? player.pronouns;
+    player.description = savedPlayerData.description ?? player.description;
+    player.stats = { ...player.stats, ...savedPlayerData.stats };
+    player.corporation = savedPlayerData.corporation;
 
-    // Reconstruct corporations with proper Corporation instances
-    if (saveData.corporations && Array.isArray(saveData.corporations)) {
-      game.corporations = saveData.corporations.map(corpData => {
-        const corp = new Corporation(
-          corpData.name,
-          corpData.description,
-          corpData.isPlayerOwned,
-          corpData.cashReserves || 0
-        );
-        corp.stellarObjects = corpData.stellarObjects || [];
-        corp.ships = corpData.ships || [];
-        corp.goods = corpData.goods || {};
-        corp.dividendRate = corpData.dividendRate || 0;
-        corp.sharesIssued = corpData.sharesIssued || 0;
-        corp.loans = Array.isArray(corpData.loans) ? corpData.loans.map(loan => ({ ...loan })) : [];
-        const maxLoanId = corp.loans.reduce((maxId, loan) => {
-          const loanId = Number(loan?.id);
-          if (!Number.isFinite(loanId) || loanId < 0) {
-            return maxId;
-          }
-          return Math.max(maxId, loanId);
-        }, 0);
-        const savedNextLoanId = Number(corpData.nextLoanId);
-        if (Number.isFinite(savedNextLoanId) && savedNextLoanId > 0) {
-          corp.nextLoanId = savedNextLoanId;
-        } else {
-          corp.nextLoanId = Math.max(1, maxLoanId + 1);
-        }
-        return corp;
-      });
+    return player;
+  }
 
-      // Restore the player's corporation reference with the proper Corporation instance
-      if (game.player.corporation) {
-        const playerCorp = game.corporations.find(c => c.name === game.player.corporation.name);
-        if (playerCorp) {
-          game.player.corporation = playerCorp;
-        }
+  /**
+   * Rebuild a Corporation instance from saved plain data.
+   * @param {Object} corpData - Serialized corporation from a save file.
+   * @returns {Object} Corporation instance.
+   * @example
+   * const corporation = Game.deserializeCorporation(saveData.corporations[0]);
+   */
+  static deserializeCorporation(corpData) {
+    const corp = new Corporation(
+      corpData.name,
+      corpData.description,
+      corpData.isPlayerOwned,
+      corpData.cashReserves || 0
+    );
+
+    corp.stellarObjects = corpData.stellarObjects || [];
+    corp.ships = corpData.ships || [];
+    corp.goods = corpData.goods || {};
+    corp.dividendRate = corpData.dividendRate || 0;
+    corp.sharesIssued = corpData.sharesIssued || 0;
+    corp.loans = Array.isArray(corpData.loans) ? corpData.loans.map(loan => ({ ...loan })) : [];
+
+    const maxLoanId = corp.loans.reduce((maxId, loan) => {
+      const loanId = Number(loan?.id);
+      if (!Number.isFinite(loanId) || loanId < 0) {
+        return maxId;
       }
-    }
+      return Math.max(maxId, loanId);
+    }, 0);
 
-    // Note: EventBus listeners are not persisted; they must be re-registered after load
-    // Subscribe all stellar objects to tick events for automatic updates
-    universe.stellarObjects.forEach(obj => {
-      game.eventBus.subscribe('tick', obj);
-    });
+    const savedNextLoanId = Number(corpData.nextLoanId);
+    corp.nextLoanId = Number.isFinite(savedNextLoanId) && savedNextLoanId > 0
+      ? savedNextLoanId
+      : Math.max(1, maxLoanId + 1);
 
-    return game;
+    return corp;
   }
 }
 

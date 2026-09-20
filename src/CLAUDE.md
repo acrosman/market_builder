@@ -2,8 +2,26 @@ Overview of src files. These are backend modules that only run on the main proce
 
 - **src/game.js** - Central state manager
   - `Game` class: Tracks universe, player, NPCs, corporations, turn/tick counters
-  - Methods: `initializeGame()`, `jump()`, `dock()`, `land()`, `takeoff()`, `advanceTicks()`
+  - Methods: `initializeGame()`, `jumpToSystem()`, `dockAtStation()`, `landOnPlanet()`, `takeOff()`, `advanceTicks()`
   - Uses `EventBus` for tick events
+  - **Accessors**: All `Game` state is reached through accessor methods. Never read or
+    write `game.player`, `game.universe`, `game.turn`, etc. directly from outside the class.
+    - Read: `getUniverse()`, `getSettings()`, `getDataDirectory()`, `getEventBus()`, `getMarket()`,
+      `getPlayer()`, `getNPCs()`, `getCorporations()`, `getTurn()`, `getTicks()`, `getExploredSystems()`
+    - Write: `setPlayer()`, `setNPCs()`, `addNPC()`, `setCorporations()`,
+      `addCorporation()`, `setTurn()`, `setTicks()`, `setExploredSystems()`, `addExploredSystem()`
+    - `universe`, `settings`, `eventBus`, and `market` are session-scoped collaborators set
+      in the constructor and have no setters. `Market` caches its own universe reference and
+      stellar objects subscribe to tick events at setup, so swapping either on a live `Game`
+      would desync them — build a new `Game` instead (that is what `loadGame()` does).
+    - Lookups: `findCorporation(name)`, `findStellarObject(id)`, `hasExploredSystem(id)`
+    - Setters validate types and throw `TypeError` on bad input; the array getters
+      (`getNPCs()`, `getCorporations()`, `getExploredSystems()`) return shallow copies, so
+      use `addNPC()`/`addCorporation()`/`addExploredSystem()` to append
+  - **Messages**: `getMessage(key, vars, fallback)` resolves localized result text from
+    `game_messages.json`. All `reason`/`message` values returned to the renderer go through it.
+  - **Serialization**: `getSaveData()`, `saveGame()`, and `static loadGame()`, with
+    `static deserializeUniverse()`, `static deserializePlayer()`, `static deserializeCorporation()`
 
 - **src/trader.js** - Base class for entities that trade and move
   - `Trader` class: Common functionality for Player and NPC

@@ -120,11 +120,11 @@ describe('Game Module', () => {
     });
 
     test('initializes with correct default values', () => {
-      expect(game.universe).toBe(mockUniverse);
-      expect(game.settings).toBe(mockSettings);
-      expect(game.player).toBeNull();
-      expect(game.npcs).toEqual([]);
-      expect(game.turn).toBe(0);
+      expect(game.getUniverse()).toBe(mockUniverse);
+      expect(game.getSettings()).toBe(mockSettings);
+      expect(game.getPlayer()).toBeNull();
+      expect(game.getNPCs()).toEqual([]);
+      expect(game.getTurn()).toBe(0);
     });
 
     test('initializes game with player and NPCs', () => {
@@ -132,15 +132,15 @@ describe('Game Module', () => {
 
       game.initializeGame(playerData);
 
-      expect(game.player).toBeTruthy();
-      expect(game.player.name).toBe('TestPlayer');
-      expect(game.player.pronouns).toEqual(playerData.pronouns);
-      expect(game.player.description).toBe(playerData.description);
-      expect(game.player.corporation).toBeTruthy();
-      expect(game.player.corporation.name).toBe('Test Corp');
-      expect(game.player.corporation.description).toBe('A test corporation');
-      expect(game.player.corporation.isPlayerOwned).toBe(true);
-      expect(game.npcs.length).toBe(2); // One for each system except starting system
+      expect(game.getPlayer()).toBeTruthy();
+      expect(game.getPlayer().name).toBe('TestPlayer');
+      expect(game.getPlayer().pronouns).toEqual(playerData.pronouns);
+      expect(game.getPlayer().description).toBe(playerData.description);
+      expect(game.getPlayer().corporation).toBeTruthy();
+      expect(game.getPlayer().corporation.name).toBe('Test Corp');
+      expect(game.getPlayer().corporation.description).toBe('A test corporation');
+      expect(game.getPlayer().corporation.isPlayerOwned).toBe(true);
+      expect(game.getNPCs().length).toBe(2); // One for each system except starting system
     });
 
     test('initializes game with fallback corporation data when not provided', () => {
@@ -153,9 +153,9 @@ describe('Game Module', () => {
 
       game.initializeGame(playerData);
 
-      expect(game.player.corporation).toBeDefined();
-      expect(game.player.corporation.name).toBe('Unknown Corp');
-      expect(game.player.corporation.description).toBe('A trading company');
+      expect(game.getPlayer().corporation).toBeDefined();
+      expect(game.getPlayer().corporation.name).toBe('Unknown Corp');
+      expect(game.getPlayer().corporation.description).toBe('A trading company');
     });
 
     test('assigns a Farm World planet to player corporation during initialization', () => {
@@ -217,8 +217,8 @@ describe('Game Module', () => {
       );
 
       expect(farmPlanet).toBeDefined();
-      expect(farmPlanet.owner).toBe(testGame.player.corporation.name);
-      expect(testGame.player.corporation.stellarObjects).toContain(farmPlanet.id);
+      expect(farmPlanet.owner).toBe(testGame.getPlayer().corporation.name);
+      expect(testGame.getPlayer().corporation.stellarObjects).toContain(farmPlanet.id);
     });
 
     test('does not assign Farm World if none exists outside system 1', () => {
@@ -253,14 +253,14 @@ describe('Game Module', () => {
       limitedGame.initializeGame(playerData);
 
       // Corporation should exist but have no stellar objects
-      expect(limitedGame.player.corporation.stellarObjects.length).toBe(0);
+      expect(limitedGame.getPlayer().corporation.stellarObjects.length).toBe(0);
     });
 
     test('processes turn and updates game state', () => {
       game.initializeGame(createTestPlayerData());
       game.processTurn();
 
-      expect(game.turn).toBe(1);
+      expect(game.getTurn()).toBe(1);
     });
 
     test('gets current location state', () => {
@@ -317,16 +317,16 @@ describe('Game Module', () => {
 
         // Verify loaded game state matches original (compare core properties)
         expect(loadedGame).toBeInstanceOf(Game);
-        expect(loadedGame.player.name).toBe(playerData.name);
-        expect(loadedGame.settings).toEqual(mockSettings);
+        expect(loadedGame.getPlayer().name).toBe(playerData.name);
+        expect(loadedGame.getSettings()).toEqual(mockSettings);
         // Compare systems and stellarObjects shapes rather than full instance equality
-        const loadedSystems = loadedGame.universe.systems.map(s => ({ id: s.id, name: s.name }));
+        const loadedSystems = loadedGame.getUniverse().systems.map(s => ({ id: s.id, name: s.name }));
         expect(loadedSystems).toEqual(mockUniverse.systems);
-        const loadedObjects = loadedGame.universe.stellarObjects.map(o => ({ id: o.id, type: o.type, location: o.location }));
+        const loadedObjects = loadedGame.getUniverse().stellarObjects.map(o => ({ id: o.id, type: o.type, location: o.location }));
         const expectedObjects = mockUniverse.stellarObjects.map(o => ({ id: o.id, type: o.type, location: o.location }));
         expect(loadedObjects).toEqual(expectedObjects);
-        expect(loadedGame.turn).toBe(game.turn);
-        expect(loadedGame.npcs.length).toBe(game.npcs.length);
+        expect(loadedGame.getTurn()).toBe(game.getTurn());
+        expect(loadedGame.getNPCs().length).toBe(game.getNPCs().length);
       });
 
       test('throws error when loading non-existent save file', () => {
@@ -337,7 +337,7 @@ describe('Game Module', () => {
 
       test('saves and loads stellar object population data', () => {
         // Modify population of a stellar object
-        const stellarObj = game.universe.stellarObjects[0];
+        const stellarObj = game.getUniverse().stellarObjects[0];
         const originalPopulation = {
           current: 5000,
           limit: 10000,
@@ -352,7 +352,7 @@ describe('Game Module', () => {
         const loadedGame = Game.loadGame(testFilename);
 
         // Verify population was preserved
-        const loadedObj = loadedGame.universe.stellarObjects[0];
+        const loadedObj = loadedGame.getUniverse().stellarObjects[0];
         expect(loadedObj.population).toBeDefined();
         expect(loadedObj.population.current).toBe(originalPopulation.current);
         expect(loadedObj.population.limit).toBe(originalPopulation.limit);
@@ -361,7 +361,7 @@ describe('Game Module', () => {
 
       test('saves and loads buildings and construction queue', () => {
         // Add some buildings and construction queue items
-        const stellarObj = game.universe.stellarObjects[0];
+        const stellarObj = game.getUniverse().stellarObjects[0];
         stellarObj.buildings = { 'Mine': { count: 2 }, 'Warehouse': { count: 1 } };
         stellarObj.buildingsUnderConstruction = [{ type: 'Mine', ticksRemaining: 5 }];
         stellarObj.fighters = 10;
@@ -373,7 +373,7 @@ describe('Game Module', () => {
         const loadedGame = Game.loadGame(testFilename);
 
         // Verify buildings state was preserved
-        const loadedObj = loadedGame.universe.stellarObjects[0];
+        const loadedObj = loadedGame.getUniverse().stellarObjects[0];
         expect(loadedObj.buildings).toEqual({ 'Mine': { count: 2 }, 'Warehouse': { count: 1 } });
         expect(loadedObj.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 5 }]);
         expect(loadedObj.fighters).toBe(10);
@@ -384,10 +384,10 @@ describe('Game Module', () => {
       test('dockAtStation returns success when docking at valid station', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0; // Set player location to system 0
+        game.getPlayer().location = 0; // Set player location to system 0
 
         // Update mock data to have a station
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Space Station', name: 'Trading Post', location: 0, className: 'Trading Post' }
         ];
 
@@ -395,15 +395,15 @@ describe('Game Module', () => {
 
         expect(result.success).toBe(true);
         expect(result.dockedObject.name).toBe('Trading Post');
-        expect(game.player.dockedAt).toBe(100);
-        expect(game.player.landedOn).toBeNull();
-        expect(game.player.stats.trades).toBe(1);
+        expect(game.getPlayer().dockedAt).toBe(100);
+        expect(game.getPlayer().landedOn).toBeNull();
+        expect(game.getPlayer().stats.trades).toBe(1);
       });
 
       test('dockAtStation returns error when station does not exist', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.universe.stellarObjects = [];
+        game.getUniverse().stellarObjects = [];
 
         const result = game.dockAtStation(999);
 
@@ -414,9 +414,9 @@ describe('Game Module', () => {
       test('dockAtStation returns error when station is not in current system', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Space Station', name: 'Trading Post', location: 1 }
         ];
 
@@ -429,9 +429,9 @@ describe('Game Module', () => {
       test('dockAtStation returns error when trying to dock at non-station', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
         ];
 
@@ -446,9 +446,9 @@ describe('Game Module', () => {
       test('landOnPlanet returns success when landing on valid planet', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
         ];
 
@@ -456,17 +456,17 @@ describe('Game Module', () => {
 
         expect(result.success).toBe(true);
         expect(result.landedObject.name).toBe('Earth');
-        expect(game.player.landedOn).toBe(100);
-        expect(game.player.dockedAt).toBeNull();
-        expect(game.player.stats.trades).toBe(1);
+        expect(game.getPlayer().landedOn).toBe(100);
+        expect(game.getPlayer().dockedAt).toBeNull();
+        expect(game.getPlayer().stats.trades).toBe(1);
       });
 
       test('landOnPlanet returns success when landing on valid asteroid', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Asteroid', name: 'IceAsteroid', location: 0, className: 'Ice' }
         ];
 
@@ -474,13 +474,13 @@ describe('Game Module', () => {
 
         expect(result.success).toBe(true);
         expect(result.landedObject.name).toBe('IceAsteroid');
-        expect(game.player.landedOn).toBe(100);
+        expect(game.getPlayer().landedOn).toBe(100);
       });
 
       test('landOnPlanet returns error when planet does not exist', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.universe.stellarObjects = [];
+        game.getUniverse().stellarObjects = [];
 
         const result = game.landOnPlanet(999);
 
@@ -491,9 +491,9 @@ describe('Game Module', () => {
       test('landOnPlanet returns error when planet is not in current system', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 1 }
         ];
 
@@ -506,9 +506,9 @@ describe('Game Module', () => {
       test('landOnPlanet returns error when trying to land on non-planet/asteroid', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Space Station', name: 'Station', location: 0 }
         ];
 
@@ -521,95 +521,95 @@ describe('Game Module', () => {
       test('landing clears previous docked status', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.player.dockedAt = 50; // Previously docked
+        game.getPlayer().location = 0;
+        game.getPlayer().dockedAt = 50; // Previously docked
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 0 }
         ];
 
         const result = game.landOnPlanet(100);
 
         expect(result.success).toBe(true);
-        expect(game.player.landedOn).toBe(100);
-        expect(game.player.dockedAt).toBeNull();
+        expect(game.getPlayer().landedOn).toBe(100);
+        expect(game.getPlayer().dockedAt).toBeNull();
       });
 
       test('docking clears previous landed status', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.player.landedOn = 50; // Previously landed
+        game.getPlayer().location = 0;
+        game.getPlayer().landedOn = 50; // Previously landed
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Space Station', name: 'Station', location: 0 }
         ];
 
         const result = game.dockAtStation(100);
 
         expect(result.success).toBe(true);
-        expect(game.player.dockedAt).toBe(100);
-        expect(game.player.landedOn).toBeNull();
+        expect(game.getPlayer().dockedAt).toBe(100);
+        expect(game.getPlayer().landedOn).toBeNull();
       });
 
       test('docking at station fully recharges ship energy', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         // Deplete ship energy to simulate having traveled
-        const maxEnergy = game.player.shipMaxEnergy;
-        game.player.shipEnergy = maxEnergy * 0.3; // 30% energy remaining
+        const maxEnergy = game.getPlayer().shipMaxEnergy;
+        game.getPlayer().shipEnergy = maxEnergy * 0.3; // 30% energy remaining
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Space Station', name: 'Station', location: 0 }
         ];
 
         const result = game.dockAtStation(100);
 
         expect(result.success).toBe(true);
-        expect(game.player.shipEnergy).toBe(maxEnergy);
-        expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+        expect(game.getPlayer().shipEnergy).toBe(maxEnergy);
+        expect(game.getPlayer().shipEnergy).toBe(game.getPlayer().shipMaxEnergy);
       });
 
       test('landing on planet fully recharges ship energy', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         // Deplete ship energy to simulate having traveled
-        const maxEnergy = game.player.shipMaxEnergy;
-        game.player.shipEnergy = maxEnergy * 0.5; // 50% energy remaining
+        const maxEnergy = game.getPlayer().shipMaxEnergy;
+        game.getPlayer().shipEnergy = maxEnergy * 0.5; // 50% energy remaining
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
         ];
 
         const result = game.landOnPlanet(100);
 
         expect(result.success).toBe(true);
-        expect(game.player.shipEnergy).toBe(maxEnergy);
-        expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+        expect(game.getPlayer().shipEnergy).toBe(maxEnergy);
+        expect(game.getPlayer().shipEnergy).toBe(game.getPlayer().shipMaxEnergy);
       });
 
       test('landing on asteroid fully recharges ship energy', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         // Deplete ship energy significantly
-        const maxEnergy = game.player.shipMaxEnergy;
-        game.player.shipEnergy = 100; // Very low energy
+        const maxEnergy = game.getPlayer().shipMaxEnergy;
+        game.getPlayer().shipEnergy = 100; // Very low energy
 
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Asteroid', name: 'Mining Base', location: 0, className: 'Metal' }
         ];
 
         const result = game.landOnPlanet(100);
 
         expect(result.success).toBe(true);
-        expect(game.player.shipEnergy).toBe(maxEnergy);
-        expect(game.player.shipEnergy).toBe(game.player.shipMaxEnergy);
+        expect(game.getPlayer().shipEnergy).toBe(maxEnergy);
+        expect(game.getPlayer().shipEnergy).toBe(game.getPlayer().shipMaxEnergy);
       });
     });
 
@@ -665,11 +665,11 @@ describe('Game Module', () => {
       test('returns buildable buildings when docked at controlled object with resources', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject();
-        game.universe.stellarObjects = [object];
-        game.player.dockedAt = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().dockedAt = object.id;
 
         const options = game.getBuildableBuildingsForCurrentObject();
 
@@ -680,11 +680,11 @@ describe('Game Module', () => {
       test('returns no build options when building data cannot be loaded', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject();
-        game.universe.stellarObjects = [object];
-        game.player.dockedAt = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().dockedAt = object.id;
         jest.spyOn(game, 'getBuildingsData').mockReturnValue(null);
 
         const options = game.getBuildableBuildingsForCurrentObject();
@@ -696,11 +696,11 @@ describe('Game Module', () => {
       test('lists build options even when local credits are insufficient', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject({ buildingCredits: 0 });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         const options = game.getBuildableBuildingsForCurrentObject();
 
@@ -712,12 +712,12 @@ describe('Game Module', () => {
       test('returns buildable buildings when landed at corporation asset even if owner label is stale', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject({ owner: 'Independent' });
-        game.universe.stellarObjects = [object];
-        game.player.corporation.stellarObjects = [object.id];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().corporation.stellarObjects = [object.id];
+        game.getPlayer().landedOn = object.id;
 
         const options = game.getBuildableBuildingsForCurrentObject();
 
@@ -728,17 +728,17 @@ describe('Game Module', () => {
       test('returns buildable buildings when player corporation reference is missing but corp is marked player-owned', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject({ owner: 'Test Corp' });
-        game.universe.stellarObjects = [object];
-        game.player.corporation = null;
-        game.corporations = [{
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().corporation = null;
+        game.setCorporations([{
           name: 'Test Corp',
           isPlayerOwned: true,
           stellarObjects: [object.id]
-        }];
-        game.player.landedOn = object.id;
+        }]);
+        game.getPlayer().landedOn = object.id;
 
         const options = game.getBuildableBuildingsForCurrentObject();
 
@@ -749,11 +749,11 @@ describe('Game Module', () => {
       test('buildBuildingAtCurrentObject rejects when player does not control object', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject({ owner: 'Rival Corp' });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         const result = game.buildBuildingAtCurrentObject('Mine');
 
@@ -764,11 +764,11 @@ describe('Game Module', () => {
       test('buildBuildingAtCurrentObject queues construction on the current object', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
+        game.getPlayer().location = 0;
 
         const object = createBuildableObject();
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         const result = game.buildBuildingAtCurrentObject('Mine');
 
@@ -795,37 +795,37 @@ describe('Game Module', () => {
             cashReserves: 700
           }
         }));
-        game.player.location = 0;
-        game.player.credits = 0;
+        game.getPlayer().location = 0;
+        game.getPlayer().credits = 0;
 
         const object = createBuildableObject({ buildingCredits: 0 });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         game.buildBuildingAtCurrentObject('Mine');
 
         const creditSupport = object.constructBuilding.mock.calls[0][2];
         expect(creditSupport.availableCredits).toBe(700);
         expect(creditSupport.spendCredits(500)).toBe(true);
-        expect(game.player.corporation.cashReserves).toBe(200);
+        expect(game.getPlayer().corporation.cashReserves).toBe(200);
       });
 
       test('buildBuildingAtCurrentObject falls back to player credits for controlled assets', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.player.corporation.cashReserves = 0;
+        game.getPlayer().location = 0;
+        game.getPlayer().corporation.cashReserves = 0;
 
         const object = createBuildableObject({ buildingCredits: 0 });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         game.buildBuildingAtCurrentObject('Mine');
 
         const creditSupport = object.constructBuilding.mock.calls[0][2];
         expect(creditSupport.availableCredits).toBe(mockSettings.starting_credits);
         expect(creditSupport.spendCredits(500)).toBe(true);
-        expect(game.player.credits).toBe(mockSettings.starting_credits - 500);
+        expect(game.getPlayer().credits).toBe(mockSettings.starting_credits - 500);
       });
 
       test('buildBuildingAtCurrentObject combines corporation and player funding when needed', () => {
@@ -837,20 +837,20 @@ describe('Game Module', () => {
             cashReserves: 200
           }
         }));
-        game.player.location = 0;
-        game.player.credits = 400;
+        game.getPlayer().location = 0;
+        game.getPlayer().credits = 400;
 
         const object = createBuildableObject({ buildingCredits: 0 });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         game.buildBuildingAtCurrentObject('Mine');
 
         const creditSupport = object.constructBuilding.mock.calls[0][2];
         expect(creditSupport.availableCredits).toBe(600);
         expect(creditSupport.spendCredits(500)).toBe(true);
-        expect(game.player.corporation.cashReserves).toBe(0);
-        expect(game.player.credits).toBe(100);
+        expect(game.getPlayer().corporation.cashReserves).toBe(0);
+        expect(game.getPlayer().credits).toBe(100);
       });
 
       test('buildBuildingAtCurrentObject rolls back earlier deductions when a later funder fails', () => {
@@ -862,20 +862,20 @@ describe('Game Module', () => {
             cashReserves: 200
           }
         }));
-        game.player.location = 0;
-        game.player.credits = 400;
-        game.player.removeCredits = jest.fn(() => false);
+        game.getPlayer().location = 0;
+        game.getPlayer().credits = 400;
+        game.getPlayer().removeCredits = jest.fn(() => false);
 
         const object = createBuildableObject({ buildingCredits: 0 });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         game.buildBuildingAtCurrentObject('Mine');
 
         const creditSupport = object.constructBuilding.mock.calls[0][2];
         expect(creditSupport.spendCredits(500)).toBe(false);
-        expect(game.player.corporation.cashReserves).toBe(200);
-        expect(game.player.credits).toBe(400);
+        expect(game.getPlayer().corporation.cashReserves).toBe(200);
+        expect(game.getPlayer().credits).toBe(400);
       });
 
       test('buildBuildingAtCurrentObject charges the exact owner-name match over an earlier corporation with a stale asset match', () => {
@@ -887,33 +887,33 @@ describe('Game Module', () => {
             cashReserves: 900
           }
         }));
-        game.player.location = 0;
-        game.player.credits = 0;
+        game.getPlayer().location = 0;
+        game.getPlayer().credits = 0;
 
         const object = createBuildableObject({ buildingCredits: 0, owner: 'Real Owner Corp' });
-        game.universe.stellarObjects = [object];
-        game.player.landedOn = object.id;
+        game.getUniverse().stellarObjects = [object];
+        game.getPlayer().landedOn = object.id;
 
         // The player's primary corporation (first in owned-corporation order) has a
         // stale asset reference to this object but is not its actual owner. A second,
         // later corporation is the object's exact owner and must be the one charged.
-        game.player.corporation.stellarObjects = [object.id];
-        game.corporations = [
-          game.player.corporation,
+        game.getPlayer().corporation.stellarObjects = [object.id];
+        game.setCorporations([
+          game.getPlayer().corporation,
           {
             name: 'Real Owner Corp',
             isPlayerOwned: true,
             cashReserves: 300
           }
-        ];
+        ]);
 
         game.buildBuildingAtCurrentObject('Mine');
 
         const creditSupport = object.constructBuilding.mock.calls[0][2];
         expect(creditSupport.availableCredits).toBe(300);
         expect(creditSupport.spendCredits(200)).toBe(true);
-        expect(game.corporations[1].cashReserves).toBe(100);
-        expect(game.player.corporation.cashReserves).toBe(900);
+        expect(game.getCorporations()[1].cashReserves).toBe(100);
+        expect(game.getPlayer().corporation.cashReserves).toBe(900);
       });
     });
   });
@@ -924,13 +924,13 @@ describe('Game Module', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
 
-        expect(game.ticks).toBe(0);
+        expect(game.getTicks()).toBe(0);
 
         game.advanceTicks(1, 'test');
-        expect(game.ticks).toBe(1);
+        expect(game.getTicks()).toBe(1);
 
         game.advanceTicks(5, 'test');
-        expect(game.ticks).toBe(6);
+        expect(game.getTicks()).toBe(6);
       });
 
       test('should emit tick event with correct data', () => {
@@ -938,7 +938,7 @@ describe('Game Module', () => {
         game.initializeGame(createTestPlayerData());
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         const result = game.advanceTicks(1, 'jump');
 
@@ -957,14 +957,14 @@ describe('Game Module', () => {
         game.initializeGame(createTestPlayerData());
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.advanceTicks(1, 'jump');
         game.advanceTicks(1, 'dock');
         game.advanceTicks(1, 'land');
 
         expect(listener).toHaveBeenCalledTimes(3);
-        expect(game.ticks).toBe(3);
+        expect(game.getTicks()).toBe(3);
       });
 
       test('should emit one event per tick when advancing multiple ticks', () => {
@@ -972,13 +972,13 @@ describe('Game Module', () => {
         game.initializeGame(createTestPlayerData());
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.advanceTicks(5, 'test');
 
         // Should emit 5 separate events, one for each tick
         expect(listener).toHaveBeenCalledTimes(5);
-        expect(game.ticks).toBe(5);
+        expect(game.getTicks()).toBe(5);
 
         // Verify each call had incrementing tick counts
         expect(listener).toHaveBeenNthCalledWith(1, expect.objectContaining({ ticks: 1 }));
@@ -993,18 +993,18 @@ describe('Game Module', () => {
       test('jumpToSystem should advance ticks by 1', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.universe.systems = [
+        game.getPlayer().location = 0;
+        game.getUniverse().systems = [
           { id: 0, name: 'Alpha', connections: { 1: 5 } }, // 5 tick cost to jump to system 1
           { id: 1, name: 'Beta', connections: { 0: 5 } }
         ];
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.jumpToSystem(1);
 
-        expect(game.ticks).toBe(5); // Should advance by connection cost
+        expect(game.getTicks()).toBe(5); // Should advance by connection cost
         expect(listener).toHaveBeenCalledTimes(5); // Should emit 5 tick events
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'jump' })
@@ -1014,17 +1014,17 @@ describe('Game Module', () => {
       test('dockAtStation should advance ticks by 1', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.universe.stellarObjects = [
+        game.getPlayer().location = 0;
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Space Station', name: 'Station Alpha', location: 0 }
         ];
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.dockAtStation(100);
 
-        expect(game.ticks).toBe(1);
+        expect(game.getTicks()).toBe(1);
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'dock' })
         );
@@ -1033,17 +1033,17 @@ describe('Game Module', () => {
       test('landOnPlanet should advance ticks by 1', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.universe.stellarObjects = [
+        game.getPlayer().location = 0;
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 0, className: 'Earth-like' }
         ];
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.landOnPlanet(100);
 
-        expect(game.ticks).toBe(1);
+        expect(game.getTicks()).toBe(1);
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'land' })
         );
@@ -1052,15 +1052,15 @@ describe('Game Module', () => {
       test('takeOff should advance ticks by 1', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.player.landedOn = 100;
+        game.getPlayer().location = 0;
+        game.getPlayer().landedOn = 100;
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.takeOff();
 
-        expect(game.ticks).toBe(1);
+        expect(game.getTicks()).toBe(1);
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'takeoff' })
         );
@@ -1069,26 +1069,26 @@ describe('Game Module', () => {
       test('multiple actions should accumulate ticks', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.universe.systems = [
+        game.getPlayer().location = 0;
+        game.getUniverse().systems = [
           { id: 0, name: 'Alpha', connections: { 1: 3 } }, // 3 tick cost
           { id: 1, name: 'Beta', connections: { 0: 3 } }
         ];
-        game.universe.stellarObjects = [
+        game.getUniverse().stellarObjects = [
           { id: 100, type: 'Planet', name: 'Earth', location: 1, className: 'Earth-like' }
         ];
 
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         game.jumpToSystem(1);
-        expect(game.ticks).toBe(3); // Jump costs 3 ticks
+        expect(game.getTicks()).toBe(3); // Jump costs 3 ticks
 
         game.landOnPlanet(100);
-        expect(game.ticks).toBe(4); // Land costs 1 tick
+        expect(game.getTicks()).toBe(4); // Land costs 1 tick
 
         game.takeOff();
-        expect(game.ticks).toBe(5); // Takeoff costs 1 tick
+        expect(game.getTicks()).toBe(5); // Takeoff costs 1 tick
 
         expect(listener).toHaveBeenCalledTimes(5); // 3 + 1 + 1 = 5 total tick events
       });
@@ -1101,14 +1101,14 @@ describe('Game Module', () => {
 
         // Advance ticks
         game.advanceTicks(10, 'test');
-        expect(game.ticks).toBe(10);
+        expect(game.getTicks()).toBe(10);
 
         // Save and load
         const saveData = game.getSaveData();
         expect(saveData.ticks).toBe(10);
 
         const loadedGame = Game.loadGame(saveData);
-        expect(loadedGame.ticks).toBe(10);
+        expect(loadedGame.getTicks()).toBe(10);
       });
 
       test('should initialize ticks to 0 for old saves without ticks', () => {
@@ -1120,7 +1120,7 @@ describe('Game Module', () => {
         delete saveData.ticks;
 
         const loadedGame = Game.loadGame(saveData);
-        expect(loadedGame.ticks).toBe(0);
+        expect(loadedGame.getTicks()).toBe(0);
       });
 
       test('should recreate EventBus on load', () => {
@@ -1129,7 +1129,7 @@ describe('Game Module', () => {
 
         // Add a listener to the original game
         const listener = jest.fn();
-        game.eventBus.on('tick', listener);
+        game.getEventBus().on('tick', listener);
 
         // Save and load
         const saveData = game.getSaveData();
@@ -1141,7 +1141,7 @@ describe('Game Module', () => {
 
         // But the new game should have a functioning EventBus
         const newListener = jest.fn();
-        loadedGame.eventBus.on('tick', newListener);
+        loadedGame.getEventBus().on('tick', newListener);
         loadedGame.advanceTicks(1, 'test');
         expect(newListener).toHaveBeenCalled();
       });
@@ -1149,33 +1149,33 @@ describe('Game Module', () => {
       test('should save and restore player corporation with stellar objects', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.corporation.addCashReserve(7500);
+        game.getPlayer().corporation.addCashReserve(7500);
 
         // Verify corporation has stellar objects before save
-        expect(game.player.corporation).toBeDefined();
-        expect(game.player.corporation.stellarObjects.length).toBeGreaterThan(0);
-        const originalCorpName = game.player.corporation.name;
-        const originalStellarObjects = [...game.player.corporation.stellarObjects];
-        const originalCashReserves = game.player.corporation.cashReserves;
+        expect(game.getPlayer().corporation).toBeDefined();
+        expect(game.getPlayer().corporation.stellarObjects.length).toBeGreaterThan(0);
+        const originalCorpName = game.getPlayer().corporation.name;
+        const originalStellarObjects = [...game.getPlayer().corporation.stellarObjects];
+        const originalCashReserves = game.getPlayer().corporation.cashReserves;
 
         // Save and load
         const saveData = game.getSaveData();
         const loadedGame = Game.loadGame(saveData);
 
         // Verify corporation was restored
-        expect(loadedGame.player.corporation).toBeDefined();
-        expect(loadedGame.player.corporation.name).toBe(originalCorpName);
-        expect(loadedGame.player.corporation.stellarObjects).toEqual(originalStellarObjects);
-        expect(loadedGame.player.corporation.cashReserves).toEqual(originalCashReserves);
+        expect(loadedGame.getPlayer().corporation).toBeDefined();
+        expect(loadedGame.getPlayer().corporation.name).toBe(originalCorpName);
+        expect(loadedGame.getPlayer().corporation.stellarObjects).toEqual(originalStellarObjects);
+        expect(loadedGame.getPlayer().corporation.cashReserves).toEqual(originalCashReserves);
 
         // Verify corporation has proper class methods
-        expect(typeof loadedGame.player.corporation.addStellarObject).toBe('function');
-        expect(typeof loadedGame.player.corporation.calculateTotalValue).toBe('function');
+        expect(typeof loadedGame.getPlayer().corporation.addStellarObject).toBe('function');
+        expect(typeof loadedGame.getPlayer().corporation.calculateTotalValue).toBe('function');
 
         // Verify corporations array was restored
-        expect(loadedGame.corporations).toBeDefined();
-        expect(loadedGame.corporations.length).toBeGreaterThan(0);
-        expect(loadedGame.corporations[0].name).toBe(originalCorpName);
+        expect(loadedGame.getCorporations()).toBeDefined();
+        expect(loadedGame.getCorporations().length).toBeGreaterThan(0);
+        expect(loadedGame.getCorporations()[0].name).toBe(originalCorpName);
       });
 
       test('should normalize legacy object-based corporation reserves on load', () => {
@@ -1186,14 +1186,14 @@ describe('Game Module', () => {
         saveData.corporations[0].cashReserves = { trade: 300, buildings: 200 };
 
         const loadedGame = Game.loadGame(saveData);
-        expect(loadedGame.player.corporation.cashReserves).toBe(500);
+        expect(loadedGame.getPlayer().corporation.cashReserves).toBe(500);
       });
 
       test('should allow jumping after loading a saved game', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
-        game.player.location = 0;
-        game.universe.systems = [
+        game.getPlayer().location = 0;
+        game.getUniverse().systems = [
           { id: 0, name: 'Alpha', connections: { 1: 3 } },
           { id: 1, name: 'Beta', connections: { 0: 3 } }
         ];
@@ -1203,8 +1203,8 @@ describe('Game Module', () => {
         const result = loadedGame.jumpToSystem(1);
 
         expect(result.success).toBe(true);
-        expect(loadedGame.player).toBeInstanceOf(Player);
-        expect(loadedGame.player.location).toBe(1);
+        expect(loadedGame.getPlayer()).toBeInstanceOf(Player);
+        expect(loadedGame.getPlayer().location).toBe(1);
       });
     });
   });
@@ -1213,8 +1213,8 @@ describe('Game Module', () => {
     test('takeOff returns error when not docked or landed', () => {
       const game = new Game(mockUniverse, mockSettings);
       game.initializeGame(createTestPlayerData());
-      game.player.dockedAt = null;
-      game.player.landedOn = null;
+      game.getPlayer().dockedAt = null;
+      game.getPlayer().landedOn = null;
 
       const result = game.takeOff();
 
@@ -1237,8 +1237,8 @@ describe('Game Module', () => {
     test('validateJump returns invalid when no connection to target', () => {
       const game = new Game(mockUniverse, mockSettings);
       game.initializeGame(createTestPlayerData());
-      game.player.location = 0;
-      game.universe.systems = [
+      game.getPlayer().location = 0;
+      game.getUniverse().systems = [
         { id: 0, name: 'Alpha', connections: {} },
         { id: 1, name: 'Beta', connections: {} }
       ];
@@ -1252,13 +1252,13 @@ describe('Game Module', () => {
     test('validateJump returns invalid when not enough energy', () => {
       const game = new Game(mockUniverse, mockSettings);
       game.initializeGame(createTestPlayerData());
-      game.player.location = 0;
-      game.universe.systems = [
+      game.getPlayer().location = 0;
+      game.getUniverse().systems = [
         { id: 0, name: 'Alpha', connections: { 1: 5 } },
         { id: 1, name: 'Beta', connections: { 0: 5 } }
       ];
-      game.player.shipEnergy = 0;
-      game.player.energyPerJump = 10;
+      game.getPlayer().shipEnergy = 0;
+      game.getPlayer().energyPerJump = 10;
 
       const result = game.validateJump(1);
 
@@ -1308,9 +1308,9 @@ describe('Game Module', () => {
 
       game = new Game(universe, settings);
       game.initializeGame(createTestPlayerData());
-      game.player.location = 1;
-      game.player.landedOn = 1;
-      game.market.initializeMarkets();
+      game.getPlayer().location = 1;
+      game.getPlayer().landedOn = 1;
+      game.getMarket().initializeMarkets();
 
       // Set up controlled inventory
       stellarObject.marketState.inventory = { wheat: 100 };
@@ -1327,7 +1327,7 @@ describe('Game Module', () => {
     });
 
     test('sellGood delegates to market and succeeds', () => {
-      game.player.cargo.wheat = 10;
+      game.getPlayer().cargo.wheat = 10;
       const result = game.sellGood(1, 'wheat', 5);
       expect(result.success).toBe(true);
     });
@@ -1371,8 +1371,45 @@ describe('Game Module', () => {
 
       game = new Game(universe, settings);
       game.initializeGame(createTestPlayerData());
-      game.player.location = 1;
-      game.player.landedOn = 1;
+      game.getPlayer().location = 1;
+      game.getPlayer().landedOn = 1;
+    });
+
+    test('loadPassengers rejects a NaN passenger count without corrupting state', () => {
+      const result = game.loadPassengers(1, parseInt('', 10));
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Invalid passenger count');
+      expect(stellarObject.population.current).toBe(500000);
+      expect(game.getPlayer().cargo.passengers).toBeUndefined();
+      expect(game.calculateCargoUsed()).not.toBeNaN();
+    });
+
+    test('loadPassengers rejects a zero or negative passenger count', () => {
+      expect(game.loadPassengers(1, 0).message).toBe('Invalid passenger count');
+      expect(game.loadPassengers(1, -5).message).toBe('Invalid passenger count');
+      expect(stellarObject.population.current).toBe(500000);
+    });
+
+    test('loadPassengers fails when the location has no population limit', () => {
+      stellarObject.population = { current: 0, limit: 0, growthRate: -100 };
+
+      const result = game.loadPassengers(1, 50);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('too low');
+      expect(stellarObject.population.current).toBe(0);
+    });
+
+    test('loadPassengers fails when the player is not docked or landed there', () => {
+      game.getPlayer().landedOn = null;
+      game.getPlayer().dockedAt = null;
+
+      const result = game.loadPassengers(1, 10);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('docked or landed');
+      expect(stellarObject.population.current).toBe(500000);
     });
 
     test('loadPassengers fails when stellar object not found', () => {
@@ -1397,20 +1434,20 @@ describe('Game Module', () => {
     test('loadPassengers succeeds with valid conditions', () => {
       const result = game.loadPassengers(1, 10);
       expect(result.success).toBe(true);
-      expect(game.player.cargo.passengers).toBe(10);
+      expect(game.getPlayer().cargo.passengers).toBe(10);
     });
 
     test('loadPassengers fails when insufficient cargo space', () => {
-      game.player.cargo.wheat = 10000; // Fill cargo
+      game.getPlayer().cargo.wheat = 10000; // Fill cargo
       const result = game.loadPassengers(1, 10);
       expect(result.success).toBe(false);
       expect(result.message).toContain('cargo space');
     });
 
     test('unloadPassengers fails when not at correct location', () => {
-      game.player.cargo.passengers = 10;
-      game.player.dockedAt = null;
-      game.player.landedOn = null;
+      game.getPlayer().cargo.passengers = 10;
+      game.getPlayer().dockedAt = null;
+      game.getPlayer().landedOn = null;
 
       const result = game.unloadPassengers(1, 10);
       expect(result.success).toBe(false);
@@ -1418,8 +1455,8 @@ describe('Game Module', () => {
     });
 
     test('unloadPassengers fails when stellar object not found', () => {
-      game.player.cargo.passengers = 10;
-      game.player.landedOn = 999; // Set player at location 999 (which doesn't exist)
+      game.getPlayer().cargo.passengers = 10;
+      game.getPlayer().landedOn = 999; // Set player at location 999 (which doesn't exist)
       const result = game.unloadPassengers(999, 10);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Stellar object not found');
@@ -1432,14 +1469,14 @@ describe('Game Module', () => {
     });
 
     test('unloadPassengers fails with invalid count', () => {
-      game.player.cargo.passengers = 10;
+      game.getPlayer().cargo.passengers = 10;
       const result = game.unloadPassengers(1, 0);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Invalid passenger count');
     });
 
     test('unloadPassengers fails when trying to unload more than carrying', () => {
-      game.player.cargo.passengers = 5;
+      game.getPlayer().cargo.passengers = 5;
       const result = game.unloadPassengers(1, 10);
       expect(result.success).toBe(false);
       expect(result.message).toContain('only have 5');
@@ -1447,24 +1484,24 @@ describe('Game Module', () => {
 
     test('unloadPassengers fails when population limit reached', () => {
       stellarObject.population = { current: 999990, limit: 1000000, growthRate: 2 };
-      game.player.cargo.passengers = 20;
+      game.getPlayer().cargo.passengers = 20;
       const result = game.unloadPassengers(1, 20);
       expect(result.success).toBe(false);
       expect(result.message).toContain('only accept');
     });
 
     test('unloadPassengers succeeds and removes passengers entry when count reaches 0', () => {
-      game.player.cargo.passengers = 10;
+      game.getPlayer().cargo.passengers = 10;
       const result = game.unloadPassengers(1, 10);
       expect(result.success).toBe(true);
-      expect(game.player.cargo.passengers).toBeUndefined();
+      expect(game.getPlayer().cargo.passengers).toBeUndefined();
     });
 
     test('unloadPassengers succeeds partially', () => {
-      game.player.cargo.passengers = 20;
+      game.getPlayer().cargo.passengers = 20;
       const result = game.unloadPassengers(1, 10);
       expect(result.success).toBe(true);
-      expect(game.player.cargo.passengers).toBe(10);
+      expect(game.getPlayer().cargo.passengers).toBe(10);
     });
   });
 
@@ -1480,37 +1517,261 @@ describe('Game Module', () => {
     test('rechargeShipEnergy adds energy up to max', () => {
       const game = new Game(mockUniverse, mockSettings);
       game.initializeGame(createTestPlayerData());
-      game.player.shipMaxEnergy = 100;
-      game.player.shipEnergy = 50;
-      game.player.energyRecharge = 10;
+      game.getPlayer().shipMaxEnergy = 100;
+      game.getPlayer().shipEnergy = 50;
+      game.getPlayer().energyRecharge = 10;
 
       game.rechargeShipEnergy();
 
-      expect(game.player.shipEnergy).toBe(60);
+      expect(game.getPlayer().shipEnergy).toBe(60);
     });
 
     test('rechargeShipEnergy does not exceed max energy', () => {
       const game = new Game(mockUniverse, mockSettings);
       game.initializeGame(createTestPlayerData());
-      game.player.shipMaxEnergy = 100;
-      game.player.shipEnergy = 95;
-      game.player.energyRecharge = 10;
+      game.getPlayer().shipMaxEnergy = 100;
+      game.getPlayer().shipEnergy = 95;
+      game.getPlayer().energyRecharge = 10;
 
       game.rechargeShipEnergy();
 
-      expect(game.player.shipEnergy).toBe(100);
+      expect(game.getPlayer().shipEnergy).toBe(100);
     });
 
     test('rechargeShipEnergy does nothing when at max energy', () => {
       const game = new Game(mockUniverse, mockSettings);
       game.initializeGame(createTestPlayerData());
-      game.player.shipMaxEnergy = 100;
-      game.player.shipEnergy = 100;
-      game.player.energyRecharge = 10;
+      game.getPlayer().shipMaxEnergy = 100;
+      game.getPlayer().shipEnergy = 100;
+      game.getPlayer().energyRecharge = 10;
 
       game.rechargeShipEnergy();
 
-      expect(game.player.shipEnergy).toBe(100);
+      expect(game.getPlayer().shipEnergy).toBe(100);
+    });
+  });
+
+  describe('Accessors', () => {
+    let game;
+
+    beforeEach(() => {
+      game = new Game(mockUniverse, mockSettings);
+    });
+
+    describe('constructor validation', () => {
+      test('rejects a missing or non-object universe', () => {
+        expect(() => new Game(null, mockSettings)).toThrow(TypeError);
+        expect(() => new Game([], mockSettings)).toThrow(TypeError);
+      });
+
+      test('rejects a missing or non-object settings value', () => {
+        expect(() => new Game(mockUniverse, null)).toThrow(TypeError);
+        expect(() => new Game(mockUniverse, 'settings')).toThrow(TypeError);
+      });
+    });
+
+    describe('universe and settings', () => {
+      test('getUniverse returns the configured universe', () => {
+        expect(game.getUniverse()).toBe(mockUniverse);
+      });
+
+      test('exposes no universe setter, because Market caches its own reference', () => {
+        expect(game.setUniverse).toBeUndefined();
+        expect(game.getMarket().universe).toBe(game.getUniverse());
+      });
+
+      test('getSettings returns the configured settings', () => {
+        expect(game.getSettings()).toBe(mockSettings);
+      });
+
+      test('getDataDirectory returns the configured directory', () => {
+        expect(game.getDataDirectory()).toBe('data/default/en-us');
+      });
+
+      test('getDataDirectory falls back to the default directory', () => {
+        const gameWithoutDataDir = new Game(mockUniverse, { initial_ship: 'Cargo Hauler' });
+        expect(gameWithoutDataDir.getDataDirectory()).toBe('data/default/en-us');
+      });
+
+      test('getEventBus and getMarket return the session collaborators', () => {
+        expect(typeof game.getEventBus().emit).toBe('function');
+        expect(typeof game.getMarket().initializeMarkets).toBe('function');
+      });
+    });
+
+    describe('player', () => {
+      test('getPlayer returns null before initialization', () => {
+        expect(game.getPlayer()).toBeNull();
+      });
+
+      test('setPlayer accepts a Player instance', () => {
+        const player = new Player('Accessor Captain', mockSettings);
+        game.setPlayer(player);
+        expect(game.getPlayer()).toBe(player);
+      });
+
+      test('setPlayer rejects values that are not Player instances', () => {
+        expect(() => game.setPlayer({ name: 'Not a player' })).toThrow(TypeError);
+        expect(() => game.setPlayer(null)).toThrow(TypeError);
+        expect(game.getPlayer()).toBeNull();
+      });
+    });
+
+    describe('npcs', () => {
+      test('addNPC appends to the NPC list', () => {
+        const npc = new NPC(5, 'trader', 5);
+        game.addNPC(npc);
+        expect(game.getNPCs()).toEqual([npc]);
+      });
+
+      test('addNPC rejects non-object values', () => {
+        expect(() => game.addNPC('npc')).toThrow(TypeError);
+        expect(game.getNPCs()).toEqual([]);
+      });
+
+      test('getNPCs returns a copy that cannot mutate game state', () => {
+        game.addNPC(new NPC(5, 'trader', 5));
+        const npcs = game.getNPCs();
+        npcs.push(new NPC(6, 'trader', 6));
+        expect(game.getNPCs().length).toBe(1);
+      });
+
+      test('setNPCs accepts serialized NPC data', () => {
+        game.setNPCs([{ id: 1, type: 'trader' }]);
+        expect(game.getNPCs()).toEqual([{ id: 1, type: 'trader' }]);
+      });
+
+      test('setNPCs rejects non-arrays and arrays holding non-objects', () => {
+        expect(() => game.setNPCs('npcs')).toThrow(TypeError);
+        expect(() => game.setNPCs([null])).toThrow(TypeError);
+        expect(game.getNPCs()).toEqual([]);
+      });
+    });
+
+    describe('corporations', () => {
+      test('addCorporation appends to the corporation list', () => {
+        const corporation = { name: 'Accessor Corp' };
+        game.addCorporation(corporation);
+        expect(game.getCorporations()).toEqual([corporation]);
+      });
+
+      test('addCorporation rejects non-object values', () => {
+        expect(() => game.addCorporation('Accessor Corp')).toThrow(TypeError);
+        expect(game.getCorporations()).toEqual([]);
+      });
+
+      test('getCorporations returns a copy that cannot mutate game state', () => {
+        game.addCorporation({ name: 'Accessor Corp' });
+        game.getCorporations().push({ name: 'Sneaky Corp' });
+        expect(game.getCorporations().length).toBe(1);
+      });
+
+      test('setCorporations rejects non-arrays and arrays holding non-objects', () => {
+        expect(() => game.setCorporations({})).toThrow(TypeError);
+        expect(() => game.setCorporations([undefined])).toThrow(TypeError);
+        expect(game.getCorporations()).toEqual([]);
+      });
+
+      test('findCorporation matches by name', () => {
+        const corporation = { name: 'Accessor Corp' };
+        game.addCorporation(corporation);
+        expect(game.findCorporation('Accessor Corp')).toBe(corporation);
+      });
+
+      test('findCorporation returns null for unknown or invalid names', () => {
+        expect(game.findCorporation('Missing Corp')).toBeNull();
+        expect(game.findCorporation('')).toBeNull();
+        expect(game.findCorporation(null)).toBeNull();
+      });
+    });
+
+    describe('turn and tick counters', () => {
+      test('setTurn and setTicks store non-negative integers', () => {
+        game.setTurn(4);
+        game.setTicks(12);
+        expect(game.getTurn()).toBe(4);
+        expect(game.getTicks()).toBe(12);
+      });
+
+      test('setTurn rejects negative, fractional, and non-numeric values', () => {
+        expect(() => game.setTurn(-1)).toThrow(TypeError);
+        expect(() => game.setTurn(1.5)).toThrow(TypeError);
+        expect(() => game.setTurn('3')).toThrow(TypeError);
+        expect(game.getTurn()).toBe(0);
+      });
+
+      test('setTicks rejects negative, fractional, and non-numeric values', () => {
+        expect(() => game.setTicks(-1)).toThrow(TypeError);
+        expect(() => game.setTicks(1.5)).toThrow(TypeError);
+        expect(() => game.setTicks(NaN)).toThrow(TypeError);
+        expect(game.getTicks()).toBe(0);
+      });
+    });
+
+    describe('explored systems', () => {
+      test('addExploredSystem records a new system once', () => {
+        expect(game.addExploredSystem(3)).toBe(true);
+        expect(game.addExploredSystem(3)).toBe(false);
+        expect(game.getExploredSystems()).toEqual([3]);
+      });
+
+      test('hasExploredSystem reports visited systems', () => {
+        game.addExploredSystem(3);
+        expect(game.hasExploredSystem(3)).toBe(true);
+        expect(game.hasExploredSystem(4)).toBe(false);
+      });
+
+      test('getExploredSystems returns a copy that cannot mutate game state', () => {
+        game.addExploredSystem(3);
+        game.getExploredSystems().push(99);
+        expect(game.getExploredSystems()).toEqual([3]);
+      });
+
+      test('setExploredSystems replaces the list and rejects non-arrays', () => {
+        game.setExploredSystems([1, 2]);
+        expect(game.getExploredSystems()).toEqual([1, 2]);
+        expect(() => game.setExploredSystems('1,2')).toThrow(TypeError);
+        expect(game.getExploredSystems()).toEqual([1, 2]);
+      });
+    });
+
+    describe('getMessage', () => {
+      test('resolves a localized message from game_messages.json', () => {
+        expect(game.getMessage('navigation.reasons.cannot_dock', {}, 'fallback'))
+          .toBe('Cannot dock at this object');
+      });
+
+      test('replaces message tokens', () => {
+        expect(game.getMessage('passengers.insufficient_available', { availablePassengers: 7 }, 'fallback'))
+          .toBe('Only 7 passengers available');
+      });
+
+      test('returns the fallback when the key is missing', () => {
+        expect(game.getMessage('navigation.reasons.does_not_exist', {}, 'fallback text'))
+          .toBe('fallback text');
+      });
+    });
+
+    describe('calculateMarketPrice', () => {
+      test('delegates to the market manager', () => {
+        const stellarObject = { id: 1 };
+        const marketSpy = jest.spyOn(game.getMarket(), 'calculateMarketPrice').mockReturnValue(42);
+
+        expect(game.calculateMarketPrice(stellarObject, 'wheat', 'sell')).toBe(42);
+        expect(marketSpy).toHaveBeenCalledWith(stellarObject, 'wheat', 'sell');
+
+        marketSpy.mockRestore();
+      });
+
+      test('defaults to buy pricing', () => {
+        const stellarObject = { id: 1 };
+        const marketSpy = jest.spyOn(game.getMarket(), 'calculateMarketPrice').mockReturnValue(7);
+
+        expect(game.calculateMarketPrice(stellarObject, 'wheat')).toBe(7);
+        expect(marketSpy).toHaveBeenCalledWith(stellarObject, 'wheat', 'buy');
+
+        marketSpy.mockRestore();
+      });
     });
   });
 });

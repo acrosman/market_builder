@@ -145,8 +145,8 @@ This is a **multi-process Electron app** with strict security boundaries:
 - **Show/hide UI elements**: Use `.hidden` CSS class with `classList.add('hidden')` and `classList.remove('hidden')` - never inline styles
 - **File size and modularity**:
   - Favor cohesive modules by feature or responsibility to prevent “god files”.
-  - Files over **500 lines**: before making changes, check whether the file can be split into focused modules; if splitting is safe and in scope, do it.
-  - Files over **1000 lines**: split into smaller modules in the same PR unless the files is a configuration JSON file.
+  - Files over **1000 lines**: before making changes, check whether the file can be split into focused modules; if splitting is safe and in scope, do it.
+  - Files over **2000 lines**: split into smaller modules in the same PR unless the files is a configuration JSON file.
 
 ### Function Documentation
 
@@ -176,16 +176,19 @@ consoleDiv.textContent += 'Jumping to ' + systemName;
 addMessage('message:navigation.jump_success', { systemName });
 ```
 
-### Testing Expectations
+### Code Modification Expectations
 
 When modifying code:
 
-1. Run existing tests first: `npm test`
-2. Add tests for new functionality (colocate in same directory)
-3. Mock external dependencies (universe, settings) and use helper functions to create test data rather than relying on full game initialization
-4. **Create reusable test helpers**: Extract common mock setup into helper functions (see `createTestPlayerData()`) rather than duplicating across test files
-5. Test both success and error paths
-6. Verify tests pass after changes
+1. Create a new branch for the work.
+2. Run existing tests first: `npm test`
+3. Add tests for new functionality (colocate in same directory).
+4. Create the new functionality.
+5. Mock external dependencies (universe, settings) and use helper functions to create test data rather than relying on full game initialization
+6. Create reusable test helpers when possible. Extract common mock setup into helper functions (see `createTestPlayerData()`) rather than duplicating across test files
+7. Test both success and error paths
+8. Verify tests pass after changes
+9. Commit changes.
 
 ## What NOT to Do (Anti-Patterns)
 

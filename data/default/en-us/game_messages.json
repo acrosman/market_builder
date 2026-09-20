@@ -33,7 +33,32 @@
     "land_success": "Welcome to {objectName}. Landing sequence complete.",
     "land_failed": "Landing failed: {reason}",
     "build_success": "{buildingType} queued for construction ({ticks} ticks).",
-    "build_failed": "Construction failed: {reason}"
+    "build_failed": "Construction failed: {reason}",
+    "reasons": {
+      "not_docked_or_landed": "Not docked or landed",
+      "target_system_missing": "Target system does not exist",
+      "no_connection": "No direct connection to target system",
+      "insufficient_energy": "Not enough energy for jump",
+      "station_missing": "Station does not exist",
+      "station_not_in_system": "Station is not in your current system",
+      "cannot_dock": "Cannot dock at this object",
+      "planet_missing": "Planet does not exist",
+      "planet_not_in_system": "Planet is not in your current system",
+      "cannot_land": "Can only land on planets or asteroids"
+    }
+  },
+  "passengers": {
+    "stellar_object_missing": "Stellar object not found",
+    "population_too_low": "Population is too low. People are not willing to leave.",
+    "insufficient_available": "Only {availablePassengers} passengers available",
+    "insufficient_cargo_space": "Insufficient cargo space. Need {cargoNeeded} tons, only {availableSpace} available",
+    "load_success": "Loaded {passengerCount} passengers ({cargoUsed} tons)",
+    "not_at_location": "You must be docked or landed at this location",
+    "none_in_cargo": "No passengers in cargo",
+    "invalid_count": "Invalid passenger count",
+    "insufficient_on_board": "You only have {currentPassengers} passengers on board",
+    "capacity_exceeded": "Location can only accept {availableSpace} more passengers",
+    "unload_success": "Unloaded {passengerCount} passengers (freed {cargoFreed} tons)"
   },
   "save_load": {
     "saving": "Saving game...",
