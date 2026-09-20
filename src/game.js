@@ -248,7 +248,8 @@ class Game {
           this.settings.data_directory || 'data/default/en-us',
           'construction.reasons.not_docked_or_landed',
           {},
-          'You must be docked or landed to build'
+          'You must be docked or landed to build',
+          { logger }
         )
       };
     }
@@ -261,7 +262,8 @@ class Game {
           this.settings.data_directory || 'data/default/en-us',
           'construction.reasons.not_controlled',
           {},
-          'You do not control this stellar object'
+          'You do not control this stellar object',
+          { logger }
         )
       };
     }
@@ -274,7 +276,8 @@ class Game {
         this.settings.data_directory || 'data/default/en-us',
         messageKey,
         vars,
-        fallback
+        fallback,
+        { logger }
       )
     );
     const buildResult = stellarObject.constructBuilding(buildingType, buildingsData, creditSupport);

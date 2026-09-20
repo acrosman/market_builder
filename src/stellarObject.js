@@ -2,6 +2,16 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Normalize a credit amount, rejecting non-finite or non-positive values.
+ * @param {*} amount - Raw amount to validate.
+ * @returns {number|null} The normalized positive amount, or null if invalid.
+ */
+function normalizePositiveAmount(amount) {
+  const normalizedAmount = Number(amount);
+  return Number.isFinite(normalizedAmount) && normalizedAmount > 0 ? normalizedAmount : null;
+}
+
+/**
  * Create external credit support for construction at a controlled object.
  * Uses player-owned corporation reserves first, then falls back to player credits.
  * @param {Object} stellarObject - Controlled local object.
@@ -26,8 +36,8 @@ function createConstructionCreditSupport(stellarObject, player, corporations, ge
     creditSources.push({
       getAvailableCredits: getCorporationCredits,
       spendCredits: (amount) => {
-        const normalizedAmount = Number(amount);
-        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        const normalizedAmount = normalizePositiveAmount(amount);
+        if (normalizedAmount === null) {
           return true;
         }
 
@@ -44,8 +54,8 @@ function createConstructionCreditSupport(stellarObject, player, corporations, ge
         return true;
       },
       refundCredits: (amount) => {
-        const normalizedAmount = Number(amount);
-        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        const normalizedAmount = normalizePositiveAmount(amount);
+        if (normalizedAmount === null) {
           return true;
         }
 
@@ -63,15 +73,15 @@ function createConstructionCreditSupport(stellarObject, player, corporations, ge
     creditSources.push({
       getAvailableCredits: getPlayerCredits,
       spendCredits: (amount) => {
-        const normalizedAmount = Number(amount);
-        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        const normalizedAmount = normalizePositiveAmount(amount);
+        if (normalizedAmount === null) {
           return true;
         }
         return player.removeCredits(normalizedAmount);
       },
       refundCredits: (amount) => {
-        const normalizedAmount = Number(amount);
-        if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        const normalizedAmount = normalizePositiveAmount(amount);
+        if (normalizedAmount === null) {
           return true;
         }
 
@@ -99,8 +109,8 @@ function createConstructionCreditSupport(stellarObject, player, corporations, ge
       );
     },
     spendCredits: (amount) => {
-      const normalizedAmount = Number(amount);
-      if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      const normalizedAmount = normalizePositiveAmount(amount);
+      if (normalizedAmount === null) {
         return true;
       }
 
@@ -478,7 +488,6 @@ class StellarObject {
       !externalCreditSupport.spendCredits(externalCreditsToSpend))
     ) {
       this.buildingsUnderConstruction.splice(queuedConstructionIndex, 1);
-      this.buildingCredits = localCredits;
       return {
         success: false,
         reason: this.resolveConstructionMessage(

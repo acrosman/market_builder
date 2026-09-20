@@ -582,7 +582,7 @@ function registerIpcHandlers({
           {},
           'No active game',
           { baseDir, logger }
-        ) || 'No active game'
+        )
       });
       return;
     }
