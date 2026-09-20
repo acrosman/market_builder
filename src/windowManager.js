@@ -24,16 +24,17 @@ const { createLogger, validLogLevels } = require('./logger');
  *   getCurrentGame, setCurrentGame
  * });
  */
-function registerIpcHandlers({
-  ipcMain,
-  gameSettings,
-  getGameSetupWindow,
-  openGameSetupWindow,
-  openGameWindow,
-  getMainWindow,
-  getCurrentGame,
-  setCurrentGame
-}) {
+function registerIpcHandlers(dependencies) {
+  const {
+    ipcMain,
+    gameSettings,
+    getGameSetupWindow,
+    openGameSetupWindow,
+    openGameWindow,
+    getMainWindow,
+    getCurrentGame,
+    setCurrentGame
+  } = dependencies;
   const logger = createLogger('main');
   const baseDir = path.join(__dirname, '..');
   let currentUniverse = null;
