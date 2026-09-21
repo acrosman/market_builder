@@ -10,6 +10,8 @@ const { createLogger } = require('./logger');
 const { createConstructionCreditSupport } = require('./stellarObject');
 const { EconomyState } = require('./economy/economyState');
 const { loadContent } = require('./contentCache');
+const { EconomyTicker } = require('./economy/economyTicker');
+const { ticksPerQuarter } = require('./economy/clock');
 const {
   recordOpeningBalance,
   recordOpeningStock,
@@ -611,6 +613,24 @@ class Game {
     this.getUniverse().stellarObjects.forEach(obj => {
       eventBus.subscribe('tick', obj);
     });
+
+    this.subscribeEconomyToTicks();
+  }
+
+  /**
+   * Subscribe the economy to tick events.
+   *
+   * Like the stellar object subscriptions this is behaviour rather than state,
+   * so it is not persisted and must be re-registered on both new games and
+   * loads. Subscribing is idempotent, but a fresh ticker is created each time
+   * so it binds to the current Game.
+   * @returns {void}
+   * @example
+   * game.subscribeEconomyToTicks();
+   */
+  subscribeEconomyToTicks() {
+    this.economyTicker = new EconomyTicker(this);
+    this.getEventBus().subscribe('tick', this.economyTicker);
   }
 
   /**
@@ -1273,7 +1293,14 @@ class Game {
       return null;
     }
 
-    const loan = corporation.takeLoan(amount);
+    // Balloon structure: the whole balance falls due one year out by default.
+    // A dated, public cliff is what makes the credit risk priceable.
+    const termTicks = ticksPerQuarter(this.getSettings())
+      * (this.getSettings().loan_term_quarters || 4);
+    const loan = corporation.takeLoan(amount, {
+      originTick: this.getTicks(),
+      maturityTick: this.getTicks() + termTicks
+    });
     if (!loan) {
       return null;
     }

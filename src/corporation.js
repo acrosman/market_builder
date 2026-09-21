@@ -237,7 +237,7 @@ class Corporation {
    * current credit profile at the time the loan is created.
    * @returns {Object|null} Created loan object, or null when invalid.
    */
-  takeLoan(amount) {
+  takeLoan(amount, options = {}) {
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       return null;
     }
@@ -248,12 +248,76 @@ class Corporation {
       principal: amount,
       remainingBalance: amount,
       interestRate,
-      repaymentRate: 0
+      repaymentRate: 0,
+      // Balloon structure: nothing is due until the maturity tick, at which
+      // point the whole balance falls due at once. A dated, public cliff is
+      // what makes credit risk priceable rather than a vague sense of trouble.
+      originTick: Number(options.originTick) || 0,
+      maturityTick: Number(options.maturityTick) || 0,
+      accruedInterest: 0
     };
     this.nextLoanId += 1;
     this.loans.push(loan);
     this.addCashReserve(amount);
     return loan;
+  }
+
+  /**
+   * Accrue interest on every outstanding loan for a number of elapsed ticks.
+   *
+   * Each loan uses its own rate, fixed at origination, so a corporation that
+   * borrowed while healthy keeps its cheap debt even after its credit
+   * deteriorates. Interest capitalizes into the outstanding balance rather than
+   * being billed, which is what a balloon loan does: the debt compounds quietly
+   * until the maturity tick, when all of it falls due at once.
+   *
+   * The caller supplies ticks per year rather than a rate, because the rate
+   * varies per loan and only the calendar is shared.
+   * @param {number} ticksPerYear - Ticks in a game year, from the clock module.
+   * @param {number} [elapsedTicks=1] - Ticks elapsed since the last accrual.
+   * @returns {Array<Object>} Per-loan accruals as `{ loanId, interest }`.
+   * @example
+   * corporation.accrueLoanInterest(8640, 1);
+   */
+  accrueLoanInterest(ticksPerYear, elapsedTicks = 1) {
+    const perYear = Number(ticksPerYear);
+    const ticks = Number(elapsedTicks);
+    if (!Number.isFinite(perYear) || perYear <= 0 || !Number.isFinite(ticks) || ticks <= 0) {
+      return [];
+    }
+
+    const accruals = [];
+
+    this.loans.forEach(loan => {
+      const annualRate = Number(loan.interestRate) || 0;
+      if (annualRate <= 0 || loan.remainingBalance <= 0) {
+        return;
+      }
+
+      const interest = loan.remainingBalance * ((annualRate / 100) / perYear) * ticks;
+      if (interest <= 0) {
+        return;
+      }
+
+      loan.remainingBalance += interest;
+      loan.accruedInterest = (loan.accruedInterest || 0) + interest;
+      accruals.push({ loanId: loan.id, interest });
+    });
+
+    return accruals;
+  }
+
+  /**
+   * Get loans whose maturity tick has arrived or passed.
+   * @param {number} tick - Current game tick.
+   * @returns {Array<Object>} Matured loans.
+   * @example
+   * const due = corporation.getMaturedLoans(game.getTicks());
+   */
+  getMaturedLoans(tick) {
+    return this.loans.filter(
+      loan => loan.maturityTick > 0 && tick >= loan.maturityTick && loan.remainingBalance > 0
+    );
   }
 
   /**

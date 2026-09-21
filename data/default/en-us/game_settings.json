@@ -1,47 +1,52 @@
 {
-    "data_directory": "data/default/en-us",
-    "initial_ship": "Cargo Hauler",
-    "food_per_person": 1,
-    "starting_credits": 1000,
-    "population_growth_divisor": 1000000,
-    "starting_system": {
-        "required_objects": [
-            {
-                "type": "Planet",
-                "class": "Earth-like",
-                "description": "Your home planet"
-            },
-            {
-                "type": "Space Station",
-                "class": "Trading Post",
-                "description": "Your first trading post"
-            }
-        ]
-    },
-    "pronoun_options": [
-        {
-            "subject": "he",
-            "object": "him",
-            "possessive": "his",
-            "reflexive": "himself"
-        },
-        {
-            "subject": "she",
-            "object": "her",
-            "possessive": "hers",
-            "reflexive": "herself"
-        },
-        {
-            "subject": "ze",
-            "object": "zir",
-            "possessive": "zirs",
-            "reflexive": "zirself"
-        },
-        {
-            "subject": "they",
-            "object": "them",
-            "possessive": "their",
-            "reflexive": "themselves"
-        }
+  "data_directory": "data/default/en-us",
+  "initial_ship": "Cargo Hauler",
+  "food_per_person": 1,
+  "starting_credits": 1000,
+  "population_growth_divisor": 1000000,
+  "time": {
+    "ticks_per_day": 24,
+    "days_per_quarter": 90,
+    "quarters_per_year": 4
+  },
+  "starting_system": {
+    "required_objects": [
+      {
+        "type": "Planet",
+        "class": "Earth-like",
+        "description": "Your home planet"
+      },
+      {
+        "type": "Space Station",
+        "class": "Trading Post",
+        "description": "Your first trading post"
+      }
     ]
+  },
+  "pronoun_options": [
+    {
+      "subject": "he",
+      "object": "him",
+      "possessive": "his",
+      "reflexive": "himself"
+    },
+    {
+      "subject": "she",
+      "object": "her",
+      "possessive": "hers",
+      "reflexive": "herself"
+    },
+    {
+      "subject": "ze",
+      "object": "zir",
+      "possessive": "zirs",
+      "reflexive": "zirself"
+    },
+    {
+      "subject": "they",
+      "object": "them",
+      "possessive": "their",
+      "reflexive": "themselves"
+    }
+  ]
 }
