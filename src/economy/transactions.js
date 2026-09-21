@@ -405,6 +405,53 @@ function recordAssetTransfer(economy, {
   return economy.getLedger().postMany(entries);
 }
 
+/**
+ * Record shares sold to a subscriber.
+ *
+ * The subscriber pays and the issuer receives, so a flotation moves existing
+ * credits rather than creating them. `Corporation.issueShares()` alone only
+ * incremented a counter: no cash arrived and nobody held anything.
+ *
+ * Proceeds are share capital, not revenue. Selling a piece of yourself is not
+ * trading, and booking it as income would let any company manufacture a
+ * profitable quarter simply by issuing stock.
+ * @param {Object} economy - EconomyState to record into.
+ * @param {Object} params - Issue parameters.
+ * @param {number} params.tick - Tick the issue occurred on.
+ * @param {Object} params.issuer - Holder issuing the shares.
+ * @param {Object} params.subscriber - Holder buying them.
+ * @param {number} params.amount - Positive integer proceeds.
+ * @param {Object} [params.refs] - Optional references.
+ * @returns {Array<Object>} The posted entries.
+ * @example
+ * recordShareIssue(economy, { tick, issuer, subscriber, amount: 50000 });
+ */
+function recordShareIssue(economy, { tick, issuer, subscriber, amount, refs }) {
+  const proceeds = Math.round(Number(amount) || 0);
+  if (proceeds <= 0) {
+    return [];
+  }
+
+  return economy.getLedger().postMany([
+    {
+      tick,
+      amount: proceeds,
+      debit: { holder: issuer, account: ACCOUNTS.CASH },
+      credit: { holder: issuer, account: ACCOUNTS.SHARE_CAPITAL },
+      kind: ENTRY_KINDS.SHARE_ISSUE,
+      refs
+    },
+    {
+      tick,
+      amount: proceeds,
+      debit: { holder: subscriber, account: ACCOUNTS.INVESTMENTS },
+      credit: { holder: subscriber, account: ACCOUNTS.CASH },
+      kind: ENTRY_KINDS.SHARE_ISSUE,
+      refs
+    }
+  ]);
+}
+
 module.exports = {
   recordOpeningBalance,
   recordOpeningStock,
@@ -412,5 +459,6 @@ module.exports = {
   recordLoanDraw,
   recordLoanPayment,
   recordConstructionSpend,
-  recordAssetTransfer
+  recordAssetTransfer,
+  recordShareIssue
 };

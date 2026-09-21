@@ -2,6 +2,7 @@ const { RandomSource } = require('./rng');
 const { Ledger } = require('./ledger');
 const { CostBasis } = require('./costBasis');
 const { StatementStore } = require('./statements');
+const { Exchange } = require('../exchange/exchange');
 
 /**
  * Schema version for the economy save block.
@@ -43,6 +44,7 @@ class EconomyState {
     this.ledger = new Ledger();
     this.costBasis = new CostBasis();
     this.statements = new StatementStore();
+    this.exchange = new Exchange();
     // Last tick production was run through. Persisted so day boundaries are not
     // lost or double-counted across a save and load.
     this.lastProductionTick = Number(options.lastProductionTick) || 0;
@@ -96,6 +98,16 @@ class EconomyState {
   }
 
   /**
+   * Get the share exchange.
+   * @returns {Exchange} The economy's exchange.
+   * @example
+   * game.getEconomy().getExchange().getListing('Acme Orbital');
+   */
+  getExchange() {
+    return this.exchange;
+  }
+
+  /**
    * Serialize economy state for saving.
    * @returns {Object} Plain serializable object carrying its own schema version.
    * @example
@@ -108,6 +120,7 @@ class EconomyState {
       ledger: this.ledger.toJSON(),
       costBasis: this.costBasis.toJSON(),
       statements: this.statements.toJSON(),
+      exchange: this.exchange.toJSON(),
       lastProductionTick: this.lastProductionTick
     };
   }
@@ -133,6 +146,7 @@ class EconomyState {
     economy.ledger = Ledger.fromJSON(data?.ledger);
     economy.costBasis = CostBasis.fromJSON(data?.costBasis);
     economy.statements = StatementStore.fromJSON(data?.statements);
+    economy.exchange = Exchange.fromJSON(data?.exchange);
     economy.lastProductionTick = Number(data?.lastProductionTick) || 0;
 
     return economy;

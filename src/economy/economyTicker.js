@@ -168,6 +168,10 @@ class EconomyTicker {
     });
 
     this.settleCorporations(tick);
+    // The exchange clears on the market cycle, after solvency so a distressed
+    // company's state is current, and before the books close so a quarter's
+    // closing balance sheet reflects the day's trading.
+    this.clearExchange(tick);
     this.closeBooks(tick);
 
     return elapsedDays;
@@ -204,6 +208,30 @@ class EconomyTicker {
       corporation.setCashPosition(ledger.balance(holder, ACCOUNTS.CASH));
       enforceSolvency({ economy, game, corporation, tick });
     });
+  }
+
+  /**
+   * Run the day's share auctions.
+   * @param {number} tick - Current absolute game tick.
+   * @returns {Array<Object>} Listings that traded.
+   * @example
+   * ticker.clearExchange(24);
+   */
+  clearExchange(tick) {
+    const game = this.game;
+    const economy = game.getEconomy();
+    const cleared = economy.getExchange().clearAll({ economy, tick });
+
+    cleared.forEach(result => {
+      game.getEventBus().emit('exchange-cleared', {
+        tick,
+        corporationName: result.corporationName,
+        price: result.clearingPrice,
+        volume: result.volume
+      });
+    });
+
+    return cleared;
   }
 
   /**

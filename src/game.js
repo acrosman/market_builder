@@ -12,6 +12,7 @@ const { EconomyState } = require('./economy/economyState');
 const { loadContent } = require('./contentCache');
 const { EconomyTicker } = require('./economy/economyTicker');
 const { operatorHolder } = require('./economy/production');
+const { INVESTOR_POOL_HOLDER, ACCOUNTS } = require('./economy/accounts');
 const { ticksPerQuarter } = require('./economy/clock');
 const {
   recordOpeningBalance,
@@ -19,7 +20,8 @@ const {
   recordGoodsTrade,
   recordConstructionSpend,
   recordLoanDraw,
-  recordLoanPayment
+  recordLoanPayment,
+  recordShareIssue
 } = require('./economy/transactions');
 const {
   BANK_HOLDER,
@@ -1385,6 +1387,105 @@ class Game {
     });
 
     return true;
+  }
+
+  /**
+   * List a corporation on the exchange, raising capital by issuing shares.
+   *
+   * Going public is a transaction, not a flag. `issueShares()` previously
+   * incremented a counter connected to nothing: no cash arrived, no float
+   * existed, and nobody held the shares. Here the shares are sold to the
+   * investing public at the appraised value per share, the proceeds land in the
+   * corporation's treasury, and the buyers appear on the cap table so the stock
+   * can actually be traded.
+   *
+   * Pricing off appraisal rather than book value is the point of the firewall
+   * being there: a company is floated at what it is expected to earn.
+   * @param {string} corporationName - The corporation to list.
+   * @param {number} shares - Shares to issue and sell.
+   * @returns {Object} `{ success, reason, pricePerShare, proceeds, listing }`.
+   * @example
+   * const result = game.listCorporation('Acme Orbital', 10000);
+   */
+  listCorporation(corporationName, shares) {
+    const corporation = this.findCorporation(corporationName);
+    const count = Math.round(Number(shares) || 0);
+
+    if (!corporation || count <= 0) {
+      return { success: false, reason: 'invalid_request' };
+    }
+    if (corporation.isBankrupt) {
+      return { success: false, reason: 'bankrupt' };
+    }
+
+    const { appraiseCorporation } = require('./economy/appraisal');
+    const appraisal = appraiseCorporation(corporation, {
+      universe: this.getUniverse(),
+      settings: this.getSettings(),
+      tick: this.getTicks()
+    });
+
+    const alreadyIssued = Number(corporation.sharesIssued) || 0;
+    const totalAfter = alreadyIssued + count;
+
+    // Price against the whole company spread over every share that will exist,
+    // so issuing more shares dilutes rather than conjuring value.
+    const pricePerShare = Math.max(1, Math.round(appraisal.value / totalAfter));
+    const proceeds = pricePerShare * count;
+
+    if (!corporation.issueShares(count)) {
+      return { success: false, reason: 'invalid_request' };
+    }
+
+    const exchange = this.getEconomy().getExchange();
+    const listing = exchange.listCompany({
+      corporationName: corporation.name,
+      referencePrice: pricePerShare,
+      sharesOutstanding: totalAfter
+    });
+    listing.sharesOutstanding = totalAfter;
+
+    const holder = corporationHolder(corporation);
+
+    // The public buys the shares, so the proceeds are a transfer rather than
+    // credits appearing from nowhere, and the buyers hold a real position.
+    recordShareIssue(this.getEconomy(), {
+      tick: this.getTicks(),
+      issuer: holder,
+      subscriber: INVESTOR_POOL_HOLDER,
+      amount: proceeds,
+      refs: { corporationName: corporation.name, shares: count, pricePerShare }
+    });
+
+    exchange.portfolio.adjust(INVESTOR_POOL_HOLDER, corporation.name, count);
+    corporation.setCashPosition(
+      this.getEconomy().getLedger().balance(holder, ACCOUNTS.CASH)
+    );
+
+    return { success: true, reason: null, pricePerShare, proceeds, listing };
+  }
+
+  /**
+   * Submit a share order to the exchange.
+   * @param {Object} params - Order parameters.
+   * @param {string} params.corporationName - The listed company.
+   * @param {Object} params.holder - Holder placing the order.
+   * @param {string} params.side - 'buy' or 'sell'.
+   * @param {number} params.quantity - Shares.
+   * @param {number|null} [params.limitPrice] - Limit, or null for a market order.
+   * @returns {Object} `{ accepted, order, reason }`.
+   * @example
+   * game.submitShareOrder({ corporationName: 'Acme', holder, side: 'buy', quantity: 100 });
+   */
+  submitShareOrder({ corporationName, holder, side, quantity, limitPrice = null }) {
+    return this.getEconomy().getExchange().submitOrder({
+      corporationName,
+      holder,
+      side,
+      quantity,
+      limitPrice,
+      tick: this.getTicks()
+    });
   }
 
   /**
