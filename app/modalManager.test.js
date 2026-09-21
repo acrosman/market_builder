@@ -778,6 +778,8 @@ describe('modalManager', () => {
           <textarea id="company-description-input"></textarea>
           <span id="company-value"></span>
           <span id="company-cash-reserves"></span>
+          <span id="company-appraised-value"></span>
+          <p id="company-book-value-note"></p>
           <span id="company-shares-issued"></span>
           <input id="company-dividend-rate-input" />
           <span id="company-credit-rating"></span>
@@ -912,6 +914,48 @@ describe('modalManager', () => {
         description: 'Updated description'
       });
     });
+    describe('appraised value', () => {
+      test('shows the appraised value alongside book value', async () => {
+        setupCompanyManagementModal();
+        mockApi.invoke.mockImplementation((channel) => {
+          if (channel === 'get-company-management-state') {
+            return Promise.resolve({
+              name: 'Test Corp', description: '', value: 80000, assetValue: 80000,
+              appraisedValue: 412500, totalCashReserves: 0,
+              dividendRate: 0, sharesIssued: 0, creditRating: 'AAA', interestRate: 4,
+              outstandingDebt: 0, ownedStellarObjects: [], ships: [], loans: []
+            });
+          }
+          return Promise.resolve(null);
+        });
+
+        await modalManager.openCompanyManagementModal('Test Corp');
+
+        // Book value is what the assets cost, appraised is what they earn
+        expect(document.getElementById('company-value').textContent).toBe('80,000');
+        expect(document.getElementById('company-appraised-value').textContent).toBe('412,500');
+      });
+
+      test('leaves the appraised figure blank when it is unavailable', async () => {
+        setupCompanyManagementModal();
+        mockApi.invoke.mockImplementation((channel) => {
+          if (channel === 'get-company-management-state') {
+            return Promise.resolve({
+              name: 'Test Corp', description: '', value: 80000, totalCashReserves: 0,
+              dividendRate: 0, sharesIssued: 0, creditRating: 'AAA', interestRate: 4,
+              outstandingDebt: 0, ownedStellarObjects: [], ships: [], loans: []
+            });
+          }
+          return Promise.resolve(null);
+        });
+
+        await modalManager.openCompanyManagementModal('Test Corp');
+
+        // Blank rather than a misleading zero
+        expect(document.getElementById('company-appraised-value').textContent).toBe('');
+      });
+    });
+
     describe('quarterly reports tab', () => {
       /**
        * Build a published statement for the reports tab.

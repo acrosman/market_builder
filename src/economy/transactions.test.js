@@ -5,7 +5,8 @@ const {
   recordGoodsTrade,
   recordLoanDraw,
   recordLoanPayment,
-  recordConstructionSpend
+  recordConstructionSpend,
+  recordAssetTransfer
 } = require('./transactions');
 const { ENTRY_KINDS } = require('./ledger');
 const {
@@ -414,3 +415,168 @@ describe('money conservation across mixed activity', () => {
       .toBe(ledger.balance(MARKET, ACCOUNTS.INVENTORY));
   });
 });
+
+describe('recordAssetTransfer', () => {
+  const RIVAL = corporationHolder('Rival Freight');
+
+  /**
+   * Build an economy with two funded corporations.
+   * @returns {Object} An EconomyState.
+   */
+  function twoCorporations() {
+    const economy = freshEconomy();
+    recordOpeningBalance(economy, { tick: 0, holder: ACME, amount: 500000 });
+    recordOpeningBalance(economy, { tick: 0, holder: RIVAL, amount: 500000 });
+    return economy;
+  }
+
+  test('should move the asset at appraised value in an arms-length sale', () => {
+    const economy = twoCorporations();
+
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 250000, consideration: 250000,
+      refs: { stellarObjectId: 3 }
+    });
+
+    const ledger = economy.getLedger();
+    expect(ledger.balance(RIVAL, ACCOUNTS.PROPERTY)).toBe(250000);
+    expect(ledger.balance(ACME, ACCOUNTS.PROPERTY)).toBe(-250000);
+    expect(ledger.balance(ACME, ACCOUNTS.CASH)).toBe(750000);
+    expect(ledger.balance(RIVAL, ACCOUNTS.CASH)).toBe(250000);
+  });
+
+  test('should post no gift when the price is fair', () => {
+    const economy = twoCorporations();
+    const ledger = economy.getLedger();
+    const before = ledger.balance(RIVAL, ACCOUNTS.CONTRIBUTED_CAPITAL);
+
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 250000, consideration: 250000
+    });
+
+    // Correctness does not depend on detecting relatedness: a fair price simply
+    // produces no difference to book
+    expect(ledger.balance(RIVAL, ACCOUNTS.CONTRIBUTED_CAPITAL)).toBe(before);
+    expect(ledger.query({ kind: ENTRY_KINDS.RELATED_PARTY_GIFT })).toEqual([]);
+  });
+
+  test('should book a bargain purchase as capital, never as income', () => {
+    const economy = twoCorporations();
+
+    // The self-dealing move: sell a valuable world between your own companies
+    // for a token sum to move book value around
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 250000, consideration: 1
+    });
+
+    const ledger = economy.getLedger();
+    expect(ledger.balance(RIVAL, ACCOUNTS.PROPERTY)).toBe(250000);
+    // 500000 of opening capital plus the 249999 received for nothing
+    expect(ledger.balance(RIVAL, ACCOUNTS.CONTRIBUTED_CAPITAL)).toBe(500000 + 249999);
+    // The thing that matters: no earnings were manufactured
+    expect(ledger.balance(RIVAL, ACCOUNTS.REVENUE)).toBe(0);
+    expect(ledger.balance(ACME, ACCOUNTS.REVENUE)).toBe(0);
+  });
+
+  test('should book an overpayment as capital, never as income', () => {
+    const economy = twoCorporations();
+
+    // The mirror trick: overpay a company you control to inflate its receipts
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 1000, consideration: 200000
+    });
+
+    const ledger = economy.getLedger();
+    expect(ledger.balance(ACME, ACCOUNTS.PROPERTY)).toBe(-1000);
+    expect(ledger.balance(ACME, ACCOUNTS.REVENUE)).toBe(0);
+    // Opening capital plus the 199000 overpayment received for nothing
+    expect(ledger.balance(ACME, ACCOUNTS.CONTRIBUTED_CAPITAL)).toBe(500000 + 199000);
+  });
+
+  test('should leave combined net worth unchanged by a transfer at any price', () => {
+    const economy = twoCorporations();
+    const ledger = economy.getLedger();
+
+    const combined = () => ['cash', 'property', 'contributed_capital'].reduce(
+      (sum, account) => sum + ledger.balance(ACME, account) + ledger.balance(RIVAL, account),
+      0
+    );
+
+    const before = combined();
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 250000, consideration: 1
+    });
+
+    // Shuffling an asset between two companies you control creates no value
+    expect(combined()).toBe(before);
+  });
+
+  test('should conserve cash', () => {
+    const economy = twoCorporations();
+    const before = totalCash(economy);
+
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 250000, consideration: 90000
+    });
+
+    expect(totalCash(economy)).toBe(before);
+    expect(economy.getLedger().audit()).toMatchObject({
+      balanced: true, balancesMatch: true
+    });
+  });
+
+  test('should handle a gift with no consideration at all', () => {
+    const economy = twoCorporations();
+
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 50000, consideration: 0
+    });
+
+    const ledger = economy.getLedger();
+    expect(ledger.balance(RIVAL, ACCOUNTS.PROPERTY)).toBe(50000);
+    expect(ledger.balance(RIVAL, ACCOUNTS.CONTRIBUTED_CAPITAL)).toBe(500000 + 50000);
+    expect(ledger.audit().balanced).toBe(true);
+  });
+
+  test('should support transferring a non-property asset', () => {
+    const economy = twoCorporations();
+
+    recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 7000, consideration: 7000,
+      account: ACCOUNTS.INVESTMENTS
+    });
+
+    expect(economy.getLedger().balance(RIVAL, ACCOUNTS.INVESTMENTS)).toBe(7000);
+  });
+
+  test('should record nothing for an empty transfer', () => {
+    const economy = twoCorporations();
+    const before = economy.getLedger().entries.length;
+
+    expect(recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL, appraisedValue: 0, consideration: 0
+    })).toEqual([]);
+    expect(economy.getLedger().entries.length).toBe(before);
+  });
+
+  test('should mark which side of the appraisal the price fell on', () => {
+    const economy = twoCorporations();
+
+    const posted = recordAssetTransfer(economy, {
+      tick: 10, seller: ACME, buyer: RIVAL,
+      appraisedValue: 250000, consideration: 1
+    });
+
+    const gift = posted.find(entry => entry.kind === ENTRY_KINDS.RELATED_PARTY_GIFT);
+    expect(gift.refs.underpaid).toBe(true);
+  });
+});
+

@@ -52,7 +52,36 @@ function registerIpcHandlers(dependencies) {
       return null;
     }
 
-    return corporation.getCompanyManagementState(getCurrentGame()?.getUniverse());
+    const game = getCurrentGame();
+    const state = corporation.getCompanyManagementState(game?.getUniverse());
+
+    if (!state || !game) {
+      return state;
+    }
+
+    // Book value says what the company's assets cost; appraised value says what
+    // they are expected to earn. Showing both keeps the distinction visible
+    // rather than collapsing it into one number that means neither.
+    try {
+      // Required lazily: appraisal pulls in the content cache, which builds a
+      // logger at module load, and this module's tests mock the logger.
+      const { appraiseCorporation } = require('./economy/appraisal');
+
+      const appraisal = appraiseCorporation(corporation, {
+        universe: game.getUniverse(),
+        settings: game.getSettings(),
+        tick: game.getTicks()
+      });
+
+      return {
+        ...state,
+        appraisedValue: appraisal.value,
+        discountRate: appraisal.discountRate
+      };
+    } catch (error) {
+      logger.error('Failed to appraise corporation:', error);
+      return state;
+    }
   }
 
   /**

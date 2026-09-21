@@ -291,6 +291,8 @@
           ['save-company-profile-btn', 'company_management.profile.save'],
           ['company-finance-heading', 'company_management.finance.heading'],
           ['company-value-label', 'company_management.finance.total_value'],
+          ['company-appraised-value-label', 'company_management.finance.appraised_value'],
+          ['company-book-value-note', 'company_management.finance.book_value_note'],
           ['company-cash-reserves-label', 'company_management.finance.cash_reserves'],
           ['company-shares-issued-label', 'company_management.finance.shares_issued'],
           ['company-dividend-rate-label', 'company_management.finance.dividend_rate'],
@@ -649,6 +651,15 @@
         const companyOverviewTotalValue = document.getElementById('company-overview-total-value');
         if (companyOverviewTotalValue) {
           companyOverviewTotalValue.textContent = companyState.value.toLocaleString();
+        }
+
+        const companyAppraisedValue = document.getElementById('company-appraised-value');
+        if (companyAppraisedValue) {
+          // Appraisal can fail or be unavailable; fall back to showing nothing
+          // rather than a misleading zero.
+          companyAppraisedValue.textContent = Number.isFinite(companyState.appraisedValue)
+            ? companyState.appraisedValue.toLocaleString()
+            : '';
         }
 
         const companyCashReserves = document.getElementById('company-cash-reserves');

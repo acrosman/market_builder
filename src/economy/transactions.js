@@ -314,11 +314,103 @@ function recordConstructionSpend(economy, { tick, spender, recipient, amount, re
   return economy.getLedger().postMany(entries);
 }
 
+/**
+ * Record a transfer of a fixed asset between two holders.
+ *
+ * **The asset always books at appraised value, never at the price paid.** Any
+ * difference between what changed hands and what the asset is worth posts to
+ * contributed capital, and never to income.
+ *
+ * This rule exists ahead of the transfer mechanic it governs, because it cannot
+ * be added afterwards without rewriting every posting that used the old one.
+ * The hazard is specific: once a player controls two corporations, they will
+ * sell a worthless rock from one to the other at an invented price to inflate
+ * book value and, if the difference were treated as a gain, manufacture
+ * earnings out of nothing. Booking at appraised value makes that trade move
+ * assets around without creating a single credit of profit.
+ *
+ * The rule is applied to every transfer, not only related-party ones. An
+ * arm's-length sale at a fair price produces no difference and so no gift
+ * posting, which means correctness does not depend on detecting relatedness.
+ * @param {Object} economy - EconomyState to record into.
+ * @param {Object} params - Transfer parameters.
+ * @param {number} params.tick - Tick the transfer occurred on.
+ * @param {Object} params.seller - Holder giving up the asset.
+ * @param {Object} params.buyer - Holder receiving the asset.
+ * @param {number} params.appraisedValue - Independently appraised value.
+ * @param {number} params.consideration - Credits actually paid.
+ * @param {string} [params.account] - Asset account, defaults to PROPERTY.
+ * @param {Object} [params.refs] - Optional references such as `{ stellarObjectId }`.
+ * @returns {Array<Object>} The posted entries.
+ * @example
+ * recordAssetTransfer(economy, {
+ *   tick, seller: corporationHolder(a), buyer: corporationHolder(b),
+ *   appraisedValue: 250000, consideration: 1, refs: { stellarObjectId: 3 }
+ * });
+ */
+function recordAssetTransfer(economy, {
+  tick, seller, buyer, appraisedValue, consideration, account = ACCOUNTS.PROPERTY, refs
+}) {
+  const appraised = Math.max(0, Math.round(Number(appraisedValue) || 0));
+  const paid = Math.max(0, Math.round(Number(consideration) || 0));
+
+  if (appraised <= 0 && paid <= 0) {
+    return [];
+  }
+
+  const entries = [];
+
+  if (appraised > 0) {
+    // The asset moves at what it is worth, on both sets of books
+    entries.push({
+      tick,
+      amount: appraised,
+      debit: { holder: buyer, account },
+      credit: { holder: seller, account },
+      kind: ENTRY_KINDS.PROPERTY_TRANSFER,
+      refs
+    });
+  }
+
+  if (paid > 0) {
+    entries.push({
+      tick,
+      amount: paid,
+      debit: { holder: seller, account: ACCOUNTS.CASH },
+      credit: { holder: buyer, account: ACCOUNTS.CASH },
+      kind: ENTRY_KINDS.PROPERTY_TRANSFER,
+      refs
+    });
+  }
+
+  const difference = appraised - paid;
+  if (difference !== 0) {
+    // Value given or received for nothing. Contributed capital, never income:
+    // this is the leg that stops self-dealing manufacturing earnings.
+    const giftRefs = { ...refs, underpaid: difference > 0 };
+    entries.push({
+      tick,
+      amount: Math.abs(difference),
+      debit: difference > 0
+        ? { holder: seller, account: ACCOUNTS.CONTRIBUTED_CAPITAL }
+        : { holder: buyer, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
+      credit: difference > 0
+        ? { holder: buyer, account: ACCOUNTS.CONTRIBUTED_CAPITAL }
+        : { holder: seller, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
+      kind: ENTRY_KINDS.RELATED_PARTY_GIFT,
+      refs: giftRefs
+    });
+  }
+
+  return economy.getLedger().postMany(entries);
+}
+
 module.exports = {
   recordOpeningBalance,
   recordOpeningStock,
   recordGoodsTrade,
   recordLoanDraw,
   recordLoanPayment,
-  recordConstructionSpend
+  recordConstructionSpend,
+  recordAssetTransfer
 };

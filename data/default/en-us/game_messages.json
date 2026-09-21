@@ -130,6 +130,8 @@
     "finance": {
       "heading": "Dividend and Shares",
       "total_value": "Total Value:",
+      "appraised_value": "Appraised Value",
+      "book_value_note": "Book value is what the company’s assets cost. Appraised value is what they are expected to earn.",
       "cash_reserves": "Cash Reserves:",
       "shares_issued": "Issued Shares:",
       "dividend_rate": "Dividend Rate (%):",
