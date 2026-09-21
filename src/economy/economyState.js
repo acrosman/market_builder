@@ -1,4 +1,6 @@
 const { RandomSource } = require('./rng');
+const { Ledger } = require('./ledger');
+const { CostBasis } = require('./costBasis');
 
 /**
  * Schema version for the economy save block.
@@ -37,6 +39,8 @@ class EconomyState {
   constructor(options = {}) {
     const seed = options.seed ?? Date.now();
     this.random = new RandomSource(seed);
+    this.ledger = new Ledger();
+    this.costBasis = new CostBasis();
   }
 
   /**
@@ -50,6 +54,29 @@ class EconomyState {
   }
 
   /**
+   * Get the double-entry ledger.
+   * @returns {Ledger} The economy's ledger.
+   * @example
+   * game.getEconomy().getLedger().balance(holder, ACCOUNTS.CASH);
+   */
+  getLedger() {
+    return this.ledger;
+  }
+
+  /**
+   * Get the inventory cost basis tracker.
+   *
+   * Kept in step with the ledger's INVENTORY account: every acquisition posts
+   * to both, and every consumption releases the cost recorded here.
+   * @returns {CostBasis} The economy's cost basis tracker.
+   * @example
+   * game.getEconomy().getCostBasis().averageCost(holder, 'metal');
+   */
+  getCostBasis() {
+    return this.costBasis;
+  }
+
+  /**
    * Serialize economy state for saving.
    * @returns {Object} Plain serializable object carrying its own schema version.
    * @example
@@ -58,7 +85,9 @@ class EconomyState {
   toJSON() {
     return {
       schemaVersion: ECONOMY_SCHEMA_VERSION,
-      random: this.random.toJSON()
+      random: this.random.toJSON(),
+      ledger: this.ledger.toJSON(),
+      costBasis: this.costBasis.toJSON()
     };
   }
 
@@ -79,6 +108,9 @@ class EconomyState {
     if (data?.random) {
       economy.random = RandomSource.fromJSON(data.random);
     }
+
+    economy.ledger = Ledger.fromJSON(data?.ledger);
+    economy.costBasis = CostBasis.fromJSON(data?.costBasis);
 
     return economy;
   }
