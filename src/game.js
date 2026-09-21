@@ -1335,7 +1335,9 @@ class Game {
       * (this.getSettings().loan_term_quarters || 4);
     const loan = corporation.takeLoan(amount, {
       originTick: this.getTicks(),
-      maturityTick: this.getTicks() + termTicks
+      maturityTick: this.getTicks() + termTicks,
+      // Price the loan against the borrower's collateral, not its cash alone
+      universe: this.getUniverse()
     });
     if (!loan) {
       return null;

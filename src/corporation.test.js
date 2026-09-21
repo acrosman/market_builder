@@ -1,6 +1,10 @@
 const { Corporation } = require('./corporation');
 const { Universe, System, StellarObject } = require('./universe');
 
+// Ratings from strongest to weakest, so tests can assert one is worse than
+// another without hardcoding the ladder's shape.
+const RATING_ORDER = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'D'];
+
 describe('Corporation', () => {
   let corporation;
 
@@ -481,6 +485,117 @@ describe('Corporation', () => {
       expect(corporation.loanPaymentApplied(loan.id, 0)).toBe(0);
       expect(corporation.loanPaymentApplied(loan.id, -5)).toBe(0);
       expect(corporation.loanPaymentApplied(loan.id, NaN)).toBe(0);
+    });
+  });
+
+  describe('getCreditRating', () => {
+    let universe;
+
+    beforeEach(() => {
+      universe = new Universe();
+      universe.stellarObjects = [{ id: 1, value: 200000 }];
+    });
+
+    test('should rate a debt-free corporation at the top', () => {
+      corporation.addCashReserve(1000);
+      expect(corporation.getCreditRating(universe)).toBe('AAA');
+    });
+
+    test('should rate a bankrupt corporation at the bottom', () => {
+      corporation.isBankrupt = true;
+      expect(corporation.getCreditRating(universe)).toBe('D');
+    });
+
+    test('should rate on leverage rather than the size of the debt', () => {
+      const small = new Corporation('Small', 'desc', false, 0);
+      small.takeLoan(40000);
+      small.spendCashReserve(39000);
+
+      const large = new Corporation('Large', 'desc', false, 0);
+      large.addStellarObject(1);
+      large.takeLoan(100000);
+
+      // The old ladder rated purely on debt size, so the heavily borrowed but
+      // asset-rich company scored worse than the nearly-broke one
+      expect(large.getOutstandingDebt()).toBeGreaterThan(small.getOutstandingDebt());
+      expect(RATING_ORDER.indexOf(large.getCreditRating(universe)))
+        .toBeLessThan(RATING_ORDER.indexOf(small.getCreditRating(universe)));
+    });
+
+    test('should worsen as leverage rises', () => {
+      const ratings = [0.05, 0.3, 0.6, 0.9, 1.5].map(leverage => {
+        const test = new Corporation('Test', 'desc', false, 0);
+        test.addStellarObject(1);
+        const principal = Math.round(200000 * leverage);
+        test.takeLoan(principal);
+        test.spendCashReserve(principal);
+        return RATING_ORDER.indexOf(test.getCreditRating(universe));
+      });
+
+      for (let i = 1; i < ratings.length; i += 1) {
+        expect(ratings[i]).toBeGreaterThanOrEqual(ratings[i - 1]);
+      }
+    });
+
+    test('should rate an insolvent corporation at the bottom of the ladder', () => {
+      corporation.takeLoan(100000);
+      corporation.spendCashReserve(100000);
+
+      // Debt with nothing behind it
+      expect(corporation.getCreditRating(universe)).toBe('CCC');
+    });
+
+    test('should improve when debt is repaid', () => {
+      corporation.addStellarObject(1);
+      const loan = corporation.takeLoan(150000);
+      const leveraged = corporation.getCreditRating(universe);
+
+      corporation.makeLoanPayment(loan.id, 150000);
+
+      expect(RATING_ORDER.indexOf(corporation.getCreditRating(universe)))
+        .toBeLessThan(RATING_ORDER.indexOf(leveraged));
+    });
+
+    test('should fall back to cash when no universe is supplied', () => {
+      corporation.addCashReserve(100000);
+      corporation.takeLoan(10000);
+
+      expect(corporation.getCreditRating()).not.toBe('D');
+      expect(RATING_ORDER).toContain(corporation.getCreditRating());
+    });
+  });
+
+  describe('getInterestRate', () => {
+    let universe;
+
+    beforeEach(() => {
+      universe = new Universe();
+      universe.stellarObjects = [{ id: 1, value: 200000 }];
+    });
+
+    test('should charge the least to the best rated', () => {
+      corporation.addCashReserve(1000);
+      expect(corporation.getInterestRate(universe)).toBe(4);
+    });
+
+    test('should charge more as the rating falls', () => {
+      const sound = new Corporation('Sound', 'desc', false, 0);
+      sound.addStellarObject(1);
+      sound.takeLoan(20000);
+
+      const strained = new Corporation('Strained', 'desc', false, 0);
+      strained.addStellarObject(1);
+      strained.takeLoan(180000);
+      strained.spendCashReserve(180000);
+
+      expect(strained.getInterestRate(universe))
+        .toBeGreaterThan(sound.getInterestRate(universe));
+    });
+
+    test('should define a rate for every rating on the ladder', () => {
+      RATING_ORDER.forEach(rating => {
+        expect(Corporation.interestRateForRating(rating)).toBeGreaterThan(0);
+      });
     });
   });
 });

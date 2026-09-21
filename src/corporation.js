@@ -231,40 +231,109 @@ class Corporation {
   }
 
   /**
-   * Get the credit rating from total outstanding debt.
-   * @returns {string} Credit rating label.
+   * Ratings from strongest to weakest.
+   *
+   * Exposed so callers can compare two ratings without knowing the ladder's
+   * shape, and so the interest map cannot drift out of step with it.
+   * @type {Array<string>}
    */
-  getCreditRating() {
-    const debt = this.getOutstandingDebt();
-    if (debt <= 0) {
-      return 'AAA';
-    }
-    if (debt <= 50000) {
-      return 'AA';
-    }
-    if (debt <= 150000) {
-      return 'A';
-    }
-    if (debt <= 300000) {
-      return 'BBB';
-    }
-    return 'BB';
+  static get RATING_ORDER() {
+    return ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'D'];
   }
 
   /**
-   * Get the current interest rate based on debt-driven credit rating.
-   * @returns {number} Interest rate as a percentage.
+   * Annual interest rate charged at each rating, as a percentage.
+   * @param {string} rating - One of RATING_ORDER.
+   * @returns {number} Annual percentage rate.
+   * @example
+   * Corporation.interestRateForRating('BBB'); // => 8
    */
-  getInterestRate() {
-    const rating = this.getCreditRating();
-    const interestRateByRating = {
+  static interestRateForRating(rating) {
+    const rates = {
       AAA: 4.0,
       AA: 5.0,
       A: 6.0,
       BBB: 8.0,
-      BB: 10.0
+      BB: 10.0,
+      B: 13.0,
+      CCC: 18.0,
+      D: 25.0
     };
-    return interestRateByRating[rating] || 10.0;
+    return rates[rating] || rates.CCC;
+  }
+
+  /**
+   * Get the credit rating from how leveraged the corporation is.
+   *
+   * This used to ladder on the raw size of the debt, which rated a company with
+   * a small loan and nothing behind it as safer than one with a large loan
+   * against valuable worlds. Size is not risk. What matters is how much of the
+   * debt the assets actually cover.
+   *
+   * Book value is used rather than appraised value, deliberately. A lender
+   * assessing collateral cares what it could recover, not what the borrower
+   * hopes to earn, and keeping the rating on book value also keeps this method
+   * free of any dependency that could reach a share price.
+   * @param {Object} [universe] - Universe for valuing owned worlds; without it
+   *   only cash counts as cover, which is the conservative reading.
+   * @param {Object} [shipValues={}] - Optional ship valuation map.
+   * @param {Object} [goodPrices={}] - Optional goods pricing map.
+   * @returns {string} A rating from RATING_ORDER.
+   * @example
+   * const rating = corporation.getCreditRating(universe);
+   */
+  getCreditRating(universe = null, shipValues = {}, goodPrices = {}) {
+    if (this.isBankrupt) {
+      return 'D';
+    }
+
+    const debt = this.getOutstandingDebt();
+    if (debt <= 0) {
+      return 'AAA';
+    }
+
+    const assets = universe && Array.isArray(universe.stellarObjects)
+      ? this.calculateTotalAssetValue(universe, shipValues, goodPrices)
+      : this.getTotalCashReserves();
+
+    // Debt with nothing behind it is the worst rating short of already failing
+    if (assets <= 0) {
+      return 'CCC';
+    }
+
+    const leverage = debt / assets;
+
+    if (leverage <= 0.1) {
+      return 'AA';
+    }
+    if (leverage <= 0.25) {
+      return 'A';
+    }
+    if (leverage <= 0.5) {
+      return 'BBB';
+    }
+    if (leverage <= 0.75) {
+      return 'BB';
+    }
+    if (leverage < 1) {
+      return 'B';
+    }
+    return 'CCC';
+  }
+
+  /**
+   * Get the current interest rate for new borrowing.
+   * @param {Object} [universe] - Universe for valuing owned worlds.
+   * @param {Object} [shipValues={}] - Optional ship valuation map.
+   * @param {Object} [goodPrices={}] - Optional goods pricing map.
+   * @returns {number} Interest rate as a percentage.
+   * @example
+   * const rate = corporation.getInterestRate(universe);
+   */
+  getInterestRate(universe = null, shipValues = {}, goodPrices = {}) {
+    return Corporation.interestRateForRating(
+      this.getCreditRating(universe, shipValues, goodPrices)
+    );
   }
 
   /**
@@ -279,7 +348,14 @@ class Corporation {
       return null;
     }
 
-    const interestRate = this.getInterestRate();
+    // Rate against whatever collateral the caller can see. Without a universe
+    // only cash counts, which prices a world-owning corporation as if it had
+    // nothing to pledge.
+    const interestRate = this.getInterestRate(
+      options.universe || null,
+      options.shipValues || {},
+      options.goodPrices || {}
+    );
     const loan = {
       id: this.nextLoanId,
       principal: amount,
@@ -485,8 +561,8 @@ class Corporation {
       totalCashReserves: this.getTotalCashReserves(),
       dividendRate: this.dividendRate || 0,
       sharesIssued: this.sharesIssued || 0,
-      creditRating: this.getCreditRating(),
-      interestRate: this.getInterestRate(),
+      creditRating: this.getCreditRating(universe, shipValues, goodPrices),
+      interestRate: this.getInterestRate(universe, shipValues, goodPrices),
       isBankrupt: this.isBankrupt,
       deficitSinceTick: this.deficitSinceTick,
       outstandingDebt: this.getOutstandingDebt(),
