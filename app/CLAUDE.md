@@ -48,3 +48,19 @@ container.appendChild(item);
 ```
 
 **Why**: Separates presentation (HTML) from logic (JS), maintains security (prevents XSS), supports localization, and keeps code maintainable.
+
+## Company Management modal tabs
+
+`app/modals/company-management.html` holds a tablist. When adding a tab, update the tab-name
+list in `setActiveTab()` in `app/modalManager.js` and the label mappings alongside it; tab
+captions resolve from `company_management.tabs.*`.
+
+The **Reports** tab shows published quarterly statements. It loads lazily through
+`activateTab()` when the tab is opened rather than on every company state refresh, because a
+company's statement history only changes when a quarter closes. Rows are built from
+`app/templates/statement-line.html`. Costs render as negatives so the income column reads as an
+arithmetic sum down to net income rather than as unsigned magnitudes.
+
+Note for tests: the modal test fixture mocks `global.fetch` for template loading and must
+dispatch on the requested path. Serving the modal markup for every fetch leaves row renderers
+with no elements to populate.
