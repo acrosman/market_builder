@@ -1,4 +1,6 @@
-const { ticksPerYear } = require('./clock');
+const { ticksPerYear, ticksPerDay } = require('./clock');
+const { runProduction, consumeFood } = require('./production');
+const { restockMarket } = require('./restock');
 const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
@@ -35,7 +37,10 @@ class EconomyTicker {
    */
   onTick(data) {
     const elapsed = data?.delta ?? 1;
-    this.accrueInterest(elapsed, data?.ticks ?? 0);
+    const tick = data?.ticks ?? 0;
+
+    this.accrueInterest(elapsed, tick);
+    this.runDailyCycles(tick);
   }
 
   /**
@@ -107,6 +112,60 @@ class EconomyTicker {
         loan.postedInterest = posted + toPost;
       });
     });
+  }
+
+  /**
+   * Run production and consumption for any whole days that have elapsed.
+   *
+   * Daily rather than hourly because a building's hourly output is a fraction
+   * of a unit and goods are integers, so rounding every tick would floor almost
+   * all production to zero.
+   *
+   * Elapsed days are computed from a persisted marker rather than by testing
+   * the current tick against a modulus. That way a batch of ticks cannot skip
+   * a boundary, and a save taken mid-day resumes without losing or repeating a
+   * cycle.
+   * @param {number} tick - Current absolute game tick.
+   * @returns {number} Days processed.
+   * @example
+   * ticker.runDailyCycles(48);
+   */
+  runDailyCycles(tick) {
+    const game = this.game;
+    const settings = game.getSettings();
+    const economy = game.getEconomy();
+    const perDay = ticksPerDay(settings);
+
+    const elapsedDays = Math.floor((tick - economy.lastProductionTick) / perDay);
+    if (elapsedDays <= 0) {
+      return 0;
+    }
+
+    economy.lastProductionTick += elapsedDays * perDay;
+
+    const corporations = game.getCorporations();
+    game.getUniverse().stellarObjects.forEach(stellarObject => {
+      if (!stellarObject.marketState) {
+        return;
+      }
+
+      const params = {
+        economy,
+        stellarObject,
+        corporations,
+        settings,
+        days: elapsedDays,
+        tick
+      };
+
+      // Order matters: produce, then feed the population, then let the wider
+      // galaxy make up whatever the world could not supply itself.
+      runProduction(params);
+      consumeFood(params);
+      restockMarket({ ...params, market: game.getMarket() });
+    });
+
+    return elapsedDays;
   }
 }
 

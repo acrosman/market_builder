@@ -92,11 +92,22 @@ const HOLDER_KINDS = {
    * Markets must be holders or a player purchase would debit inventory with
    * nothing on the other side and money conservation could not be asserted.
    */
-  MARKET: 'market'
+  MARKET: 'market',
+  /**
+   * The wider galaxy beyond the simulated systems. Markets trade with it when
+   * they drift from their ideal stock, which is what stops a local economy
+   * dead-locking at zero and gives prices something to revert toward. Making it
+   * a holder rather than a void keeps money conservation provable: goods and
+   * credits move across the boundary, they are not created at it.
+   */
+  EXTERNAL: 'external'
 };
 
 /** The singleton bank holder. */
 const BANK_HOLDER = { kind: HOLDER_KINDS.BANK, id: 'interstellar_bank' };
+
+/** The singleton external-galaxy holder. */
+const EXTERNAL_HOLDER = { kind: HOLDER_KINDS.EXTERNAL, id: 'wider_galaxy' };
 
 /** The singleton investor pool holder. */
 const INVESTOR_POOL_HOLDER = { kind: HOLDER_KINDS.INVESTOR_POOL, id: 'public' };
@@ -218,6 +229,7 @@ module.exports = {
   ACCOUNT_TYPE_BY_ACCOUNT,
   HOLDER_KINDS,
   BANK_HOLDER,
+  EXTERNAL_HOLDER,
   INVESTOR_POOL_HOLDER,
   isKnownAccount,
   accountType,

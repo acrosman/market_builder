@@ -11,6 +11,7 @@ const { createConstructionCreditSupport } = require('./stellarObject');
 const { EconomyState } = require('./economy/economyState');
 const { loadContent } = require('./contentCache');
 const { EconomyTicker } = require('./economy/economyTicker');
+const { operatorHolder } = require('./economy/production');
 const { ticksPerQuarter } = require('./economy/clock');
 const {
   recordOpeningBalance,
@@ -565,13 +566,23 @@ class Game {
         return;
       }
 
-      const holder = marketHolder(stellarObject);
+      // Match the trading counterparty so opening stock, production, and sales
+      // all land on one set of books.
+      const holder = operatorHolder(stellarObject, this.getCorporations());
 
-      recordOpeningBalance(economy, {
-        tick,
-        holder,
-        amount: OPENING_ENDOWMENTS.market
-      });
+      // Endow independent markets deeply enough that their cash never binds,
+      // preserving the behaviour that a market absorbs any quantity a player
+      // sells. A corporation-owned world trades on its owner's real books and
+      // gets no endowment: handing it one would show up directly as company
+      // value and make every owned world look ten million credits richer than
+      // it is.
+      if (holder.kind === marketHolder(stellarObject).kind) {
+        recordOpeningBalance(economy, {
+          tick,
+          holder,
+          amount: OPENING_ENDOWMENTS.market
+        });
+      }
 
       Object.entries(inventory).forEach(([goodName, quantity]) => {
         const units = Math.round(Number(quantity) || 0);
@@ -1214,6 +1225,31 @@ class Game {
   }
 
   /**
+   * Get the ledger holder that trades on a stellar object's market.
+   *
+   * A world owned by a corporation trades on that corporation's books, so the
+   * goods it produces and the credits from selling them belong to the owner.
+   * That is what makes owning and developing a world profitable, and it is what
+   * gives corporations the revenue a valuation needs to read. An independent
+   * world trades on its own local account.
+   *
+   * This must agree with the operator used by production, or goods would be
+   * produced onto one set of books and sold from another: the producer's
+   * inventory would grow forever while the seller booked sales with no cost.
+   * @param {number} stellarObjectId - ID of the stellar object.
+   * @returns {Object} Holder reference for the market's counterparty.
+   * @example
+   * const seller = game.marketCounterparty(3);
+   */
+  marketCounterparty(stellarObjectId) {
+    const stellarObject = this.findStellarObject(stellarObjectId);
+    if (!stellarObject) {
+      return marketHolder(stellarObjectId);
+    }
+    return operatorHolder(stellarObject, this.getCorporations());
+  }
+
+  /**
    * Buy goods from a stellar object.
    * @param {number} stellarObjectId - ID of the stellar object.
    * @param {string} goodName - Name of the good to buy.
@@ -1232,7 +1268,7 @@ class Game {
       recordGoodsTrade(this.getEconomy(), {
         tick: this.getTicks(),
         buyer: playerHolder(this.getPlayer()),
-        seller: marketHolder(stellarObjectId),
+        seller: this.marketCounterparty(stellarObjectId),
         goodName: result.goodName,
         quantity: result.quantity,
         totalPrice: result.totalPrice,
@@ -1261,7 +1297,7 @@ class Game {
     if (result.success) {
       recordGoodsTrade(this.getEconomy(), {
         tick: this.getTicks(),
-        buyer: marketHolder(stellarObjectId),
+        buyer: this.marketCounterparty(stellarObjectId),
         seller: playerHolder(this.getPlayer()),
         goodName: result.goodName,
         quantity: result.quantity,

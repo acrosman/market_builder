@@ -9,6 +9,16 @@
     "days_per_quarter": 90,
     "quarters_per_year": 4
   },
+  "production": {
+    "units_per_point_per_day": 1,
+    "staff_wage_per_day": 1,
+    "energy_cost_per_unit_per_day": 2,
+    "food_consumed_per_billion_people_per_day": 2
+  },
+  "restock": {
+    "daily_gap_fraction": 0.05,
+    "max_ideal_multiple": 3
+  },
   "starting_system": {
     "required_objects": [
       {
@@ -48,5 +58,6 @@
       "possessive": "their",
       "reflexive": "themselves"
     }
-  ]
+  ],
+  "loan_term_quarters": 4
 }

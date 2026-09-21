@@ -41,6 +41,9 @@ class EconomyState {
     this.random = new RandomSource(seed);
     this.ledger = new Ledger();
     this.costBasis = new CostBasis();
+    // Last tick production was run through. Persisted so day boundaries are not
+    // lost or double-counted across a save and load.
+    this.lastProductionTick = Number(options.lastProductionTick) || 0;
   }
 
   /**
@@ -87,7 +90,8 @@ class EconomyState {
       schemaVersion: ECONOMY_SCHEMA_VERSION,
       random: this.random.toJSON(),
       ledger: this.ledger.toJSON(),
-      costBasis: this.costBasis.toJSON()
+      costBasis: this.costBasis.toJSON(),
+      lastProductionTick: this.lastProductionTick
     };
   }
 
@@ -111,6 +115,7 @@ class EconomyState {
 
     economy.ledger = Ledger.fromJSON(data?.ledger);
     economy.costBasis = CostBasis.fromJSON(data?.costBasis);
+    economy.lastProductionTick = Number(data?.lastProductionTick) || 0;
 
     return economy;
   }
