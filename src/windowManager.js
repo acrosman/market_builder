@@ -6,6 +6,7 @@ const path = require('path');
 const { getGameMessages: loadGameMessages, getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger, validLogLevels } = require('./logger');
 const { corporationHolder } = require('./economy/accounts');
+const { registerExchangeHandlers } = require('./ipc/exchangeHandlers');
 
 /**
  * Register all main-process IPC listeners and handlers.
@@ -406,6 +407,11 @@ function registerIpcHandlers(dependencies) {
 
     return { success: true, statements };
   });
+
+  // Exchange channels live in their own module: this file already registers
+  // every other channel in the game and is close to the size at which modules
+  // here get split.
+  registerExchangeHandlers({ ipcMain, getCurrentGame });
 
   // IPC: Return map data, including explored systems, for map rendering.
   ipcMain.handle('get-universe-map-data', () => {
