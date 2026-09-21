@@ -4,10 +4,31 @@ const { Game } = require('../game');
 const { createUniverse } = require('../universe');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 const { ticksPerYear, ticksPerQuarter } = require('./clock');
+const { recordOpeningBalance } = require('./transactions');
 
 const settings = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'data/default/en-us/game_settings.json'), 'utf-8')
 );
+
+/**
+ * Fund a corporation in the ledger so it never falls into deficit.
+ *
+ * Owning a world costs cash: its market restocks, and its production pays
+ * wages. Tests that isolate interest accrual need the corporation solvent, or
+ * solvency enforcement forces extra loans and the debt under test is no longer
+ * the only debt.
+ * @param {Object} game - The game holding the corporation.
+ * @param {string} name - Corporation name.
+ * @param {number} [amount=50000000] - Cash to grant.
+ * @returns {void}
+ */
+function fundCorporation(game, name, amount = 50000000) {
+  recordOpeningBalance(game.getEconomy(), {
+    tick: game.getTicks(),
+    holder: corporationHolder(game.findCorporation(name)),
+    amount
+  });
+}
 
 /**
  * Build a started game on a small real universe.
@@ -72,6 +93,7 @@ describe('EconomyTicker interest accrual', () => {
     test('should compound to the expected annual amount', () => {
       const game = startedGame();
       const corporation = game.getPlayer().corporation;
+      fundCorporation(game, 'Debt Co');
       const loan = game.takeCorporationLoan('Debt Co', 100000);
 
       // A full game year of hourly accrual
@@ -85,6 +107,7 @@ describe('EconomyTicker interest accrual', () => {
     test('should not accrue on a corporation with no loans', () => {
       const game = startedGame();
       const corporation = game.getPlayer().corporation;
+      fundCorporation(game, 'Debt Co');
 
       game.advanceTicks(1000, 'test');
       expect(corporation.getOutstandingDebt()).toBe(0);

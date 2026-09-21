@@ -1852,14 +1852,33 @@ class Game {
       corpData.name,
       corpData.description,
       corpData.isPlayerOwned,
-      corpData.cashReserves || 0
+      0
     );
+
+    // Set the cash position directly rather than through the constructor: an
+    // overdrawn corporation has a negative balance, and normalizeCashReserves
+    // floors negatives to zero, which would quietly erase the deficit on load.
+    // The raw value is passed through so setCashPosition can still recognize
+    // the object shape older saves use.
+    corp.setCashPosition(corpData.cashReserves ?? 0);
 
     corp.stellarObjects = corpData.stellarObjects || [];
     corp.ships = corpData.ships || [];
     corp.goods = corpData.goods || {};
     corp.dividendRate = corpData.dividendRate || 0;
     corp.sharesIssued = corpData.sharesIssued || 0;
+
+    // Solvency state. These must be listed here or they would be written to the
+    // save and silently not restored, which is the standing hazard with this
+    // hand-maintained field list: a bankrupt corporation would quietly come
+    // back solvent, and a deficit clock would restart on every load.
+    corp.deficitSinceTick = Number.isFinite(Number(corpData.deficitSinceTick))
+      ? Number(corpData.deficitSinceTick)
+      : null;
+    corp.isBankrupt = Boolean(corpData.isBankrupt);
+    corp.bankruptSinceTick = Number.isFinite(Number(corpData.bankruptSinceTick))
+      ? Number(corpData.bankruptSinceTick)
+      : null;
     corp.loans = Array.isArray(corpData.loans) ? corpData.loans.map(loan => ({ ...loan })) : [];
 
     const maxLoanId = corp.loans.reduce((maxId, loan) => {

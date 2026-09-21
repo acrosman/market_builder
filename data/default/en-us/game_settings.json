@@ -21,6 +21,10 @@
     "import_markup": 0.1,
     "export_discount": 0.1
   },
+  "solvency": {
+    "deficit_grace_days": 30,
+    "forced_loan_buffer": 0.1
+  },
   "starting_system": {
     "required_objects": [
       {

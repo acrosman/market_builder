@@ -21,6 +21,12 @@ class Corporation {
     this.dividendRate = 0;
     this.sharesIssued = 0;
     this.loans = [];
+    /** Tick the current cash deficit began, or null when solvent. */
+    this.deficitSinceTick = null;
+    /** Whether this corporation has been declared bankrupt. */
+    this.isBankrupt = false;
+    /** Tick bankruptcy was declared, or null. */
+    this.bankruptSinceTick = null;
     this.nextLoanId = 1;
   }
 
@@ -183,6 +189,37 @@ class Corporation {
     }
     this.sharesIssued += count;
     return true;
+  }
+
+  /**
+   * Set the corporation's cash position from the ledger.
+   *
+   * The ledger is the single source of truth for cash: production pays wages,
+   * restocking buys stock, and interest accrues, all of which post there.
+   * `cashReserves` is a cached projection of that so the UI and the
+   * discretionary-spend guards have a number to read without querying the
+   * journal.
+   *
+   * Unlike `addCashReserve` and `spendCashReserve`, this accepts a negative
+   * value. A corporation genuinely can be overdrawn -- unavoidable costs do not
+   * stop for lack of funds -- and hiding that behind a floor at zero is what
+   * let corporations run unlimited deficits unnoticed. Solvency enforcement
+   * reads this to decide when to force a loan.
+   * @param {number} amount - Cash position, which may be negative.
+   * @returns {number} The position that was set.
+   * @example
+   * corporation.setCashPosition(ledger.balance(holder, ACCOUNTS.CASH));
+   */
+  setCashPosition(amount) {
+    if (typeof amount === 'number' && Number.isFinite(amount)) {
+      this.cashReserves = amount;
+      return this.cashReserves;
+    }
+
+    // Older saves store reserves as an object of named sub-balances. Fall back
+    // to the normalizer for those, which sums them and floors at zero.
+    this.cashReserves = Corporation.normalizeCashReserves(amount);
+    return this.cashReserves;
   }
 
   /**
@@ -445,6 +482,8 @@ class Corporation {
       sharesIssued: this.sharesIssued || 0,
       creditRating: this.getCreditRating(),
       interestRate: this.getInterestRate(),
+      isBankrupt: this.isBankrupt,
+      deficitSinceTick: this.deficitSinceTick,
       outstandingDebt: this.getOutstandingDebt(),
       ownedStellarObjects,
       ships: Array.isArray(this.ships) ? [...this.ships] : [],

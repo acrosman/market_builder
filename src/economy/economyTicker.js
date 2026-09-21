@@ -1,6 +1,7 @@
 const { ticksPerYear, ticksPerDay } = require('./clock');
 const { runProduction, consumeFood } = require('./production');
 const { restockMarket } = require('./restock');
+const { enforceSolvency } = require('./solvency');
 const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
@@ -165,7 +166,42 @@ class EconomyTicker {
       restockMarket({ ...params, market: game.getMarket() });
     });
 
+    this.settleCorporations(tick);
+
     return elapsedDays;
+  }
+
+  /**
+   * Bring corporation cash into line with the ledger, then enforce solvency.
+   *
+   * The ledger is where wages, restock purchases and interest actually land,
+   * so it is the truth about a corporation's cash. `cashReserves` is projected
+   * from it rather than maintained in parallel, because the two had already
+   * drifted: a corporation could be a quarter of a million credits overdrawn on
+   * the books while reporting a balance of zero.
+   * @param {number} tick - Current absolute game tick.
+   * @returns {void}
+   * @example
+   * ticker.settleCorporations(720);
+   */
+  settleCorporations(tick) {
+    const game = this.game;
+    const economy = game.getEconomy();
+    const ledger = economy.getLedger();
+
+    game.getCorporations().forEach(corporation => {
+      if (typeof corporation.setCashPosition !== 'function') {
+        return;
+      }
+
+      const holder = corporationHolder(corporation);
+      if (!holder.id) {
+        return;
+      }
+
+      corporation.setCashPosition(ledger.balance(holder, ACCOUNTS.CASH));
+      enforceSolvency({ economy, game, corporation, tick });
+    });
   }
 }
 
