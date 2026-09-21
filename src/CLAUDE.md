@@ -63,8 +63,13 @@ Overview of src files. These are backend modules that only run on the main proce
   - **EventBus Integration**: Subscribes to tick events during game initialization for automatic updates (population growth, construction advancement)
 
 - **src/corporation.js** - Economic entities
-  - Tracks owned assets (stellar objects, ships, goods inventory)
-  - Asset valuation methods
+  - Tracks owned assets (stellar objects, ships, goods inventory), cash, loans and solvency state
+  - **`calculateTotalValue()` is net of debt; `calculateTotalAssetValue()` is gross.** Borrowing
+    must not raise reported value, and net worth may legitimately be negative
+  - `getCreditRating(universe)` ladders on leverage, not the size of the debt, and takes the
+    universe so collateral counts. `Corporation.RATING_ORDER` orders the ladder
+  - `cashReserves` is a projection of the ledger, set via `setCashPosition()`, and may be
+    negative. The ledger is the source of truth for cash
   - Player and NPC corporations
 
 - **src/market.js** - Market and trading system
@@ -97,15 +102,25 @@ Overview of src files. These are backend modules that only run on the main proce
   - **costBasis.js** - Weighted-average inventory cost per holder per good, so COGS and gross
     margin are real. Selling out releases exactly the recorded cost, leaving no rounding residue
   - **transactions.js** - Multi-leg recorders (`recordGoodsTrade`, `recordLoanDraw`,
-    `recordConstructionSpend`, ...). **Post through these, not the ledger directly**, so the
-    ledger and cost basis cannot drift apart
+    `recordConstructionSpend`, `recordAssetTransfer`, ...). **Post through these, not the ledger
+    directly**, so the ledger and cost basis cannot drift apart. `recordAssetTransfer` books
+    every transfer at *appraised* value with any difference to contributed capital and never to
+    income, which is what stops self-dealing between commonly controlled companies from
+    manufacturing earnings
   - **clock.js** - Tick/day/quarter/year conversions from `game_settings.json` `time` block
   - **production.js** - Per-tick goods extraction, operating costs, and population food demand.
     Raw extraction only: no building has manufacturing recipes yet (see issue #32)
   - **restock.js** - Markets drift toward ideal stock by trading with the wider galaxy, which
     gives prices their mean reversion and stops local economies dead-locking at zero
+  - **appraisal.js** - What things are *worth*, as distinct from what they cost. Discounted
+    cash flows at prevailing goods prices, with output capped by input supply.
+    **This module must never see a share price.** It does not import the exchange, takes no
+    price argument, and tests enforce that on three axes. If it could read a share price while
+    the market priced companies on appraised book value, the two would drive each other.
+    Also holds `defaultProbability()`, which makes the balloon cliff priceable, and
+    `discountRateFor()`. Its level is currently ~2.5x the simulation's; see the module header
   - **solvency.js** - Deficit grace window, forced loans, and bankruptcy. `bookNetWorth()` reads
-    the ledger, not `Corporation.calculateTotalValue()`, which still omits debt
+    the ledger directly
   - **statements.js** - Quarterly income statement and balance sheet derived from the journal.
     Only closed quarters publish; a quarter in progress is deliberately invisible
   - **economyTicker.js** - The single `'tick'` subscriber driving the economy: interest accrual

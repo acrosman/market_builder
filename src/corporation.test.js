@@ -598,4 +598,35 @@ describe('Corporation', () => {
       });
     });
   });
+
+  describe('getCompanyManagementState rounding', () => {
+    test('should round figures that interest accrual makes fractional', () => {
+      const universe = new Universe();
+      universe.stellarObjects = [{ id: 1, value: 80000 }];
+
+      corporation.addStellarObject(1);
+      corporation.takeLoan(60000, { universe });
+      corporation.accrueLoanInterest(8640, 500);
+
+      const state = corporation.getCompanyManagementState(universe);
+
+      // Interest accrues fractionally, so these would otherwise reach the
+      // interface as figures like -183906.89224400593
+      expect(Number.isInteger(state.value)).toBe(true);
+      expect(Number.isInteger(state.assetValue)).toBe(true);
+      expect(Number.isInteger(state.outstandingDebt)).toBe(true);
+      expect(Number.isInteger(state.totalCashReserves)).toBe(true);
+    });
+
+    test('should leave the underlying methods precise', () => {
+      const universe = new Universe();
+      universe.stellarObjects = [{ id: 1, value: 80000 }];
+
+      corporation.addStellarObject(1);
+      corporation.takeLoan(60000, { universe });
+      corporation.accrueLoanInterest(8640, 500);
+
+      expect(Number.isInteger(corporation.getOutstandingDebt())).toBe(false);
+    });
+  });
 });

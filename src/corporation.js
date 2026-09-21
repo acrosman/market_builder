@@ -556,16 +556,21 @@ class Corporation {
       description: this.description,
       // Net of debt. assetValue is the gross figure, so a reader can see both
       // what the company holds and what it is actually worth.
-      value,
-      assetValue,
-      totalCashReserves: this.getTotalCashReserves(),
+      //
+      // Rounded at this boundary only. Interest accrues fractionally on loan
+      // balances, so these are genuinely non-integer and would otherwise reach
+      // the interface as figures like -183906.89224400593. The underlying
+      // methods stay precise.
+      value: Math.round(value),
+      assetValue: Math.round(assetValue),
+      totalCashReserves: Math.round(this.getTotalCashReserves()),
       dividendRate: this.dividendRate || 0,
       sharesIssued: this.sharesIssued || 0,
       creditRating: this.getCreditRating(universe, shipValues, goodPrices),
       interestRate: this.getInterestRate(universe, shipValues, goodPrices),
       isBankrupt: this.isBankrupt,
       deficitSinceTick: this.deficitSinceTick,
-      outstandingDebt: this.getOutstandingDebt(),
+      outstandingDebt: Math.round(this.getOutstandingDebt()),
       ownedStellarObjects,
       ships: Array.isArray(this.ships) ? [...this.ships] : [],
       loans: Array.isArray(this.loans) ? this.loans.map(loan => ({ ...loan })) : []
