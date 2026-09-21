@@ -447,9 +447,11 @@ class Corporation {
    */
   getCompanyManagementState(universe, shipValues = {}, goodPrices = {}) {
     let value = 0;
+    let assetValue = 0;
     let ownedStellarObjects = [];
     if (universe && Array.isArray(universe.stellarObjects)) {
-      value = this.calculateTotalValue(universe, shipValues, goodPrices);
+      assetValue = this.calculateTotalAssetValue(universe, shipValues, goodPrices);
+      value = assetValue - this.getOutstandingDebt();
       const stellarObjectById = new Map(universe.stellarObjects.map(stellarObject => [stellarObject.id, stellarObject]));
       const systemById = new Map(
         Array.isArray(universe.systems)
@@ -476,7 +478,10 @@ class Corporation {
     return {
       name: this.name,
       description: this.description,
+      // Net of debt. assetValue is the gross figure, so a reader can see both
+      // what the company holds and what it is actually worth.
       value,
+      assetValue,
       totalCashReserves: this.getTotalCashReserves(),
       dividendRate: this.dividendRate || 0,
       sharesIssued: this.sharesIssued || 0,
@@ -492,20 +497,26 @@ class Corporation {
   }
 
   /**
-   * Calculates the total value of all corporation assets
+   * Calculates the gross value of everything the corporation owns.
+   *
+   * Assets only: stellar objects, ships, goods inventory and cash. Debt is not
+   * netted off, so this is what the corporation holds rather than what it is
+   * worth. Use `calculateTotalValue()` for the latter.
    * @param {Universe} universe - The universe object to get stellar object values
-   * @param {Object} shipValues - Object mapping ship types/IDs to values
-   * @param {Object} goodPrices - Object mapping good names to current prices
-   * @returns {number} Total value of all assets
+   * @param {Object} [shipValues={}] - Object mapping ship types/IDs to values
+   * @param {Object} [goodPrices={}] - Object mapping good names to current prices
+   * @returns {number} Gross value of all assets
+   * @example
+   * const assets = corporation.calculateTotalAssetValue(universe, shipValues, goodPrices);
    */
-  calculateTotalValue(universe, shipValues = {}, goodPrices = {}) {
-    let totalValue = 0;
+  calculateTotalAssetValue(universe, shipValues = {}, goodPrices = {}) {
+    let assetValue = 0;
 
     // Add value of stellar objects
     this.stellarObjects.forEach(objId => {
       const stellarObject = universe.stellarObjects.find(obj => obj.id === objId);
       if (stellarObject && stellarObject.value) {
-        totalValue += stellarObject.value;
+        assetValue += stellarObject.value;
       }
     });
 
@@ -513,18 +524,41 @@ class Corporation {
     this.ships.forEach(shipId => {
       // Ship values can be looked up by ID or type
       const shipValue = shipValues[shipId] || 0;
-      totalValue += shipValue;
+      assetValue += shipValue;
     });
 
     // Add value of goods in inventory
     Object.entries(this.goods).forEach(([goodName, quantity]) => {
       const price = goodPrices[goodName] || 0;
-      totalValue += price * quantity;
+      assetValue += price * quantity;
     });
 
-    totalValue += this.getTotalCashReserves();
+    assetValue += this.getTotalCashReserves();
 
-    return totalValue;
+    return assetValue;
+  }
+
+  /**
+   * Calculates what the corporation is worth: assets less what it owes.
+   *
+   * This previously summed assets and ignored debt entirely, which reported a
+   * borrowing corporation as richer by exactly the amount it owed. A loan raises
+   * cash and liabilities together and leaves the owner no better off, so netting
+   * the debt is what makes the figure mean anything.
+   *
+   * The result can be negative. A corporation whose debts exceed its assets is
+   * insolvent, and hiding that behind a floor at zero would conceal the one
+   * condition that matters most.
+   * @param {Universe} universe - The universe object to get stellar object values
+   * @param {Object} [shipValues={}] - Object mapping ship types/IDs to values
+   * @param {Object} [goodPrices={}] - Object mapping good names to current prices
+   * @returns {number} Net value of the corporation, which may be negative
+   * @example
+   * const netWorth = corporation.calculateTotalValue(universe, shipValues, goodPrices);
+   */
+  calculateTotalValue(universe, shipValues = {}, goodPrices = {}) {
+    return this.calculateTotalAssetValue(universe, shipValues, goodPrices)
+      - this.getOutstandingDebt();
   }
 
   /**

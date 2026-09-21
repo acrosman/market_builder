@@ -246,6 +246,108 @@ describe('Corporation', () => {
       const value = corporation.calculateTotalValue(universe, {}, {});
       expect(value).toBe(0);
     });
+
+    test('should subtract outstanding debt', () => {
+      corporation.addStellarObject(1);
+      corporation.takeLoan(4000);
+
+      // Borrowing raises cash and debt equally, so what the company is worth
+      // is unchanged. Counting only the cash reported it as richer by exactly
+      // the amount it owed.
+      expect(corporation.calculateTotalValue(universe)).toBe(10000);
+    });
+
+    test('should report negative value when debt exceeds assets', () => {
+      corporation.takeLoan(50000);
+      corporation.spendCashReserve(50000);
+
+      expect(corporation.calculateTotalValue(universe)).toBe(-50000);
+    });
+
+    test('should rise as debt is repaid', () => {
+      corporation.addStellarObject(1);
+      corporation.addCashReserve(20000);
+      const loan = corporation.takeLoan(8000);
+
+      const beforeRepayment = corporation.calculateTotalValue(universe);
+      corporation.makeLoanPayment(loan.id, 8000);
+
+      // Repaying spends cash and clears debt one for one, so value is flat
+      expect(corporation.calculateTotalValue(universe)).toBe(beforeRepayment);
+      expect(corporation.getOutstandingDebt()).toBe(0);
+    });
+
+    test('should reflect accrued interest as it compounds', () => {
+      corporation.addStellarObject(1);
+      corporation.takeLoan(10000);
+      const beforeInterest = corporation.calculateTotalValue(universe);
+
+      corporation.accrueLoanInterest(8640, 8640);
+
+      // Interest capitalizes into the balance without adding any asset, so it
+      // is a straight reduction in what the company is worth
+      expect(corporation.calculateTotalValue(universe)).toBeLessThan(beforeInterest);
+    });
+  });
+
+  describe('calculateTotalAssetValue', () => {
+    let universe;
+
+    beforeEach(() => {
+      universe = new Universe();
+      universe.stellarObjects = [{ id: 1, value: 10000 }, { id: 2, value: 15000 }];
+    });
+
+    test('should total every asset class', () => {
+      corporation.addStellarObject(1);
+      corporation.addShip(10);
+      corporation.addGoods('Food', 100);
+      corporation.addCashReserve(500);
+
+      expect(corporation.calculateTotalAssetValue(universe, { 10: 5000 }, { Food: 10 }))
+        .toBe(16500);
+    });
+
+    test('should ignore debt entirely', () => {
+      corporation.addStellarObject(1);
+      corporation.takeLoan(4000);
+
+      // Assets include the borrowed cash; the matching liability is not netted
+      expect(corporation.calculateTotalAssetValue(universe)).toBe(14000);
+    });
+
+    test('should equal total value for a debt-free corporation', () => {
+      corporation.addStellarObject(1);
+      corporation.addCashReserve(2500);
+
+      expect(corporation.calculateTotalAssetValue(universe))
+        .toBe(corporation.calculateTotalValue(universe));
+    });
+
+    test('should differ from total value by exactly the outstanding debt', () => {
+      corporation.addStellarObject(2);
+      corporation.addCashReserve(1000);
+      corporation.takeLoan(7500);
+
+      expect(
+        corporation.calculateTotalAssetValue(universe) - corporation.calculateTotalValue(universe)
+      ).toBe(corporation.getOutstandingDebt());
+    });
+
+    test('should handle missing values gracefully', () => {
+      corporation.addStellarObject(999);
+      corporation.addShip(999);
+      corporation.addGoods('UnpricedGood', 100);
+
+      expect(corporation.calculateTotalAssetValue(universe, {}, {})).toBe(0);
+    });
+
+    test('should never go negative from debt alone', () => {
+      corporation.takeLoan(50000);
+      corporation.spendCashReserve(50000);
+
+      expect(corporation.calculateTotalAssetValue(universe)).toBe(0);
+    });
   });
 
   describe('getAssetSummary', () => {
