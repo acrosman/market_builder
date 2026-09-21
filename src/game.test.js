@@ -946,10 +946,11 @@ describe('Game Module', () => {
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({
             ticks: 1,
+            delta: 1,
             action: 'jump'
           })
         );
-        expect(result).toEqual({ ticks: 1, action: 'jump' });
+        expect(result).toEqual({ ticks: 1, delta: 1, action: 'jump' });
       });
 
       test('should emit multiple tick events for multiple advances', () => {
@@ -986,6 +987,115 @@ describe('Game Module', () => {
         expect(listener).toHaveBeenNthCalledWith(3, expect.objectContaining({ ticks: 3 }));
         expect(listener).toHaveBeenNthCalledWith(4, expect.objectContaining({ ticks: 4 }));
         expect(listener).toHaveBeenNthCalledWith(5, expect.objectContaining({ ticks: 5 }));
+      });
+
+      test('should emit delta of 1 on every tick regardless of the clock', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const listener = jest.fn();
+        game.getEventBus().on('tick', listener);
+
+        game.advanceTicks(3, 'test');
+
+        // delta is elapsed time per event; ticks is the cumulative clock
+        expect(listener).toHaveBeenNthCalledWith(1, { ticks: 1, delta: 1, action: 'test' });
+        expect(listener).toHaveBeenNthCalledWith(2, { ticks: 2, delta: 1, action: 'test' });
+        expect(listener).toHaveBeenNthCalledWith(3, { ticks: 3, delta: 1, action: 'test' });
+      });
+    });
+
+    // Regression coverage for the cumulative-vs-delta tick bug. The mock stellar
+    // objects above use no-op onTick handlers, so only a real StellarObject wired
+    // to a real Game exercises the contract end to end.
+    describe('real StellarObject subscribed to a real Game', () => {
+      const buildRealUniverse = () => {
+        const { StellarObject } = require('./stellarObject');
+        const typeDetails = {
+          market: true,
+          buildings: true,
+          shipyard: false,
+          shields: false,
+          cannons: false,
+          fighters: false,
+          resistance: false,
+          classes: {
+            'Earth-like': {
+              description: 'Integration test planet',
+              populationLimit: 8000000000,
+              initialPopulationPercent: [30, 30],
+              reproductionRate: 5,
+              buildingCredits: 0,
+              buildingLimit: 150,
+              productivityModifiers: { metal: 5, food: 7, chemicals: 6, energy: 8 }
+            }
+          }
+        };
+
+        const obj = new StellarObject(0, 'Planet', 'Earth-like', 0, typeDetails, 'Test Planet');
+
+        return {
+          universe: {
+            systems: [{ id: 0, name: 'Alpha' }],
+            stellarObjects: [obj]
+          },
+          obj
+        };
+      };
+
+      test('should advance construction by elapsed time, not by the game clock', () => {
+        const { universe, obj } = buildRealUniverse();
+        const game = new Game(universe, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 10 }];
+
+        // Nine ticks of elapsed time must not finish a ten-tick build
+        game.advanceTicks(9, 'test');
+        expect(obj.buildingsUnderConstruction).toHaveLength(1);
+        expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(1);
+        expect(obj.buildings.Warehouse).toBeUndefined();
+
+        // The tenth completes it exactly once
+        game.advanceTicks(1, 'test');
+        expect(obj.buildingsUnderConstruction).toHaveLength(0);
+        expect(obj.buildings.Warehouse.count).toBe(1);
+      });
+
+      test('should not compound construction progress as the clock grows', () => {
+        const { universe, obj } = buildRealUniverse();
+        const game = new Game(universe, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        // Run the clock well past any build cost before queueing work
+        game.advanceTicks(100, 'test');
+        obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 5 }];
+
+        // At tick 100 the old code subtracted 100 per tick and finished instantly
+        game.advanceTicks(1, 'test');
+        expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(4);
+        expect(obj.buildings.Warehouse).toBeUndefined();
+      });
+
+      test('should grow population by elapsed ticks, not by the triangular sum', () => {
+        const { universe, obj } = buildRealUniverse();
+        const game = new Game(universe, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const start = obj.population.current;
+        const growthFactor = 1 + (obj.population.growthRate / obj.populationGrowthDivisor);
+
+        game.advanceTicks(10, 'test');
+
+        // Ten ticks of compounding, not growthFactor ** 55
+        const expected = Math.min(
+          Math.floor(start * Math.pow(growthFactor, 10)),
+          obj.population.limit
+        );
+        expect(obj.population.current).toBeLessThanOrEqual(expected);
+        expect(obj.population.current).toBeLessThan(
+          Math.floor(start * Math.pow(growthFactor, 55))
+        );
       });
     });
 

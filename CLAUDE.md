@@ -71,7 +71,14 @@ This is a **multi-process Electron app** with strict security boundaries:
 
 - **Ticks**: Fundamental time unit (not turns)
 - Actions consume ticks: jumping (1-20 varies), docking (1), landing (1), takeoff (1)
-- `game.advanceTicks(n)` triggers `eventBus.emit('tick', { ticks, action })`
+- `game.advanceTicks(n)` emits `n` separate `eventBus.emit('tick', { ticks, delta, action })` events
+- **`ticks` vs `delta`** — these are different quantities and must not be confused:
+  - `ticks` is the **cumulative** game clock after this tick (1, 2, 3, ...)
+  - `delta` is the number of ticks **elapsed in this event**, always 1 today
+  - Time-based subscribers (population growth, construction, interest accrual) must use
+    `delta`. Using `ticks` as an elapsed amount compounds every update by the whole age
+    of the game — this was a real bug, see the regression tests in `src/game.test.js`
+    under "real StellarObject subscribed to a real Game"
 - Systems subscribe to tick events for automatic time-based updates:
   - Stellar objects update population, advance construction, produce goods
   - Subscribers implement `onTick(data)` method called automatically each tick

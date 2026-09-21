@@ -650,20 +650,27 @@ class StellarObject {
   /**
    * Handle tick event for time-based updates
    * This is called automatically each tick by the EventBus subscriber system
-   * @param {Object} data - Event data containing ticks and action
+   *
+   * Uses `data.delta` (ticks elapsed in this event), never `data.ticks`
+   * (the cumulative game clock). See Game.advanceTicks for the contract.
+   * @param {Object} data - Event data as `{ ticks, delta, action }`
+   * @param {number} [data.delta=1] - Ticks elapsed since the previous event
+   * @returns {void}
+   * @example
+   * stellarObject.onTick({ ticks: 42, delta: 1, action: 'jump' });
    */
   onTick(data) {
-    const { ticks } = data;
+    const elapsed = data?.delta ?? 1;
 
     // Update population based on growth rate
     if (this.population.growthRate !== 0) {
-      this.updatePopulation(ticks);
+      this.updatePopulation(elapsed);
     }
 
     // Process construction queue
     for (let i = this.buildingsUnderConstruction.length - 1; i >= 0; i--) {
       const construction = this.buildingsUnderConstruction[i];
-      construction.ticksRemaining -= ticks;
+      construction.ticksRemaining -= elapsed;
 
       // If construction is complete, add building to inventory
       if (construction.ticksRemaining <= 0) {

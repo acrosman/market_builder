@@ -488,11 +488,22 @@ class Game {
   /**
    * Advance game time by the specified number of ticks.
    * Events are emitted one at a time to allow subscribers to react to each tick.
+   *
+   * The payload distinguishes two different quantities, and subscribers must not
+   * confuse them:
+   * - `ticks` is the **cumulative** game clock after this tick (1, 2, 3, ...).
+   * - `delta` is the number of ticks **elapsed in this event**, always 1 today.
+   *
+   * Time-based subscribers (population growth, construction, interest accrual)
+   * must use `delta`. Using `ticks` as an elapsed amount compounds every update
+   * by the whole age of the game.
+   *
    * @param {number} [numTicks=1] - Number of ticks to advance.
    * @param {string} [action='unknown'] - The action that triggered this tick.
-   * @returns {Object} Final tick event data.
+   * @returns {Object} Final tick event data as `{ ticks, delta, action }`.
    * @example
    * const tickData = game.advanceTicks(3, 'jump');
+   * // emits three events; the last is { ticks: 3, delta: 1, action: 'jump' }
    */
   advanceTicks(numTicks = 1, action = 'unknown') {
     let lastTickData;
@@ -503,6 +514,7 @@ class Game {
 
       lastTickData = {
         ticks: this.getTicks(),
+        delta: 1,
         action
       };
 

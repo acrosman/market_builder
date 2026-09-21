@@ -76,7 +76,9 @@ Overview of src files. These are backend modules that only run on the main proce
 - **src/eventBus.js** - Pub/sub event system
   - **Direct listener methods**: `on(eventName, callback)`, `once()`, `emit()`, `clear()`, `listenerCount()`
   - **Subscriber interface**: `subscribe(eventName, subscriber)` - object-based subscription where subscriber implements `onEventName()` methods (e.g., `onTick()`, `onGameEnd()`)
-  - Used for tick events: `eventBus.emit('tick', { ticks, action })`
+  - Used for tick events: `eventBus.emit('tick', { ticks, delta, action })`, where `ticks` is
+    the cumulative game clock and `delta` is the ticks elapsed in this event (always 1 today).
+    Time-based subscribers must use `delta`; see the Time System section in the root `CLAUDE.md`
   - Direct listeners unsubscribe with returned function: `const unsubscribe = eventBus.on('tick', cb); unsubscribe();`
   - Subscribers unsubscribe with `eventBus.unsubscribe('tick', subscriber)`
   - **Pattern choice**: Use subscriber interface for objects with lifecycle (StellarObject), direct `on()` for simple callbacks

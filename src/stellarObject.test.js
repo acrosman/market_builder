@@ -550,11 +550,11 @@ describe('StellarObject', () => {
       expect(result.success).toBe(true);
       expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(10);
 
-      obj.onTick({ ticks: 9 });
+      obj.onTick({ delta: 9 });
       expect(obj.buildings.Mine).toBeUndefined();
       expect(obj.buildingsUnderConstruction).toHaveLength(1);
 
-      obj.onTick({ ticks: 1 });
+      obj.onTick({ delta: 1 });
       expect(obj.buildings.Mine.count).toBe(1);
       expect(obj.buildingsUnderConstruction).toHaveLength(0);
     });
@@ -918,7 +918,7 @@ describe('StellarObject', () => {
         { type: 'Cannon', ticksRemaining: 8 }
       ];
 
-      obj.onTick({ ticks: 2 });
+      obj.onTick({ delta: 2 });
 
       expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(3);
       expect(obj.buildingsUnderConstruction[1].ticksRemaining).toBe(6);
@@ -940,7 +940,7 @@ describe('StellarObject', () => {
         { type: 'Cannon', ticksRemaining: 8 }
       ];
 
-      obj.onTick({ ticks: 5 });
+      obj.onTick({ delta: 5 });
 
       // Warehouse should be complete
       expect(obj.buildings['Warehouse'].count).toBe(1);
@@ -964,7 +964,7 @@ describe('StellarObject', () => {
         { type: 'Cannon', ticksRemaining: 3 }
       ];
 
-      obj.onTick({ ticks: 5 });
+      obj.onTick({ delta: 5 });
 
       // Both should be complete
       expect(obj.buildings['Warehouse'].count).toBe(1);
@@ -983,7 +983,7 @@ describe('StellarObject', () => {
       );
 
       const initialPopulation = obj.population.current;
-      obj.onTick({ ticks: 1 });
+      obj.onTick({ delta: 1 });
 
       // Population should have grown
       expect(obj.population.current).toBeGreaterThan(initialPopulation);
@@ -1001,7 +1001,7 @@ describe('StellarObject', () => {
       );
 
       const initialPopulation = obj.population.current;
-      obj.onTick({ ticks: 5 });
+      obj.onTick({ delta: 5 });
 
       // Population should not change
       expect(obj.population.current).toBe(initialPopulation);
