@@ -1,0 +1,68 @@
+<div class="exchange-layout">
+  <div class="exchange-panel exchange-listings">
+    <h3 id="exchange-listings-heading"></h3>
+    <p id="exchange-no-listings" class="hidden"></p>
+    <div class="exchange-row exchange-header-row">
+      <span id="exchange-header-symbol" class="exchange-cell"></span>
+      <span id="exchange-header-last" class="exchange-cell"></span>
+      <span id="exchange-header-shares" class="exchange-cell"></span>
+      <span class="exchange-cell"></span>
+    </div>
+    <div id="exchange-listing-rows"></div>
+  </div>
+
+  <div class="exchange-panel exchange-detail hidden" id="exchange-detail">
+    <h3 id="exchange-detail-symbol"></h3>
+
+    <h4 id="exchange-chart-heading"></h4>
+    <p id="exchange-no-history" class="hidden"></p>
+    <div id="exchange-price-chart"></div>
+
+    <h4 id="exchange-book-heading"></h4>
+    <div class="exchange-book">
+      <div class="exchange-book-side">
+        <h5 id="exchange-bids-heading"></h5>
+        <p id="exchange-no-bids" class="hidden"></p>
+        <div id="exchange-bid-rows"></div>
+      </div>
+      <div class="exchange-book-side">
+        <h5 id="exchange-asks-heading"></h5>
+        <p id="exchange-no-asks" class="hidden"></p>
+        <div id="exchange-ask-rows"></div>
+      </div>
+    </div>
+
+    <h4 id="exchange-place-heading"></h4>
+    <div class="player-stat company-management-form-row">
+      <label id="exchange-account-label" for="exchange-account-select" class="player-stat-label"></label>
+      <select id="exchange-account-select" class="company-management-number-input"></select>
+    </div>
+    <div class="player-stat company-management-form-row">
+      <label id="exchange-side-label" for="exchange-side-select" class="player-stat-label"></label>
+      <select id="exchange-side-select" class="company-management-number-input"></select>
+    </div>
+    <div class="player-stat company-management-form-row">
+      <label id="exchange-quantity-label" for="exchange-quantity-input" class="player-stat-label"></label>
+      <input id="exchange-quantity-input" type="number" min="1" step="1" class="company-management-number-input">
+    </div>
+    <div class="player-stat company-management-form-row">
+      <label id="exchange-limit-label" for="exchange-limit-input" class="player-stat-label"></label>
+      <input id="exchange-limit-input" type="number" min="1" step="1" class="company-management-number-input">
+    </div>
+    <button id="exchange-submit-order-btn" class="action-btn"></button>
+  </div>
+
+  <div class="exchange-panel exchange-portfolio">
+    <h3 id="exchange-portfolio-heading"></h3>
+    <div class="player-stat">
+      <span id="exchange-credits-label" class="player-stat-label"></span>
+      <span id="exchange-credits" class="player-stat-value"></span>
+    </div>
+    <p id="exchange-no-positions" class="hidden"></p>
+    <div id="exchange-position-rows"></div>
+
+    <h4 id="exchange-orders-heading"></h4>
+    <p id="exchange-no-orders" class="hidden"></p>
+    <div id="exchange-order-rows"></div>
+  </div>
+</div>

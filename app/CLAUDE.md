@@ -64,3 +64,18 @@ arithmetic sum down to net income rather than as unsigned magnitudes.
 Note for tests: the modal test fixture mocks `global.fetch` for template loading and must
 dispatch on the requested path. Serving the modal markup for every fetch leaves row renderers
 with no elements to populate.
+
+## Exchange modal
+
+`app/exchangeModal.js` is its own renderer module rather than part of `modalManager.js`, which
+already carries every other modal and is past the size at which this project splits files. It
+registers `window.exchangeModal` and is initialized from `app/game.js` alongside
+`modalManager.init()`, borrowing `modalManager.loadModal` rather than duplicating it.
+
+It holds the only time-series chart in the project. The existing d3 usage is force-directed
+maps, so there was no axis or scale idiom to follow; it uses the d3 already loaded under the
+page's CSP nonce and the same clear-and-redraw approach. A listing whose price has never moved
+would collapse the y domain to a point, so a flat series is padded.
+
+A blank limit-price field means a market order, not a limit of zero. That distinction is load
+bearing on both sides of the IPC boundary.
