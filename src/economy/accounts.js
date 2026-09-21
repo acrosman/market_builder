@@ -86,7 +86,13 @@ const HOLDER_KINDS = {
   /** The interstellar bank. Real counterparty, so loans are transfers not minting. */
   BANK: 'bank',
   /** The aggregate investing public, with finite capital. */
-  INVESTOR_POOL: 'investor_pool'
+  INVESTOR_POOL: 'investor_pool',
+  /**
+   * One stellar object's local market, the counterparty to every goods trade.
+   * Markets must be holders or a player purchase would debit inventory with
+   * nothing on the other side and money conservation could not be asserted.
+   */
+  MARKET: 'market'
 };
 
 /** The singleton bank holder. */
@@ -181,6 +187,20 @@ function corporationHolder(corporation) {
 }
 
 /**
+ * Build a holder reference for one stellar object's local market.
+ * @param {Object|number} stellarObject - Stellar object instance or its id.
+ * @returns {Object} Holder as `{ kind: 'market', id }`.
+ * @example
+ * marketHolder(stellarObject);
+ */
+function marketHolder(stellarObject) {
+  const id = typeof stellarObject === 'object' && stellarObject !== null
+    ? stellarObject.id
+    : stellarObject;
+  return { kind: HOLDER_KINDS.MARKET, id };
+}
+
+/**
  * Build a player holder reference.
  * @param {Object|string} player - Player instance or its name.
  * @returns {Object} Holder as `{ kind: 'player', id }`.
@@ -205,5 +225,6 @@ module.exports = {
   holderKey,
   parseHolderKey,
   corporationHolder,
-  playerHolder
+  playerHolder,
+  marketHolder
 };
