@@ -140,6 +140,9 @@ Overview of src files. These are backend modules that only run on the main proce
     and across saves; history is a fixed-length ring
   - **portfolio.js** - Signed positions by holder and symbol, plus the cap table. Personal,
     corporate and public holdings share one register
+  - **control.js** - Who controls a listing, from the cap table and nothing else. A majority is
+    control, whoever holds it. Detecting a change is deliberately separate from deciding what a
+    new controller may do with the company's worlds and debts, which is tracked in issue #33
   - **exchange.js** - Listings, order submission, and settlement. **Short selling is refused**,
     including selling the same shares twice across two orders; it needs borrow, margin and a
     forced cover first. Listings are keyed by symbol, which for equity is the company name
@@ -148,6 +151,10 @@ Overview of src files. These are backend modules that only run on the main proce
     CONTRIBUTED_CAPITAL; everything else moves credits sideways. `checkConservation()` says
     precisely when a subsystem has learned to create or destroy money, and
     `injectionsByReason()` names which inflow grew
+  - **news.js** - A bounded record of what happened, so a player three jumps away can learn a
+    company collapsed. **Every item carries the system it happened in.** Nothing reads that yet
+    -- knowledge is global and instant -- but making news travel at ship speed later is only
+    possible if origin was captured when items were written
   - **dividends.js** - Paying shareholders out of a quarter's *earnings*, never out of cash on
     hand. A company that lost money pays nothing however much cash it holds; paying out of
     capital is how a treasury gets drained into shareholders' pockets while the business fails
@@ -181,4 +188,7 @@ Overview of src files. These are backend modules that only run on the main proce
     than one**. That is not cosmetic: a single holder cannot trade with itself, so a one-holder
     pool can only ever be on one side of the market and the book never crosses. Capital is
     finite and tracked in the ledger, so the public can run out and a market can lose its bid.
-    Beliefs come from appraisal, which cannot see a share price, so price cannot feed on itself
+    Beliefs come from appraisal, which cannot see a share price, so price cannot feed on itself.
+    Investors **withdraw from the bid** as a company's default probability climbs, and refuse to
+    bid at all once it appraises at nothing, while still offering their holdings -- everyone
+    wanting out and nobody buying is the shape of a failing company and has to be visible

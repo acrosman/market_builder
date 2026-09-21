@@ -2,7 +2,7 @@ const {
   ACCOUNTS, HOLDER_KINDS, INVESTOR_POOL_HOLDER, corporationHolder
 } = require('../economy/accounts');
 const { ENTRY_KINDS } = require('../economy/ledger');
-const { appraiseCorporation } = require('../economy/appraisal');
+const { appraiseCorporation, defaultProbability } = require('../economy/appraisal');
 const { SIDES } = require('../exchange/auction');
 
 /** Defaults for the investors settings block. */
@@ -13,7 +13,8 @@ const DEFAULT_INVESTORS = {
   participation_rate: 0.25,
   max_position_fraction: 1,
   order_size_fraction: 0.02,
-  investor_count: 8
+  investor_count: 8,
+  bid_withdrawal_probability: 0.5
 };
 
 /**
@@ -63,7 +64,8 @@ function investorConfig(settings = {}) {
     participationRate: read('participation_rate'),
     maxPositionFraction: read('max_position_fraction'),
     orderSizeFraction: read('order_size_fraction'),
-    investorCount: Math.max(1, Math.round(read('investor_count')))
+    investorCount: Math.max(1, Math.round(read('investor_count'))),
+    bidWithdrawalProbability: read('bid_withdrawal_probability')
   };
 }
 
@@ -274,7 +276,7 @@ function fairValuePerShare({ game, corporation, listing }) {
  * @example
  * ordersForListing({ game, listing, holder, stream });
  */
-function ordersForListing({ game, listing, holder, stream }) {
+function ordersForListing({ game, listing, holder, stream, context = {} }) {
   const settings = game.getSettings();
   const config = investorConfig(settings);
   const economy = game.getEconomy();
@@ -285,18 +287,34 @@ function ordersForListing({ game, listing, holder, stream }) {
     return [];
   }
 
-  const fair = fairValuePerShare({ game, corporation, listing });
-  if (fair <= 0) {
-    return [];
-  }
-
   if (stream.next() > config.participationRate) {
     return [];
   }
 
+  const appraised = fairValuePerShare({ game, corporation, listing });
+
+  // A company whose debts have swallowed its assets appraises at nothing, but
+  // that is exactly when its holders most want out. Returning no orders at all
+  // would freeze the book solid and hide the collapse; instead the last traded
+  // price stands in as a reference so sellers can still offer, while the bid
+  // side withdraws below. Everyone wanting out and nobody buying is the shape
+  // of a failing company, and it has to be visible.
+  const distressed = appraised <= 0;
+  const fair = distressed ? Math.max(1, Number(listing.lastPrice) || 1) : appraised;
+
   const cash = economy.getLedger().balance(holder, ACCOUNTS.CASH);
   const held = exchange.portfolio.sharesHeld(holder, listing.symbol);
   const outstanding = Number(listing.sharesOutstanding) || 0;
+
+  // How likely this company is to fail before its debts come due. Appraisal
+  // already discounts its cash flows for this, but a price is not the whole
+  // story: past a certain point nobody wants the stock at any price they would
+  // name, and that is a different thing from wanting it cheaper.
+  const { probability: distress } = defaultProbability(corporation, {
+    settings,
+    tick: game.getTicks(),
+    goodsPrices: context.goodsPrices
+  });
 
   const believed = Math.max(
     1, Math.round(fair * (1 + stream.normal(0, config.beliefDispersion)))
@@ -312,15 +330,31 @@ function ordersForListing({ game, listing, holder, stream }) {
 
   // Buy below the belief and sell above it. An investor may do both: it is
   // quoting a spread around its own view rather than taking a position.
+  // Withdraw from the bid as failure approaches. This is what empties the bid
+  // side ahead of a maturity date: a holder who wants out then finds nobody
+  // willing to take the other side, which is the moment a balloon actually
+  // bites. Without it a distressed company would always be sellable at some
+  // price and the cliff would be a discount rather than a trap.
+  // A company appraised at nothing gets no bid at all: there is no price at
+  // which its assets are worth more than its debts.
+  const withdrawn = distressed
+    || (distress > 0 && stream.next() < distress * config.bidWithdrawalProbability);
+
   const bidPrice = Math.max(1, Math.round(believed * stream.float(0.95, 1.0)));
-  const bidSize = Math.min(size, Math.floor(cash / bidPrice), ceiling);
+  const bidSize = withdrawn
+    ? 0
+    : Math.min(size, Math.floor(cash / bidPrice), ceiling);
   if (bidSize > 0) {
     orders.push({
       symbol: listing.symbol, side: SIDES.BUY, quantity: bidSize, limitPrice: bidPrice
     });
   }
 
-  const askPrice = Math.max(1, Math.round(believed * stream.float(1.0, 1.05)));
+  // A holder trying to get out of a failing company does not hold out for a
+  // premium; they take what the book will give them.
+  const askPrice = distressed
+    ? Math.max(1, Math.round(believed * stream.float(0.4, 0.9)))
+    : Math.max(1, Math.round(believed * stream.float(1.0, 1.05)));
   const askSize = Math.min(size, held);
   if (askSize > 0) {
     orders.push({

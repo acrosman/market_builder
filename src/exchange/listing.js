@@ -64,6 +64,13 @@ class Listing {
     this.history = [];
     this.historyLength = Math.max(1, Math.round(Number(historyLength) || DEFAULT_HISTORY_LENGTH));
     this.nextOrderId = 1;
+    /**
+     * Holder key of whoever last controlled this company, or null.
+     *
+     * Remembered so a change of control is reported once when it happens rather
+     * than every cycle for as long as it lasts.
+     */
+    this.controllerKey = null;
   }
 
   /**
@@ -260,6 +267,7 @@ class Listing {
       lastPrice: this.lastPrice,
       historyLength: this.historyLength,
       nextOrderId: this.nextOrderId,
+      controllerKey: this.controllerKey,
       orders: this.orders,
       history: this.history
     };
@@ -284,6 +292,7 @@ class Listing {
     });
 
     listing.orders = Array.isArray(data?.orders) ? data.orders : [];
+    listing.controllerKey = data?.controllerKey ?? null;
     listing.history = Array.isArray(data?.history) ? data.history : [];
 
     const savedNextId = Number(data?.nextOrderId);

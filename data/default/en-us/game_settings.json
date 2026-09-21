@@ -44,7 +44,10 @@
     "dividend_rate_range": [
       15,
       45
-    ]
+    ],
+    "acquisition_cash_floor": 400000,
+    "acquisition_distress_threshold": 0.3,
+    "acquisition_discount": 0.7
   },
   "investors": {
     "starting_capital": 50000000,
@@ -53,7 +56,8 @@
     "participation_rate": 0.6,
     "max_position_fraction": 0.35,
     "order_size_fraction": 0.02,
-    "investor_count": 8
+    "investor_count": 8,
+    "bid_withdrawal_probability": 0.5
   },
   "dividends": {
     "pay_on_quarter_close": true

@@ -5,7 +5,9 @@ const { enforceSolvency } = require('./solvency');
 const { closeElapsedQuarters } = require('./statements');
 const { payQuarterlyDividends } = require('./dividends');
 const { runInvestorPool } = require('../agents/investorPool');
-const { runCorporateAI, corporateCycleTicks } = require('../agents/corporateAI');
+const { runCorporateAI, runAcquisitions, corporateCycleTicks } = require('../agents/corporateAI');
+const { detectControlChanges } = require('../exchange/control');
+const { NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('./news');
 const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
@@ -30,6 +32,29 @@ class EconomyTicker {
    */
   constructor(game) {
     this.game = game;
+  }
+
+  /**
+   * Record an event in the news, tagged with where it happened.
+   *
+   * Origin is captured even though nothing reads it: making news travel at ship
+   * speed later is a change to how items are read, and only possible if the
+   * place was recorded when they were written.
+   * @param {Object} item - The event as `{ tick, kind, severity, tokens, corporation }`.
+   * @returns {void}
+   * @example
+   * ticker.report({ tick, kind: NEWS_KINDS.BANKRUPTCY, corporation, tokens });
+   */
+  report({ tick, kind, severity, tokens, corporation }) {
+    this.game.getEconomy().getNews().record({
+      tick,
+      kind,
+      severity,
+      tokens,
+      originSystemId: corporation
+        ? corporationOriginSystem(this.game, corporation)
+        : null
+    });
   }
 
   /**
@@ -177,6 +202,7 @@ class EconomyTicker {
     // and before the books close so a quarter's closing balance sheet reflects
     // the day's trading.
     this.clearExchange(tick);
+    this.reportControlChanges(tick);
     this.closeBooks(tick);
 
     return elapsedDays;
@@ -232,6 +258,12 @@ class EconomyTicker {
 
     runInvestorPool({ game, days: elapsedDays, tick });
 
+    // Bids for failing rivals go on the same book as everything else, so a
+    // distressed company is bought rather than seized.
+    runAcquisitions({ game, tick }).forEach(bid => {
+      game.getEventBus().emit('acquisition-bid', { tick, ...bid });
+    });
+
     const cycle = corporateCycleTicks(game.getSettings());
     if (cycle > 0 && Math.floor(tick / cycle) > Math.floor((tick - elapsedDays * 24) / cycle)) {
       runCorporateAI({ game, tick }).forEach(build => {
@@ -265,6 +297,36 @@ class EconomyTicker {
   }
 
   /**
+   * Announce any company that changed hands in the day's trading.
+   * @param {number} tick - Current absolute game tick.
+   * @returns {Array<Object>} Changes detected.
+   * @example
+   * ticker.reportControlChanges(24);
+   */
+  reportControlChanges(tick) {
+    const game = this.game;
+    const changes = detectControlChanges(game.getEconomy().getExchange());
+
+    changes.forEach(change => {
+      game.getEventBus().emit('control-changed', { tick, ...change });
+      this.report({
+        tick,
+        kind: NEWS_KINDS.CONTROL_CHANGED,
+        severity: SEVERITY.CRITICAL,
+        corporation: game.findCorporation(change.corporationName),
+        tokens: {
+          companyName: change.corporationName,
+          controllerKind: change.to?.kind || null,
+          controllerName: change.to?.id || null,
+          fraction: Math.round(change.fraction * 100)
+        }
+      });
+    });
+
+    return changes;
+  }
+
+  /**
    * Publish statements for any quarter that has fully elapsed.
    *
    * Runs after solvency settlement so a quarter's closing balance sheet
@@ -288,6 +350,17 @@ class EconomyTicker {
     const dividends = payQuarterlyDividends({ game, statements: published, tick });
     dividends.forEach(dividend => {
       game.getEventBus().emit('dividend-paid', { tick, ...dividend });
+      this.report({
+        tick,
+        kind: NEWS_KINDS.DIVIDEND_PAID,
+        severity: SEVERITY.ROUTINE,
+        corporation: game.findCorporation(dividend.corporationName),
+        tokens: {
+          companyName: dividend.corporationName,
+          amount: dividend.paid,
+          recipients: dividend.recipients
+        }
+      });
     });
 
     published.forEach(statement => {
@@ -296,6 +369,17 @@ class EconomyTicker {
         corporationName: statement.corporationName,
         quarterIndex: statement.quarterIndex,
         netIncome: statement.income.netIncome
+      });
+      this.report({
+        tick,
+        kind: NEWS_KINDS.STATEMENT_PUBLISHED,
+        severity: SEVERITY.ROUTINE,
+        corporation: game.findCorporation(statement.corporationName),
+        tokens: {
+          companyName: statement.corporationName,
+          quarter: statement.quarterIndex,
+          netIncome: statement.income.netIncome
+        }
       });
     });
 

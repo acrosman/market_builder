@@ -1,5 +1,6 @@
 const { ticksPerDay } = require('./clock');
 const { ACCOUNTS, corporationHolder } = require('./accounts');
+const { NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('./news');
 
 /**
  * Solvency enforcement for corporations.
@@ -130,6 +131,93 @@ function assessSolvency({ economy, corporation, settings, tick }) {
 }
 
 /**
+ * Record a solvency event in the news.
+ * @param {Object} params - Report parameters.
+ * @param {Object} params.game - The game.
+ * @param {Object} params.corporation - The corporation concerned.
+ * @param {number} params.tick - Current tick.
+ * @param {string} params.kind - One of NEWS_KINDS.
+ * @param {string} params.severity - One of SEVERITY.
+ * @param {Object} params.tokens - Values for the message.
+ * @returns {void}
+ * @example
+ * reportSolvency({ game, corporation, tick, kind, severity, tokens });
+ */
+function reportSolvency({ game, corporation, tick, kind, severity, tokens }) {
+  game.getEconomy().getNews().record({
+    tick,
+    kind,
+    severity,
+    tokens,
+    originSystemId: corporationOriginSystem(game, corporation)
+  });
+}
+
+/**
+ * Warn when a balloon maturity is close enough to matter.
+ *
+ * A balloon is dangerous precisely because the date is known in advance, so the
+ * warning is the mechanic rather than a courtesy: it is what lets anyone
+ * watching price the risk before it lands, and what turns a collapse into
+ * something that could be seen coming.
+ * @param {Object} params - Warning parameters.
+ * @param {Object} params.game - The game.
+ * @param {Object} params.corporation - The corporation to check.
+ * @param {number} params.tick - Current tick.
+ * @param {Object} params.assessment - Its current solvency assessment.
+ * @returns {boolean} True when a warning was issued.
+ * @example
+ * warnOnApproachingMaturity({ game, corporation, tick, assessment });
+ */
+function warnOnApproachingMaturity({ game, corporation, tick, assessment }) {
+  const settings = game.getSettings();
+  const horizon = ticksPerDay(settings) * 30;
+
+  const due = typeof corporation.getMaturedLoans === 'function'
+    ? corporation.loans.filter(
+      loan => loan.maturityTick > 0
+        && loan.remainingBalance > 0
+        && loan.maturityTick - tick > 0
+        && loan.maturityTick - tick <= horizon
+    )
+    : [];
+
+  if (due.length === 0) {
+    return false;
+  }
+
+  // Only worth saying when the corporation cannot obviously meet it
+  const principal = due.reduce((sum, loan) => sum + loan.remainingBalance, 0);
+  if (assessment.cash >= principal) {
+    return false;
+  }
+
+  // One warning per loan, not one per day, or the news would be nothing else
+  const alreadyWarned = due.every(loan => loan.maturityWarned);
+  if (alreadyWarned) {
+    return false;
+  }
+
+  due.forEach(loan => { loan.maturityWarned = true; });
+
+  reportSolvency({
+    game,
+    corporation,
+    tick,
+    kind: NEWS_KINDS.MATURITY_APPROACHING,
+    severity: SEVERITY.CRITICAL,
+    tokens: {
+      companyName: corporation.name,
+      principal: Math.round(principal),
+      shortfall: Math.round(principal - Math.max(0, assessment.cash)),
+      ticksRemaining: Math.min(...due.map(loan => loan.maturityTick - tick))
+    }
+  });
+
+  return true;
+}
+
+/**
  * Enforce solvency for one corporation, borrowing or declaring bankruptcy.
  *
  * Insolvency is checked before the grace window, because a corporation whose
@@ -155,16 +243,11 @@ function enforceSolvency({ economy, game, corporation, tick }) {
   // A corporation with nothing left is bankrupt whether or not it is currently
   // short of cash, so this is checked before the grace window.
   if (assessment.insolvent && (assessment.inDeficit || assessment.liabilities > 0)) {
-    corporation.isBankrupt = true;
-    corporation.bankruptSinceTick = tick;
-    game.getEventBus().emit('corporation-bankrupt', {
-      tick,
-      corporationName: corporation.name,
-      netWorth: assessment.netWorth,
-      liabilities: assessment.liabilities
-    });
+    declareBankrupt({ game, corporation, tick, assessment });
     return { action: 'bankrupt', assessment, loan: null };
   }
+
+  warnOnApproachingMaturity({ game, corporation, tick, assessment });
 
   if (!assessment.inDeficit) {
     if (Number.isFinite(corporation.deficitSinceTick)) {
@@ -190,14 +273,7 @@ function enforceSolvency({ economy, game, corporation, tick }) {
   const loan = game.takeCorporationLoan(corporation.name, principal);
 
   if (!loan) {
-    corporation.isBankrupt = true;
-    corporation.bankruptSinceTick = tick;
-    game.getEventBus().emit('corporation-bankrupt', {
-      tick,
-      corporationName: corporation.name,
-      netWorth: assessment.netWorth,
-      liabilities: assessment.liabilities
-    });
+    declareBankrupt({ game, corporation, tick, assessment });
     return { action: 'bankrupt', assessment, loan: null };
   }
 
@@ -208,12 +284,58 @@ function enforceSolvency({ economy, game, corporation, tick }) {
     principal,
     loanId: loan.id
   });
+  reportSolvency({
+    game,
+    corporation,
+    tick,
+    kind: NEWS_KINDS.FORCED_LOAN,
+    severity: SEVERITY.NOTABLE,
+    tokens: { companyName: corporation.name, principal }
+  });
 
   return { action: 'forced_loan', assessment, loan };
 }
 
+/**
+ * Mark a corporation bankrupt and announce it.
+ * @param {Object} params - Declaration parameters.
+ * @param {Object} params.game - The game.
+ * @param {Object} params.corporation - The failing corporation.
+ * @param {number} params.tick - Current tick.
+ * @param {Object} params.assessment - Its final solvency assessment.
+ * @returns {void}
+ * @example
+ * declareBankrupt({ game, corporation, tick, assessment });
+ */
+function declareBankrupt({ game, corporation, tick, assessment }) {
+  corporation.isBankrupt = true;
+  corporation.bankruptSinceTick = tick;
+
+  game.getEventBus().emit('corporation-bankrupt', {
+    tick,
+    corporationName: corporation.name,
+    netWorth: assessment.netWorth,
+    liabilities: assessment.liabilities
+  });
+
+  reportSolvency({
+    game,
+    corporation,
+    tick,
+    kind: NEWS_KINDS.BANKRUPTCY,
+    severity: SEVERITY.CRITICAL,
+    tokens: {
+      companyName: corporation.name,
+      netWorth: Math.round(assessment.netWorth),
+      liabilities: Math.round(assessment.liabilities)
+    }
+  });
+}
+
 module.exports = {
   ASSET_ACCOUNTS,
+  warnOnApproachingMaturity,
+  declareBankrupt,
   LIABILITY_ACCOUNTS,
   DEFAULT_SOLVENCY,
   solvencyConfig,

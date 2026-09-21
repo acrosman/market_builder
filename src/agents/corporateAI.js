@@ -1,8 +1,11 @@
 const { loadContent } = require('../contentCache');
 const { Corporation } = require('../corporation');
 const { ACCOUNTS, corporationHolder, marketHolder } = require('../economy/accounts');
+const { appraiseCorporation } = require('../economy/appraisal');
 const { recordConstructionSpend } = require('../economy/transactions');
 const { ticksPerDay } = require('../economy/clock');
+const { defaultProbability } = require('../economy/appraisal');
+const { SIDES } = require('../exchange/auction');
 /**
  * Build a construction credit source backed by one corporation's treasury.
  *
@@ -41,7 +44,10 @@ const DEFAULT_NPC_CORPORATIONS = {
   max_objects_each: 3,
   build_cash_floor: 100000,
   build_check_days: 7,
-  dividend_rate_range: [15, 45]
+  dividend_rate_range: [15, 45],
+  acquisition_cash_floor: 400000,
+  acquisition_distress_threshold: 0.3,
+  acquisition_discount: 0.7
 };
 
 /**
@@ -81,7 +87,10 @@ function npcCorporationConfig(settings = {}) {
     buildCheckDays: read('build_check_days'),
     dividendRateRange: Array.isArray(configured.dividend_rate_range)
       ? configured.dividend_rate_range
-      : DEFAULT_NPC_CORPORATIONS.dividend_rate_range
+      : DEFAULT_NPC_CORPORATIONS.dividend_rate_range,
+    acquisitionCashFloor: read('acquisition_cash_floor'),
+    acquisitionDistressThreshold: read('acquisition_distress_threshold'),
+    acquisitionDiscount: read('acquisition_discount')
   };
 }
 
@@ -345,8 +354,137 @@ function corporateCycleTicks(settings = {}) {
   return npcCorporationConfig(settings).buildCheckDays * ticksPerDay(settings);
 }
 
+/**
+ * Bid for a failing rival while its price is depressed.
+ *
+ * A company heading for a maturity it cannot meet is worth less than its assets
+ * to everyone holding it and more than its price to anyone with cash. That gap
+ * is the opportunity, and it is why the forced-loan spiral is a mechanic rather
+ * than merely an ending: a corporation that borrows its way toward a cliff
+ * becomes something a rival wants.
+ *
+ * Bids go on the open book at a discount to appraised value rather than seizing
+ * anything. Whoever accumulates a majority controls the company, and the
+ * distressed seller is free to refuse.
+ * @param {Object} params - Acquisition parameters.
+ * @param {Object} params.game - The game.
+ * @param {number} params.tick - Current absolute game tick.
+ * @returns {Array<Object>} Bids placed.
+ * @example
+ * runAcquisitions({ game, tick });
+ */
+function runAcquisitions({ game, tick }) {
+  const settings = game.getSettings();
+  const config = npcCorporationConfig(settings);
+  const economy = game.getEconomy();
+  const exchange = economy.getExchange();
+  const ledger = economy.getLedger();
+  const stream = economy.getRandom().stream('acquisitions');
+
+  // Who is in trouble, and worth how much
+  const targets = [];
+  [...exchange.listings.keys()].sort().forEach(symbol => {
+    const listing = exchange.getListing(symbol);
+    const target = game.findCorporation(listing.corporationName);
+    if (!target || target.isBankrupt || listing.sharesOutstanding <= 0) {
+      return;
+    }
+
+    const { probability } = defaultProbability(target, { settings, tick });
+    if (probability < config.acquisitionDistressThreshold) {
+      return;
+    }
+
+    const appraisal = appraiseCorporation(target, {
+      universe: game.getUniverse(),
+      settings,
+      tick,
+      costBasis: economy.getCostBasis()
+    });
+
+    // A company worth nothing is not a bargain, it is a liability
+    if (appraisal.assets <= 0) {
+      return;
+    }
+
+    targets.push({ listing, target, probability, assetsPerShare: appraisal.assets / listing.sharesOutstanding });
+  });
+
+  if (targets.length === 0) {
+    return [];
+  }
+
+  const placed = [];
+
+  game.getCorporations().forEach(buyer => {
+    if (buyer.isPlayerOwned || buyer.isBankrupt) {
+      return;
+    }
+
+    const cash = ledger.balance(corporationHolder(buyer), ACCOUNTS.CASH);
+    if (cash <= config.acquisitionCashFloor) {
+      return;
+    }
+
+    const candidates = targets.filter(entry => entry.target.name !== buyer.name);
+    if (candidates.length === 0) {
+      return;
+    }
+
+    // Stay with a target once started. Choosing afresh each cycle spread bids
+    // across every struggling company and never accumulated a majority of any
+    // of them, which is not how a takeover works: it is a campaign against one
+    // company, not a standing interest in distress generally.
+    const existing = candidates.find(entry => entry.target.name === buyer.acquisitionTarget);
+    const chosen = existing || candidates[stream.int(0, candidates.length - 1)];
+    buyer.acquisitionTarget = chosen.target.name;
+    // Below what the assets are worth: the point is to buy the company for
+    // less than it would fetch broken up
+    // Below what the assets are worth, but above where the sellers are: a bid
+    // that nobody can hit buys nothing, however shrewdly it is priced.
+    const bestAsk = chosen.listing.depth().asks[0]?.price || 0;
+    const bidPrice = Math.max(
+      1,
+      bestAsk > 0
+        ? Math.min(Math.round(chosen.assetsPerShare * config.acquisitionDiscount), bestAsk * 2)
+        : Math.round(chosen.assetsPerShare * config.acquisitionDiscount)
+    );
+    const spendable = Math.floor((cash - config.acquisitionCashFloor) / bidPrice);
+    const quantity = Math.min(
+      spendable,
+      Math.max(1, Math.round(chosen.listing.sharesOutstanding * 0.1))
+    );
+
+    if (quantity <= 0) {
+      return;
+    }
+
+    const result = exchange.submitOrder({
+      symbol: chosen.listing.symbol,
+      holder: corporationHolder(buyer),
+      side: SIDES.BUY,
+      quantity,
+      limitPrice: bidPrice,
+      tick
+    });
+
+    if (result.accepted) {
+      placed.push({
+        buyerName: buyer.name,
+        targetName: chosen.target.name,
+        quantity,
+        limitPrice: bidPrice,
+        distress: chosen.probability
+      });
+    }
+  });
+
+  return placed;
+}
+
 module.exports = {
   DEFAULT_NPC_CORPORATIONS,
+  runAcquisitions,
   corporateCreditSupport,
   PRODUCTIVE_FIELDS,
   buildingScore,

@@ -3,6 +3,7 @@ const { Ledger } = require('./ledger');
 const { CostBasis } = require('./costBasis');
 const { StatementStore } = require('./statements');
 const { Exchange } = require('../exchange/exchange');
+const { NewsStore } = require('./news');
 
 /**
  * Schema version for the economy save block.
@@ -45,6 +46,7 @@ class EconomyState {
     this.costBasis = new CostBasis();
     this.statements = new StatementStore();
     this.exchange = new Exchange();
+    this.news = new NewsStore();
     // Last tick production was run through. Persisted so day boundaries are not
     // lost or double-counted across a save and load.
     this.lastProductionTick = Number(options.lastProductionTick) || 0;
@@ -108,6 +110,16 @@ class EconomyState {
   }
 
   /**
+   * Get the news record.
+   * @returns {NewsStore} The economy's news store.
+   * @example
+   * game.getEconomy().getNews().recent({ limit: 20 });
+   */
+  getNews() {
+    return this.news;
+  }
+
+  /**
    * Serialize economy state for saving.
    * @returns {Object} Plain serializable object carrying its own schema version.
    * @example
@@ -121,6 +133,7 @@ class EconomyState {
       costBasis: this.costBasis.toJSON(),
       statements: this.statements.toJSON(),
       exchange: this.exchange.toJSON(),
+      news: this.news.toJSON(),
       lastProductionTick: this.lastProductionTick
     };
   }
@@ -147,6 +160,7 @@ class EconomyState {
     economy.costBasis = CostBasis.fromJSON(data?.costBasis);
     economy.statements = StatementStore.fromJSON(data?.statements);
     economy.exchange = Exchange.fromJSON(data?.exchange);
+    economy.news = NewsStore.fromJSON(data?.news);
     economy.lastProductionTick = Number(data?.lastProductionTick) || 0;
 
     return economy;
