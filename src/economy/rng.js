@@ -2,11 +2,16 @@
  * Deterministic, serializable pseudo-random number generation for economy and
  * exchange simulation.
  *
- * The game's universe generation uses unseeded `Math.random()` and is not
- * reproducible. That is a separate problem: the economy does not need universe
- * generation to be deterministic, it needs its own streams to survive a
- * save/load round trip and replay identically. This module provides that and
- * should be used by all new economy, exchange, and agent code.
+ * Universe generation is not reproducible and is not intended to be. That is a
+ * design decision, not a gap: worlds are meant to differ between games, and
+ * parts of the economy may end up non-deterministic too as it grows.
+ *
+ * What this module provides is narrower and still worth having: a stream whose
+ * position survives a save and resumes exactly, so a subsystem that wants
+ * reproducible behaviour from a known starting point can have it. Use it for
+ * economy, exchange and agent code instead of `Math.random()`, so that where
+ * randomness does matter it can be replayed, and so a save reloads into the
+ * same sequence rather than a fresh one.
  *
  * Streams are named and independent. A stream's seed is derived by hashing its
  * name together with the master seed, so adding a new stream never shifts the

@@ -124,14 +124,35 @@ Overview of src files. These are backend modules that only run on the main proce
   - **statements.js** - Quarterly income statement and balance sheet derived from the journal.
     Only closed quarters publish; a quarter in progress is deliberately invisible
   - **economyTicker.js** - The single `'tick'` subscriber driving the economy: interest accrual
-    every tick, then production/consumption/restock, solvency and book close on day boundaries
+    every tick, then production/consumption/restock, solvency, the share auction, and book
+    close on day boundaries
+
+- **src/exchange/** - The share exchange
+  - **instruments.js** - What can be listed. Equity only today; the seam exists so commodity
+    instruments (futures on goods) can be listed alongside shares without reworking the book,
+    the auction or the holdings register. **Settlement branches on instrument kind**, so a new
+    tradeable is a new branch rather than an edit to the equity path. Expiry, delivery, margin
+    and mark-to-market are deliberately absent
+  - **auction.js** - Periodic call clearing: one price per market cycle, chosen to maximize
+    executed volume. Ties break toward the smaller imbalance, then the reference price, so the
+    outcome depends on the book and not on iteration order
+  - **listing.js** - One instrument's order book and price history. Orders rest across clears
+    and across saves; history is a fixed-length ring
+  - **portfolio.js** - Signed positions by holder and symbol, plus the cap table. Personal,
+    corporate and public holdings share one register
+  - **exchange.js** - Listings, order submission, and settlement. **Short selling is refused**,
+    including selling the same shares twice across two orders; it needs borrow, margin and a
+    forced cover first. Listings are keyed by symbol, which for equity is the company name
   - **rng.js** - `RandomSource` / `RandomStream`, seeded and serializable PRNG.
     **All new economy, exchange, and agent code must use this, never `Math.random()`.**
     Streams are named (`random.stream('price-noise')`) and independent: a stream's seed is
     derived by hashing its name with the master seed, so adding a new stream never shifts an
     existing one's sequence. Mulberry32 state is one 32-bit integer, so save/load resumes a
-    sequence exactly. Universe generation still uses unseeded `Math.random()` and is
-    deliberately not covered by this.
+    sequence exactly.
+    **Universe generation is deliberately non-deterministic and will stay that way** -- worlds
+    are meant to differ between games. Parts of the exchange may become non-deterministic too
+    as it grows. Reproducibility is a property of individual seeded streams, not a
+    whole-simulation guarantee, so do not write tests that assume two games agree.
 
 - **src/eventBus.js** - Pub/sub event system
   - **Direct listener methods**: `on(eventName, callback)`, `once()`, `emit()`, `clear()`, `listenerCount()`

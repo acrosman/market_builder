@@ -3,6 +3,7 @@ const { Portfolio } = require('./portfolio');
 const { SIDES, remainingQuantity } = require('./auction');
 const { ENTRY_KINDS } = require('../economy/ledger');
 const { ACCOUNTS, holderKey, corporationHolder } = require('../economy/accounts');
+const { equityInstrument, symbolFor, settlesByShareTransfer } = require('./instruments');
 
 /** Schema version for the serialized exchange. */
 const EXCHANGE_SCHEMA_VERSION = 1;
@@ -43,14 +44,47 @@ class Exchange {
   }
 
   /**
-   * Get a listing by company name.
-   * @param {string} corporationName - The listed company.
+   * Get a listing by symbol.
+   *
+   * For equity the symbol is the company name, so callers that look a listing
+   * up by company keep working unchanged.
+   * @param {string} symbol - Listing symbol.
    * @returns {Listing|null} The listing, or null when not listed.
    * @example
    * const listing = exchange.getListing('Acme Orbital');
    */
-  getListing(corporationName) {
-    return this.listings.get(corporationName) || null;
+  getListing(symbol) {
+    return this.listings.get(symbol) || null;
+  }
+
+  /**
+   * List any instrument, or return its existing listing.
+   *
+   * The generic entry point. `listCompany` is the equity shorthand over it, and
+   * a commodity instrument would get its own shorthand rather than changing
+   * this.
+   * @param {Object} params - Listing parameters.
+   * @param {Object} params.instrument - Instrument descriptor.
+   * @param {number} [params.referencePrice=0] - Opening anchor price.
+   * @param {number} [params.sharesOutstanding=0] - Units already in existence.
+   * @returns {Listing|null} The listing, or null when the instrument is unusable.
+   * @example
+   * exchange.listInstrument({ instrument: equityInstrument('Acme') });
+   */
+  listInstrument({ instrument, referencePrice = 0, sharesOutstanding = 0 }) {
+    const symbol = symbolFor(instrument);
+    if (!symbol) {
+      return null;
+    }
+
+    const existing = this.getListing(symbol);
+    if (existing) {
+      return existing;
+    }
+
+    const listing = new Listing({ instrument, referencePrice, sharesOutstanding });
+    this.listings.set(symbol, listing);
+    return listing;
   }
 
   /**
@@ -64,14 +98,11 @@ class Exchange {
    * exchange.listCompany({ corporationName: 'Acme', referencePrice: 50 });
    */
   listCompany({ corporationName, referencePrice = 0, sharesOutstanding = 0 }) {
-    const existing = this.getListing(corporationName);
-    if (existing) {
-      return existing;
-    }
-
-    const listing = new Listing({ corporationName, referencePrice, sharesOutstanding });
-    this.listings.set(corporationName, listing);
-    return listing;
+    return this.listInstrument({
+      instrument: equityInstrument(corporationName),
+      referencePrice,
+      sharesOutstanding
+    });
   }
 
   /**
@@ -91,8 +122,9 @@ class Exchange {
    * @example
    * exchange.submitOrder({ corporationName: 'Acme', holder, side: 'buy', quantity: 100 });
    */
-  submitOrder({ corporationName, holder, side, quantity, limitPrice = null, tick = 0 }) {
-    const listing = this.getListing(corporationName);
+  submitOrder({ corporationName, symbol, holder, side, quantity, limitPrice = null, tick = 0 }) {
+    const key = symbol || corporationName;
+    const listing = this.getListing(key);
     if (!listing) {
       return { accepted: false, order: null, reason: REJECTIONS.UNKNOWN_LISTING };
     }
@@ -109,7 +141,7 @@ class Exchange {
         .filter(order => order.side === SIDES.SELL && order.holder?.id === holder.id)
         .reduce((sum, order) => sum + remainingQuantity(order), 0);
 
-      if (this.portfolio.sharesHeld(holder, corporationName) - committed < shares) {
+      if (this.portfolio.sharesHeld(holder, key) - committed < shares) {
         return { accepted: false, order: null, reason: REJECTIONS.INSUFFICIENT_SHARES };
       }
     }
@@ -131,8 +163,8 @@ class Exchange {
    * @example
    * exchange.cancelOrder('Acme Orbital', 4, holder);
    */
-  cancelOrder(corporationName, orderId, holder = null) {
-    return this.getListing(corporationName)?.cancelOrder(orderId, holder) || false;
+  cancelOrder(symbol, orderId, holder = null) {
+    return this.getListing(symbol)?.cancelOrder(orderId, holder) || false;
   }
 
   /**
@@ -146,10 +178,12 @@ class Exchange {
     const key = holder?.id;
     const orders = [];
 
-    this.listings.forEach((listing, corporationName) => {
+    this.listings.forEach((listing, symbol) => {
       listing.openOrders()
         .filter(order => order.holder?.id === key)
-        .forEach(order => orders.push({ ...order, corporationName }));
+        .forEach(order => orders.push({
+          ...order, symbol, corporationName: listing.corporationName
+        }));
     });
 
     return orders;
@@ -169,13 +203,17 @@ class Exchange {
 
     // Sorted so a multi-listing clear settles in a fixed order regardless of
     // how the listings happened to be inserted.
-    [...this.listings.keys()].sort().forEach(corporationName => {
-      const listing = this.listings.get(corporationName);
+    [...this.listings.keys()].sort().forEach(symbol => {
+      const listing = this.listings.get(symbol);
       const result = listing.clear(tick);
 
       if (result.volume > 0) {
         this.settle({ economy, listing, result, tick });
-        cleared.push({ corporationName, ...result });
+        cleared.push({
+          symbol,
+          corporationName: listing.corporationName,
+          ...result
+        });
       }
     });
 
@@ -199,6 +237,12 @@ class Exchange {
    * exchange.settle({ economy, listing, result, tick });
    */
   settle({ economy, listing, result, tick }) {
+    if (!settlesByShareTransfer(listing.instrument)) {
+      // A differently settled instrument gets its own branch here rather than
+      // an edit to this one. Nothing else reaches this state today.
+      return;
+    }
+
     const price = result.clearingPrice;
     const buys = result.fills.filter(fill => fill.side === SIDES.BUY);
     const sells = result.fills.filter(fill => fill.side === SIDES.SELL);
@@ -226,7 +270,7 @@ class Exchange {
               debit: { holder: sellFill.holder, account: ACCOUNTS.CASH },
               credit: { holder: buyFill.holder, account: ACCOUNTS.CASH },
               kind: ENTRY_KINDS.SHARE_TRADE,
-              refs: { corporationName: listing.corporationName, shares: matched, price }
+              refs: { symbol: listing.symbol, shares: matched, price }
             });
             entries.push({
               tick,
@@ -234,12 +278,12 @@ class Exchange {
               debit: { holder: buyFill.holder, account: ACCOUNTS.INVESTMENTS },
               credit: { holder: sellFill.holder, account: ACCOUNTS.INVESTMENTS },
               kind: ENTRY_KINDS.SHARE_TRADE,
-              refs: { corporationName: listing.corporationName, shares: matched, price }
+              refs: { symbol: listing.symbol, shares: matched, price }
             });
           }
 
-          this.portfolio.adjust(buyFill.holder, listing.corporationName, matched);
-          this.portfolio.adjust(sellFill.holder, listing.corporationName, -matched);
+          this.portfolio.adjust(buyFill.holder, listing.symbol, matched);
+          this.portfolio.adjust(sellFill.holder, listing.symbol, -matched);
 
           buyRemaining -= matched;
           sellRemaining -= matched;
@@ -270,7 +314,7 @@ class Exchange {
       portfolio: this.portfolio.toJSON(),
       // Sorted so saves diff cleanly
       listings: [...this.listings.keys()].sort().map(
-        corporationName => this.listings.get(corporationName).toJSON()
+        symbol => this.listings.get(symbol).toJSON()
       )
     };
   }
@@ -288,8 +332,8 @@ class Exchange {
     if (Array.isArray(data?.listings)) {
       data.listings.forEach(listingData => {
         const listing = Listing.fromJSON(listingData);
-        if (listing.corporationName) {
-          exchange.listings.set(listing.corporationName, listing);
+        if (listing.symbol) {
+          exchange.listings.set(listing.symbol, listing);
         }
       });
     }

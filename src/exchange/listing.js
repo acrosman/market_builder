@@ -1,4 +1,5 @@
 const { clearAuction, remainingQuantity, SIDES } = require('./auction');
+const { equityInstrument, symbolFor, INSTRUMENT_KINDS } = require('./instruments');
 
 /** Schema version for a serialized listing. */
 const LISTING_SCHEMA_VERSION = 1;
@@ -14,7 +15,12 @@ const ORDER_STATUS = {
 };
 
 /**
- * One listed company: its shares, its order book, and its price history.
+ * One listed instrument: its book, its price history, and what it represents.
+ *
+ * A listing does not care what is being traded. It holds orders, clears them,
+ * and records the closing price. Only settlement needs to know that a share is
+ * a share, which is what leaves room for commodity instruments later without
+ * reworking any of this.
  *
  * A listing holds resting orders between clears rather than matching on
  * arrival. That is what lets a player place an order, fly somewhere, and come
@@ -38,11 +44,17 @@ class Listing {
    */
   constructor({
     corporationName,
+    instrument = null,
     sharesOutstanding = 0,
     referencePrice = 0,
     historyLength = DEFAULT_HISTORY_LENGTH
   } = {}) {
-    this.corporationName = corporationName;
+    /** What this listing represents. Equity is the only kind today. */
+    this.instrument = instrument || equityInstrument(corporationName);
+    /** Key the exchange stores this listing under. */
+    this.symbol = symbolFor(this.instrument);
+    /** Convenience for equity callers; null for instruments with no issuer. */
+    this.corporationName = this.instrument.corporationName || null;
     this.sharesOutstanding = Math.max(0, Math.round(Number(sharesOutstanding) || 0));
     /** Last price anything actually traded at, or the opening anchor. */
     this.lastPrice = Math.max(0, Math.round(Number(referencePrice) || 0));
@@ -241,6 +253,8 @@ class Listing {
   toJSON() {
     return {
       schemaVersion: LISTING_SCHEMA_VERSION,
+      instrument: this.instrument,
+      symbol: this.symbol,
       corporationName: this.corporationName,
       sharesOutstanding: this.sharesOutstanding,
       lastPrice: this.lastPrice,
@@ -261,6 +275,9 @@ class Listing {
   static fromJSON(data) {
     const listing = new Listing({
       corporationName: data?.corporationName,
+      // Saves written before instruments existed carry only a company name,
+      // which equityInstrument reconstructs from.
+      instrument: data?.instrument || null,
       sharesOutstanding: data?.sharesOutstanding,
       referencePrice: data?.lastPrice,
       historyLength: data?.historyLength
@@ -284,6 +301,7 @@ class Listing {
 
 module.exports = {
   Listing,
+  INSTRUMENT_KINDS,
   ORDER_STATUS,
   LISTING_SCHEMA_VERSION,
   DEFAULT_HISTORY_LENGTH
