@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { loadContent } = require('./contentCache');
 
 /**
  * Normalize a credit amount, rejecting non-finite or non-positive values.
@@ -170,9 +171,9 @@ class StellarObject {
     this.value = 0; // Calculated economic value
     this.dataDir = dataDir; // Store for later use
 
-    // Load game settings for population growth divisor
-    const gameSettingsPath = path.join(__dirname, '..', dataDir, 'game_settings.json');
-    const gameSettings = JSON.parse(fs.readFileSync(gameSettingsPath, 'utf-8'));
+    // Load game settings for population growth divisor. Cached: this runs once
+    // per stellar object, so a 200-object universe was doing 200 disk reads.
+    const gameSettings = loadContent('game_settings', dataDir);
     this.populationGrowthDivisor = gameSettings.population_growth_divisor || 1000000;
 
     // Get class-specific configuration

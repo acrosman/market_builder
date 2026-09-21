@@ -9,6 +9,7 @@ const { getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger } = require('./logger');
 const { createConstructionCreditSupport } = require('./stellarObject');
 const { EconomyState } = require('./economy/economyState');
+const { loadContent } = require('./contentCache');
 const {
   recordOpeningBalance,
   recordOpeningStock,
@@ -595,13 +596,7 @@ class Game {
    * const goods = game.getGoodsData();
    */
   getGoodsData() {
-    try {
-      const goodsPath = path.join(__dirname, '..', this.getDataDirectory(), 'goods.json');
-      return JSON.parse(fs.readFileSync(goodsPath, 'utf-8'));
-    } catch (error) {
-      logger.error('Failed to load goods data for opening balances:', error);
-      return {};
-    }
+    return loadContent('goods', this.getDataDirectory());
   }
 
   /**
@@ -781,8 +776,7 @@ class Game {
    * const buildings = game.getBuildingsData();
    */
   getBuildingsData() {
-    const buildingsPath = path.join(__dirname, '..', this.getDataDirectory(), 'buildings.json');
-    return JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
+    return loadContent('buildings', this.getDataDirectory());
   }
 
   /**
@@ -1413,8 +1407,7 @@ class Game {
     // Check cargo capacity (10 people per ton)
     const cargoNeeded = requestedCount / 10;
     const currentCargo = this.calculateCargoUsed();
-    const shipsPath = path.join(__dirname, '..', this.getDataDirectory(), 'ships.json');
-    const shipsData = JSON.parse(fs.readFileSync(shipsPath, 'utf-8'));
+    const shipsData = loadContent('ships', this.getDataDirectory());
     const cargoCapacity = shipsData[player.ship].cargoCapacity;
 
     if (currentCargo + cargoNeeded > cargoCapacity) {

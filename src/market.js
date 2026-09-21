@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createLogger } = require('./logger');
+const { loadContent } = require('./contentCache');
 
 const logger = createLogger('Market');
 
@@ -18,7 +19,7 @@ class Market {
    */
   initializeMarkets() {
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
 
     // Categorize goods dynamically based on their category field from goods.json
     const categorizeGoods = () => {
@@ -121,7 +122,7 @@ class Market {
   calculateMarketPrice(stellarObject, goodName, priceType = 'buy') {
     logger.debug('[DEBUG calculateMarketPrice] stellarObject:', stellarObject?.id, 'goodName:', goodName, 'priceType:', priceType);
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
     const good = goodsData[goodName];
 
     if (!good) return 0;
@@ -271,7 +272,7 @@ class Market {
 
     // Calculate cargo space needed
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
     const good = goodsData[goodName];
     if (!good) {
       return { success: false, message: 'Unknown good' };
@@ -288,7 +289,7 @@ class Market {
 
     // Check cargo capacity
     const currentCargo = this.calculateCargoUsed(player);
-    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
+    const shipsData = loadContent('ships', dataDir);
     const shipData = shipsData[player.ship];
     const cargoCapacity = shipData.cargoCapacity;
 
@@ -345,7 +346,7 @@ class Market {
 
     // Get good label for display
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
     const good = goodsData[goodName];
 
     // Execute transaction
@@ -372,7 +373,7 @@ class Market {
   calculateCargoUsed(player) {
     let cargoUsed = 0;
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
 
     for (const [goodName, quantity] of Object.entries(player.cargo)) {
       if (goodName === 'passengers') {
