@@ -40,7 +40,11 @@
     "starting_cash": 250000,
     "max_objects_each": 3,
     "build_cash_floor": 100000,
-    "build_check_days": 7
+    "build_check_days": 7,
+    "dividend_rate_range": [
+      15,
+      45
+    ]
   },
   "investors": {
     "starting_capital": 50000000,

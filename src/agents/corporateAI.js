@@ -40,7 +40,8 @@ const DEFAULT_NPC_CORPORATIONS = {
   starting_cash: 250000,
   max_objects_each: 3,
   build_cash_floor: 100000,
-  build_check_days: 7
+  build_check_days: 7,
+  dividend_rate_range: [15, 45]
 };
 
 /**
@@ -77,7 +78,10 @@ function npcCorporationConfig(settings = {}) {
     startingCash: read('starting_cash'),
     maxObjectsEach: read('max_objects_each'),
     buildCashFloor: read('build_cash_floor'),
-    buildCheckDays: read('build_check_days')
+    buildCheckDays: read('build_check_days'),
+    dividendRateRange: Array.isArray(configured.dividend_rate_range)
+      ? configured.dividend_rate_range
+      : DEFAULT_NPC_CORPORATIONS.dividend_rate_range
   };
 }
 
@@ -153,6 +157,13 @@ function createNpcCorporations(game) {
     const corporation = new Corporation(
       name, 'An independent operator', false, config.startingCash
     );
+
+    // Each pays out a different share of its earnings. Without a rate they
+    // reinvested everything, which compounded their value implausibly fast and
+    // left their shares worth holding only for what the next buyer would pay.
+    const [lowRate, highRate] = config.dividendRateRange;
+    corporation.setDividendRate(stream.int(lowRate, highRate));
+
     game.addCorporation(corporation);
 
     const wanted = stream.int(1, Math.max(1, config.maxObjectsEach));
