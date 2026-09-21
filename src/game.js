@@ -13,7 +13,9 @@ const {
   recordOpeningBalance,
   recordOpeningStock,
   recordGoodsTrade,
-  recordConstructionSpend
+  recordConstructionSpend,
+  recordLoanDraw,
+  recordLoanPayment
 } = require('./economy/transactions');
 const {
   BANK_HOLDER,
@@ -837,15 +839,101 @@ class Game {
       this.getCorporations(),
       (messageKey, vars = {}, fallback = '') => this.getMessage(messageKey, vars, fallback)
     );
+
+    // Construction credit can be drawn from corporate reserves, player credits,
+    // or both, and the credit support reports only success. Snapshot each source
+    // so the ledger records who actually paid what.
+    const controllingCorporation = stellarObject.findControllingCorporation(
+      this.getPlayer(),
+      this.getCorporations()
+    );
+    const reservesBefore = Game.corporationCash(controllingCorporation);
+    const playerCreditsBefore = this.getPlayer()?.credits ?? 0;
+
     const buildResult = stellarObject.constructBuilding(buildingType, this.getBuildingsData(), creditSupport);
     if (!buildResult.success) {
       return buildResult;
     }
 
+    this.recordConstructionSpends(stellarObject, buildingType, {
+      corporation: controllingCorporation,
+      reservesBefore,
+      playerCreditsBefore
+    });
+
     return {
       ...buildResult,
       objectId: stellarObject.id
     };
+  }
+
+  /**
+   * Read a corporation's spendable cash tolerantly.
+   *
+   * Mirrors the accessor chain in `createConstructionCreditSupport`, which
+   * accepts corporation-shaped objects that expose only a `cashReserves` field.
+   * @param {Object} [corporation] - Corporation or corporation-shaped object.
+   * @returns {number} Spendable cash, or 0 when unavailable.
+   * @example
+   * const cash = Game.corporationCash(corporation);
+   */
+  static corporationCash(corporation) {
+    return Number(
+      corporation?.getTotalCashReserves?.() ?? corporation?.cashReserves ?? 0
+    ) || 0;
+  }
+
+  /**
+   * Post the credits a completed construction consumed to the ledger.
+   *
+   * The spend is capitalized to PROPERTY rather than expensed, so building does
+   * not depress income in the period, and the credits are paid to the location's
+   * local economy rather than destroyed.
+   * @param {Object} stellarObject - Object that was built on.
+   * @param {string} buildingType - Building type constructed.
+   * @param {Object} sources - Pre-construction balances.
+   * @param {Object} [sources.corporation] - Controlling corporation, if any.
+   * @param {number} sources.reservesBefore - Corporate reserves before the build.
+   * @param {number} sources.playerCreditsBefore - Player credits before the build.
+   * @returns {void}
+   * @example
+   * game.recordConstructionSpends(object, 'Mine', sources);
+   */
+  recordConstructionSpends(stellarObject, buildingType, sources) {
+    const economy = this.getEconomy();
+    const tick = this.getTicks();
+    const refs = { stellarObjectId: stellarObject.id, buildingType };
+
+    // The location's local economy supplies the labour and materials. This
+    // holder represents the location itself, so it applies to objects without a
+    // tradeable market too; otherwise construction there would destroy credits.
+    const recipient = marketHolder(stellarObject);
+
+    const { corporation, reservesBefore, playerCreditsBefore } = sources;
+
+    const corporationSpent = corporation
+      ? reservesBefore - Game.corporationCash(corporation)
+      : 0;
+    if (corporationSpent > 0) {
+      recordConstructionSpend(economy, {
+        tick,
+        spender: corporationHolder(corporation),
+        recipient,
+        amount: corporationSpent,
+        refs
+      });
+    }
+
+    const playerSpent = playerCreditsBefore - (this.getPlayer()?.credits ?? 0);
+    if (playerSpent > 0) {
+      recordConstructionSpend(economy, {
+        tick,
+        spender: playerHolder(this.getPlayer()),
+        recipient,
+        amount: playerSpent,
+        refs
+      });
+    }
   }
 
   /**
@@ -1169,6 +1257,75 @@ class Game {
     }
 
     return result;
+  }
+
+  /**
+   * Take a loan for a corporation and record it in the ledger.
+   *
+   * Orchestrated here rather than in `Corporation.takeLoan` so the corporation
+   * stays a plain state holder with no dependency on the economy, matching how
+   * goods trades work. It also closes a real hole: `takeLoan` on its own adds
+   * cash reserves with no counterparty, creating credits from nothing. Posting
+   * the draw against the bank makes it a transfer.
+   * @param {string} corporationName - Name of the borrowing corporation.
+   * @param {number} amount - Principal to borrow.
+   * @returns {Object|null} The created loan, or null when the request is invalid.
+   * @example
+   * const loan = game.takeCorporationLoan('Acme Orbital', 50000);
+   */
+  takeCorporationLoan(corporationName, amount) {
+    const corporation = this.findCorporation(corporationName);
+    if (!corporation) {
+      return null;
+    }
+
+    const loan = corporation.takeLoan(amount);
+    if (!loan) {
+      return null;
+    }
+
+    recordLoanDraw(this.getEconomy(), {
+      tick: this.getTicks(),
+      borrower: corporationHolder(corporation),
+      amount: loan.principal,
+      refs: { loanId: loan.id }
+    });
+
+    return loan;
+  }
+
+  /**
+   * Make a payment against a corporation loan and record it in the ledger.
+   * @param {string} corporationName - Name of the paying corporation.
+   * @param {number} loanId - Loan identifier.
+   * @param {number} amount - Amount to apply to the loan.
+   * @returns {boolean} True when the payment succeeded.
+   * @example
+   * game.makeCorporationLoanPayment('Acme Orbital', 1, 5000);
+   */
+  makeCorporationLoanPayment(corporationName, loanId, amount) {
+    const corporation = this.findCorporation(corporationName);
+    if (!corporation) {
+      return false;
+    }
+
+    // Capture what the payment will actually apply before it is made: an
+    // overpayment is capped at the remaining balance, so posting the requested
+    // amount would put the ledger out of step with the corporation's reserves.
+    const applied = corporation.loanPaymentApplied(loanId, Number(amount));
+
+    if (!corporation.makeLoanPayment(loanId, amount)) {
+      return false;
+    }
+
+    recordLoanPayment(this.getEconomy(), {
+      tick: this.getTicks(),
+      borrower: corporationHolder(corporation),
+      amount: applied,
+      refs: { loanId }
+    });
+
+    return true;
   }
 
   /**

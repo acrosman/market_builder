@@ -322,7 +322,9 @@ function registerIpcHandlers(dependencies) {
     }
 
     const amount = Number(payload.amount);
-    const loan = corporation.takeLoan(amount);
+    // Routed through Game so the draw is posted against the bank. Calling
+    // corporation.takeLoan directly would add reserves with no counterparty.
+    const loan = getCurrentGame().takeCorporationLoan(corporation.name, amount);
     return {
       success: Boolean(loan),
       loan,
@@ -339,7 +341,10 @@ function registerIpcHandlers(dependencies) {
 
     const loanId = Number(payload.loanId);
     const amount = Number(payload.amount);
-    const success = corporation.makeLoanPayment(loanId, amount);
+    // Routed through Game so the repayment is posted back to the bank.
+    const success = getCurrentGame().makeCorporationLoanPayment(
+      corporation.name, loanId, amount
+    );
     return { success, company: getCompanyManagementState(corporation) };
   });
 

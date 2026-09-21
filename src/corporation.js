@@ -258,9 +258,15 @@ class Corporation {
 
   /**
    * Make a one-time payment on an outstanding loan.
+   *
+   * The payment is capped at what is still owed. Paying more than the balance
+   * previously spent the full amount while flooring the balance at zero, which
+   * silently destroyed the excess credits.
    * @param {number} loanId - Loan identifier.
-   * @param {number} amount - Amount to apply to the loan.
+   * @param {number} amount - Amount to apply; the excess over the balance is not spent.
    * @returns {boolean} True when payment succeeds, false otherwise.
+   * @example
+   * corporation.makeLoanPayment(1, 5000);
    */
   makeLoanPayment(loanId, amount) {
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
@@ -272,17 +278,41 @@ class Corporation {
       return false;
     }
 
-    if (!this.spendCashReserve(amount)) {
+    const applied = Math.min(amount, loan.remainingBalance);
+    if (applied <= 0) {
       return false;
     }
 
-    loan.remainingBalance = Math.max(0, loan.remainingBalance - amount);
+    if (!this.spendCashReserve(applied)) {
+      return false;
+    }
 
-    if (loan.remainingBalance === 0) {
+    loan.remainingBalance -= applied;
+
+    // Compare against a tolerance rather than exactly zero: once interest
+    // accrues, balances are no longer guaranteed to land on a whole credit and
+    // an exact check would leave paid-off loans behind as zombies.
+    if (loan.remainingBalance < 0.005) {
       this.loans = this.loans.filter(entry => entry.id !== loanId);
     }
 
     return true;
+  }
+
+  /**
+   * Get the amount a payment would actually apply to a loan.
+   * @param {number} loanId - Loan identifier.
+   * @param {number} amount - Proposed payment amount.
+   * @returns {number} Amount that would be applied, zero when none.
+   * @example
+   * const applied = corporation.loanPaymentApplied(1, 30000);
+   */
+  loanPaymentApplied(loanId, amount) {
+    const loan = this.loans.find(entry => entry.id === loanId);
+    if (!loan || typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      return 0;
+    }
+    return Math.min(amount, loan.remainingBalance);
   }
 
   /**

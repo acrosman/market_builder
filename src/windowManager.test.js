@@ -132,6 +132,8 @@ function createGameMock(state = {}) {
 
   const currentUniverse = universe;
 
+  const findCorporation = name => corporations.find(corp => corp.name === name) || null;
+
   return {
     initializeGame: jest.fn(),
     getCurrentLocationState: jest.fn(() => ({})),
@@ -140,6 +142,19 @@ function createGameMock(state = {}) {
     getPlayer: jest.fn(() => player),
     getCorporations: jest.fn(() => corporations),
     getExploredSystems: jest.fn(() => exploredSystems),
+    findCorporation: jest.fn(findCorporation),
+    // Loan operations go through Game so the draw and repayment are posted to
+    // the ledger against the bank. These stand in for that orchestration.
+    takeCorporationLoan: jest.fn((name, amount) => {
+      const corporation = findCorporation(name);
+      return corporation ? corporation.takeLoan(Number(amount)) : null;
+    }),
+    makeCorporationLoanPayment: jest.fn((name, loanId, amount) => {
+      const corporation = findCorporation(name);
+      return corporation
+        ? corporation.makeLoanPayment(Number(loanId), Number(amount))
+        : false;
+    }),
     ...methodOverrides
   };
 }

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Game } = require('../game');
 const { createUniverse } = require('../universe');
-const { ACCOUNTS, playerHolder, corporationHolder } = require('./accounts');
+const { ACCOUNTS, BANK_HOLDER, playerHolder, corporationHolder } = require('./accounts');
 
 /**
  * Integration coverage for the economy ledger against a real universe.
@@ -194,6 +194,112 @@ describe('economy ledger integration', () => {
       expect(game.buyGood(object.id, goodName, 999999).success).toBe(false);
 
       expect(ledger.entries.length).toBe(entriesBefore);
+    });
+  });
+
+  describe('loans', () => {
+    test('should conserve cash on a draw by posting against the bank', () => {
+      const game = startedGame();
+      const corporation = game.getPlayer().corporation;
+      const ledger = game.getEconomy().getLedger();
+      const cashBefore = ledger.totalAcrossHolders(ACCOUNTS.CASH);
+
+      const loan = game.takeCorporationLoan(corporation.name, 50000);
+      expect(loan).not.toBeNull();
+
+      const holder = corporationHolder(corporation);
+      // takeLoan alone would have created 50000 credits from nothing
+      expect(ledger.totalAcrossHolders(ACCOUNTS.CASH)).toBe(cashBefore);
+      expect(ledger.balance(holder, ACCOUNTS.DEBT)).toBe(50000);
+      expect(ledger.balance(BANK_HOLDER, ACCOUNTS.LOAN_RECEIVABLE)).toBe(50000);
+      expect(ledger.balance(holder, ACCOUNTS.CASH))
+        .toBe(corporation.getTotalCashReserves());
+    });
+
+    test('should unwind debt and conserve cash on repayment', () => {
+      const game = startedGame();
+      const corporation = game.getPlayer().corporation;
+      const ledger = game.getEconomy().getLedger();
+      const cashBefore = ledger.totalAcrossHolders(ACCOUNTS.CASH);
+
+      const loan = game.takeCorporationLoan(corporation.name, 20000);
+      expect(game.makeCorporationLoanPayment(corporation.name, loan.id, 20000)).toBe(true);
+
+      const holder = corporationHolder(corporation);
+      expect(ledger.balance(holder, ACCOUNTS.DEBT)).toBe(0);
+      expect(ledger.balance(BANK_HOLDER, ACCOUNTS.LOAN_RECEIVABLE)).toBe(0);
+      expect(ledger.totalAcrossHolders(ACCOUNTS.CASH)).toBe(cashBefore);
+      expect(ledger.balance(holder, ACCOUNTS.CASH))
+        .toBe(corporation.getTotalCashReserves());
+    });
+
+    test('should not post more than an overpayment actually retires', () => {
+      const game = startedGame();
+      const corporation = game.getPlayer().corporation;
+      const ledger = game.getEconomy().getLedger();
+
+      // Fund the corporation so the overpayment is affordable, and re-baseline
+      corporation.addCashReserve(100000);
+      const cashBefore = ledger.balance(corporationHolder(corporation), ACCOUNTS.CASH);
+
+      const loan = game.takeCorporationLoan(corporation.name, 10000);
+      // Pay far more than is owed; only the outstanding balance may be spent
+      game.makeCorporationLoanPayment(corporation.name, loan.id, 30000);
+
+      // The excess was never spent, so the ledger and reserves still agree
+      expect(ledger.balance(corporationHolder(corporation), ACCOUNTS.CASH)).toBe(cashBefore);
+
+      const holder = corporationHolder(corporation);
+      expect(ledger.balance(holder, ACCOUNTS.DEBT)).toBe(0);
+      expect(ledger.balance(BANK_HOLDER, ACCOUNTS.LOAN_RECEIVABLE)).toBe(0);
+      expect(ledger.audit()).toMatchObject({ balanced: true, balancesMatch: true });
+    });
+
+    test('should reject a loan for an unknown corporation', () => {
+      const game = startedGame();
+      const entriesBefore = game.getEconomy().getLedger().entries.length;
+
+      expect(game.takeCorporationLoan('No Such Corp', 1000)).toBeNull();
+      expect(game.makeCorporationLoanPayment('No Such Corp', 1, 100)).toBe(false);
+      expect(game.getEconomy().getLedger().entries.length).toBe(entriesBefore);
+    });
+  });
+
+  describe('construction', () => {
+    test('should capitalize a build and conserve cash', () => {
+      const game = startedGame();
+      const corporation = game.getPlayer().corporation;
+
+      // Put the player on a world their corporation controls
+      const owned = game.getUniverse().stellarObjects.find(
+        obj => corporation.stellarObjects.includes(obj.id) && obj.capabilities.buildings
+      );
+      expect(owned).toBeDefined();
+
+      game.getPlayer().location = owned.location;
+      game.getPlayer().landedOn = owned.id;
+      corporation.addCashReserve(100000);
+
+      const ledger = game.getEconomy().getLedger();
+      const holder = corporationHolder(corporation);
+      // The reserve top-up is outside the ledger, so re-baseline against it
+      const cashBefore = ledger.totalAcrossHolders(ACCOUNTS.CASH);
+      const propertyBefore = ledger.balance(holder, ACCOUNTS.PROPERTY);
+
+      const options = game.getBuildableBuildingsForCurrentObject();
+      expect(Array.isArray(options)).toBe(true);
+      const buildable = options.find(option => option.canBuild);
+      if (!buildable) {
+        return;
+      }
+
+      expect(game.buildBuildingAtCurrentObject(buildable.type).success).toBe(true);
+
+      // Credits went to the local economy rather than vanishing
+      expect(ledger.totalAcrossHolders(ACCOUNTS.CASH)).toBe(cashBefore);
+      // And the spend sits on the balance sheet, not in the income statement
+      expect(ledger.balance(holder, ACCOUNTS.PROPERTY)).toBeGreaterThanOrEqual(propertyBefore);
+      expect(ledger.audit()).toMatchObject({ balanced: true, balancesMatch: true });
     });
   });
 

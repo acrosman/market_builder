@@ -311,4 +311,74 @@ describe('Corporation', () => {
       expect(corporation.loans[0].remainingBalance).toBe(1000);
     });
   });
+
+  describe('loan payment capping', () => {
+    test('should not spend more than the loan still owes', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 100000);
+      const loan = corporation.takeLoan(10000);
+
+      expect(corporation.makeLoanPayment(loan.id, 30000)).toBe(true);
+
+      // Overpaying previously spent the full amount while flooring the balance
+      // at zero, destroying the excess credits
+      expect(corporation.getTotalCashReserves()).toBe(100000);
+      expect(corporation.getOutstandingDebt()).toBe(0);
+    });
+
+    test('should clear a loan paid exactly', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 50000);
+      const loan = corporation.takeLoan(10000);
+
+      expect(corporation.makeLoanPayment(loan.id, 10000)).toBe(true);
+      expect(corporation.loans).toHaveLength(0);
+      expect(corporation.getTotalCashReserves()).toBe(50000);
+    });
+
+    test('should clear a loan left with a sub-credit residue', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 50000);
+      const loan = corporation.takeLoan(10000);
+      loan.remainingBalance = 10000.001;
+
+      expect(corporation.makeLoanPayment(loan.id, 10000)).toBe(true);
+      // An exact zero check would have left this behind as a zombie loan
+      expect(corporation.loans).toHaveLength(0);
+    });
+
+    test('should reject a payment against a fully paid loan', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 50000);
+      const loan = corporation.takeLoan(10000);
+      corporation.makeLoanPayment(loan.id, 10000);
+
+      expect(corporation.makeLoanPayment(loan.id, 100)).toBe(false);
+    });
+
+    test('should reject a payment it cannot afford', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 0);
+      const loan = corporation.takeLoan(10000);
+      corporation.spendCashReserve(10000);
+
+      expect(corporation.makeLoanPayment(loan.id, 5000)).toBe(false);
+      expect(corporation.getOutstandingDebt()).toBe(10000);
+    });
+  });
+
+  describe('loanPaymentApplied', () => {
+    test('should report the capped amount', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 100000);
+      const loan = corporation.takeLoan(10000);
+
+      expect(corporation.loanPaymentApplied(loan.id, 30000)).toBe(10000);
+      expect(corporation.loanPaymentApplied(loan.id, 4000)).toBe(4000);
+    });
+
+    test('should return zero for unknown loans or bad amounts', () => {
+      const corporation = new Corporation('Acme', 'desc', true, 100000);
+      const loan = corporation.takeLoan(10000);
+
+      expect(corporation.loanPaymentApplied(999, 100)).toBe(0);
+      expect(corporation.loanPaymentApplied(loan.id, 0)).toBe(0);
+      expect(corporation.loanPaymentApplied(loan.id, -5)).toBe(0);
+      expect(corporation.loanPaymentApplied(loan.id, NaN)).toBe(0);
+    });
+  });
 });
