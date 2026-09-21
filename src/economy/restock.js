@@ -1,6 +1,7 @@
 const { loadContent } = require('../contentCache');
 const { recordGoodsTrade, recordOpeningStock } = require('./transactions');
-const { EXTERNAL_HOLDER, marketHolder } = require('./accounts');
+const { EXTERNAL_HOLDER } = require('./accounts');
+const { operatorHolder } = require('./production');
 
 /**
  * Market restocking: trade between a local market and the wider galaxy.
@@ -29,7 +30,9 @@ const { EXTERNAL_HOLDER, marketHolder } = require('./accounts');
 /** Defaults for the restock settings block. */
 const DEFAULT_RESTOCK = {
   daily_gap_fraction: 0.05,
-  max_ideal_multiple: 3
+  max_ideal_multiple: 3,
+  import_markup: 0.1,
+  export_discount: 0.1
 };
 
 /**
@@ -47,7 +50,9 @@ function restockConfig(settings = {}) {
   };
   return {
     dailyGapFraction: read('daily_gap_fraction'),
-    maxIdealMultiple: read('max_ideal_multiple')
+    maxIdealMultiple: read('max_ideal_multiple'),
+    importMarkup: read('import_markup'),
+    exportDiscount: read('export_discount')
   };
 }
 
@@ -92,6 +97,7 @@ function idealStockFor(stellarObject, good) {
  * @param {Object} params.economy - EconomyState to record into.
  * @param {Object} params.market - Market instance, for pricing.
  * @param {Object} params.stellarObject - Object whose market to restock.
+ * @param {Array<Object>} [params.corporations] - All corporations, to find the owner.
  * @param {Object} params.settings - Resolved game settings.
  * @param {number} params.days - Whole days elapsed.
  * @param {number} params.tick - Current absolute game tick.
@@ -99,7 +105,7 @@ function idealStockFor(stellarObject, good) {
  * @example
  * restockMarket({ economy, market, stellarObject, settings, days: 1, tick: 24 });
  */
-function restockMarket({ economy, market, stellarObject, settings, days, tick }) {
+function restockMarket({ economy, market, stellarObject, corporations, settings, days, tick }) {
   const summary = { bought: {}, sold: {} };
 
   const inventory = stellarObject.marketState?.inventory;
@@ -109,7 +115,11 @@ function restockMarket({ economy, market, stellarObject, settings, days, tick })
 
   const goodsData = loadContent('goods', settings.data_directory || 'data/default/en-us');
   const config = restockConfig(settings);
-  const holder = marketHolder(stellarObject);
+  // Must match the operator used by production and by player trades, or goods
+  // would be produced onto one set of books and restocked from another: the
+  // producer's inventory would grow without limit while the market sold stock
+  // it had no basis for.
+  const holder = operatorHolder(stellarObject, corporations);
 
   // Compounding the daily fraction keeps a multi-day batch equivalent to
   // running the same number of single days, so a long jump does not restock
@@ -132,8 +142,17 @@ function restockMarket({ economy, market, stellarObject, settings, days, tick })
         return;
       }
 
-      const unitPrice = market.calculateMarketPrice(stellarObject, goodName, 'buy')
-        || Number(good.value) || 1;
+      // Priced off the good's base value rather than the local market price.
+      // Buying at the local buy price and later selling surplus at the local
+      // sell price would lose the bid-ask spread on every unit, making the
+      // operator's restocking a guaranteed loss no matter how well it was run.
+      // Against a stable external price, importing into a shortage and
+      // exporting a glut are both sensibly profitable, and the markup keeps
+      // the wider galaxy from being a free source of margin.
+      const unitPrice = Math.max(
+        1,
+        Math.round((Number(good.value) || 1) * (1 + config.importMarkup))
+      );
 
       // The galaxy's stock is unmodelled, so give it a basis at the same price
       // before it sells. Otherwise every external sale would book as pure
@@ -167,8 +186,10 @@ function restockMarket({ economy, market, stellarObject, settings, days, tick })
         return;
       }
 
-      const unitPrice = market.calculateMarketPrice(stellarObject, goodName, 'sell')
-        || Number(good.value) || 1;
+      const unitPrice = Math.max(
+        1,
+        Math.round((Number(good.value) || 1) * (1 - config.exportDiscount))
+      );
 
       inventory[goodName] = current - units;
       recordGoodsTrade(economy, {

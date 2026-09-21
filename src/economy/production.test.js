@@ -429,6 +429,126 @@ describe('consumeFood', () => {
   });
 });
 
+describe('consumeFood as a sale to the population', () => {
+  /**
+   * Build a market stub that prices at the good's base value.
+   * @returns {Object} A market-shaped stub.
+   */
+  function stubMarket() {
+    return {
+      calculateMarketPrice: (object, goodName) => Number(goodsData[goodName].value) || 1
+    };
+  }
+
+  test('should sell food to the population when a corporation owns the world', () => {
+    const object = makeObject({
+      owner: 'Acme Orbital',
+      population: { current: 10e9, limit: 1e12, growthRate: 0 }
+    });
+    object.marketState.inventory.water = 1000;
+
+    const economy = new EconomyState({ seed: 'sale' });
+    const seller = corporationHolder('Acme Orbital');
+    economy.getCostBasis().acquire(seller, 'water', 1000, 3000);
+
+    consumeFood({
+      economy,
+      stellarObject: object,
+      market: stubMarket(),
+      corporations: [{ name: 'Acme Orbital' }],
+      settings,
+      days: 1,
+      tick: 24
+    });
+
+    const ledger = economy.getLedger();
+    // Feeding a world is a business, not a charge against the owner
+    expect(ledger.balance(seller, ACCOUNTS.REVENUE)).toBeGreaterThan(0);
+    expect(ledger.balance(seller, ACCOUNTS.OPERATING_EXPENSE)).toBe(0);
+    expect(ledger.balance(marketHolder(object), ACCOUNTS.CASH)).toBeLessThan(0);
+  });
+
+  test('should leave the population holding no stock after eating', () => {
+    const object = makeObject({
+      owner: 'Acme Orbital',
+      population: { current: 10e9, limit: 1e12, growthRate: 0 }
+    });
+    object.marketState.inventory.water = 1000;
+
+    const economy = new EconomyState({ seed: 'eaten' });
+    economy.getCostBasis().acquire(corporationHolder('Acme Orbital'), 'water', 1000, 3000);
+
+    consumeFood({
+      economy,
+      stellarObject: object,
+      market: stubMarket(),
+      corporations: [{ name: 'Acme Orbital' }],
+      settings,
+      days: 1,
+      tick: 24
+    });
+
+    expect(economy.getCostBasis().quantity(marketHolder(object), 'water')).toBe(0);
+  });
+
+  test('should expense rather than bill itself on an independent world', () => {
+    const object = makeObject({ population: { current: 10e9, limit: 1e12, growthRate: 0 } });
+    object.marketState.inventory.water = 1000;
+
+    const economy = new EconomyState({ seed: 'independent' });
+    const holder = marketHolder(object);
+    economy.getCostBasis().acquire(holder, 'water', 1000, 3000);
+
+    consumeFood({
+      economy, stellarObject: object, market: stubMarket(),
+      corporations: [], settings, days: 1, tick: 24
+    });
+
+    const ledger = economy.getLedger();
+    expect(ledger.balance(holder, ACCOUNTS.OPERATING_EXPENSE)).toBeGreaterThan(0);
+    expect(ledger.balance(holder, ACCOUNTS.REVENUE)).toBe(0);
+  });
+
+  test('should conserve cash on the sale', () => {
+    const object = makeObject({
+      owner: 'Acme Orbital',
+      population: { current: 10e9, limit: 1e12, growthRate: 0 }
+    });
+    object.marketState.inventory.water = 1000;
+
+    const economy = new EconomyState({ seed: 'conserve-food' });
+    economy.getCostBasis().acquire(corporationHolder('Acme Orbital'), 'water', 1000, 3000);
+    const cashBefore = economy.getLedger().totalAcrossHolders(ACCOUNTS.CASH);
+
+    consumeFood({
+      economy, stellarObject: object, market: stubMarket(),
+      corporations: [{ name: 'Acme Orbital' }], settings, days: 5, tick: 24
+    });
+
+    expect(economy.getLedger().totalAcrossHolders(ACCOUNTS.CASH)).toBe(cashBefore);
+    expect(economy.getLedger().audit()).toMatchObject({ balanced: true, balancesMatch: true });
+  });
+
+  test('should fall back to base value without a market', () => {
+    const object = makeObject({
+      owner: 'Acme Orbital',
+      population: { current: 10e9, limit: 1e12, growthRate: 0 }
+    });
+    object.marketState.inventory.water = 1000;
+
+    const economy = new EconomyState({ seed: 'no-market' });
+    economy.getCostBasis().acquire(corporationHolder('Acme Orbital'), 'water', 1000, 3000);
+
+    expect(() => consumeFood({
+      economy, stellarObject: object, corporations: [{ name: 'Acme Orbital' }],
+      settings, days: 1, tick: 24
+    })).not.toThrow();
+
+    expect(economy.getLedger().balance(corporationHolder('Acme Orbital'), ACCOUNTS.REVENUE))
+      .toBeGreaterThan(0);
+  });
+});
+
 describe('EXTRACTION_RATINGS', () => {
   test('should map only to categories that have raw goods', () => {
     Object.values(EXTRACTION_RATINGS).forEach(category => {

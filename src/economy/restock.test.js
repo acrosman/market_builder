@@ -41,6 +41,7 @@ function restock(stellarObject, options = {}) {
     economy,
     market: new Market(universe, settings),
     stellarObject,
+    corporations: options.corporations || [],
     settings,
     days: options.days ?? 1,
     tick: options.tick ?? 24

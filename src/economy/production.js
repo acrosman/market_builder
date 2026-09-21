@@ -1,6 +1,7 @@
 const { loadContent } = require('../contentCache');
 const { ENTRY_KINDS } = require('./ledger');
-const { ACCOUNTS, corporationHolder, marketHolder } = require('./accounts');
+const { ACCOUNTS, corporationHolder, marketHolder, holderKey } = require('./accounts');
+const { recordGoodsTrade } = require('./transactions');
 
 /**
  * Goods production, operating costs, and population consumption.
@@ -358,14 +359,23 @@ function runProduction({ economy, stellarObject, corporations, settings, days, t
  * drifting down forever as production piles up. It also puts the long-unused
  * `food_per_person` setting to work.
  *
- * Population is measured in billions on some worlds, so consumption is scaled
- * per thousand people. Unmet demand is not modelled as starvation yet: the
- * shortfall is simply not eaten, and the resulting low stock raises the local
- * price, which is the signal that draws a trader there.
+ * The population buys its food rather than being given it. That matters: a
+ * corporation that owns a populated world was otherwise charged to feed
+ * billions of people and received nothing for it, which made every farm on
+ * every world unprofitable no matter how it was sized. Feeding a world is a
+ * business, and this is the steady revenue that makes owning one worthwhile.
+ *
+ * An independent world is its own population, so there is no counterparty to
+ * bill and the food is simply expensed.
+ *
+ * Unmet demand is not modelled as starvation yet: the shortfall is not eaten,
+ * and the resulting low stock raises the local price, which is the signal that
+ * draws a trader there.
  * @param {Object} params - Consumption parameters.
  * @param {Object} params.economy - EconomyState to record into.
  * @param {Object} params.stellarObject - Object whose population eats.
  * @param {Array<Object>} params.corporations - All corporations, to find the owner.
+ * @param {Object} [params.market] - Market instance, used to price the food sold.
  * @param {Object} params.settings - Resolved game settings.
  * @param {number} params.days - Whole days elapsed.
  * @param {number} params.tick - Current absolute game tick.
@@ -373,7 +383,7 @@ function runProduction({ economy, stellarObject, corporations, settings, days, t
  * @example
  * consumeFood({ economy, stellarObject, corporations, settings, days: 1, tick: 24 });
  */
-function consumeFood({ economy, stellarObject, corporations, settings, days, tick }) {
+function consumeFood({ economy, stellarObject, market, corporations, settings, days, tick }) {
   const summary = { consumed: {}, shortfall: 0 };
 
   const inventory = stellarObject.marketState?.inventory;
@@ -413,8 +423,11 @@ function consumeFood({ economy, stellarObject, corporations, settings, days, tic
     return summary;
   }
 
-  const holder = operatorHolder(stellarObject, corporations);
+  const seller = operatorHolder(stellarObject, corporations);
+  const buyer = marketHolder(stellarObject);
+  const sellsToPopulation = holderKey(seller) !== holderKey(buyer);
   const costBasis = economy.getCostBasis();
+
   let remaining = eaten;
   let cost = 0;
 
@@ -426,19 +439,45 @@ function consumeFood({ economy, stellarObject, corporations, settings, days, tic
     if (units <= 0) {
       return;
     }
+
     inventory[goodName] -= units;
     remaining -= units;
-    cost += costBasis.consume(holder, goodName, units).cost;
     summary.consumed[goodName] = units;
+
+    if (sellsToPopulation) {
+      // Put the units back for the trade to take: recordGoodsTrade moves the
+      // cost basis and posts both sides, and it must see the stock present.
+      inventory[goodName] += units;
+      const unitPrice = market?.calculateMarketPrice
+        ? market.calculateMarketPrice(stellarObject, goodName, 'buy')
+        : Number(goodsData[goodName].value) || 1;
+      inventory[goodName] -= units;
+
+      recordGoodsTrade(economy, {
+        tick,
+        buyer,
+        seller,
+        goodName,
+        quantity: units,
+        totalPrice: Math.round(unitPrice * units),
+        refs: { stellarObjectId: stellarObject.id, reason: 'population_consumption' }
+      });
+
+      // The population eats what it bought, so it never accumulates a position
+      costBasis.consume(buyer, goodName, units);
+      return;
+    }
+
+    cost += costBasis.consume(seller, goodName, units).cost;
   });
 
   if (cost > 0) {
-    // Food eaten leaves the books as an operating cost rather than a sale
+    // An independent world feeds itself, so there is nobody to bill
     economy.getLedger().post({
       tick,
       amount: cost,
-      debit: { holder, account: ACCOUNTS.OPERATING_EXPENSE },
-      credit: { holder, account: ACCOUNTS.INVENTORY },
+      debit: { holder: seller, account: ACCOUNTS.OPERATING_EXPENSE },
+      credit: { holder: seller, account: ACCOUNTS.INVENTORY },
       kind: ENTRY_KINDS.PRODUCTION_OUTPUT,
       refs: { stellarObjectId: stellarObject.id, reason: 'population_consumption' }
     });

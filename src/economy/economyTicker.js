@@ -161,7 +161,7 @@ class EconomyTicker {
       // Order matters: produce, then feed the population, then let the wider
       // galaxy make up whatever the world could not supply itself.
       runProduction(params);
-      consumeFood(params);
+      consumeFood({ ...params, market: game.getMarket() });
       restockMarket({ ...params, market: game.getMarket() });
     });
 
