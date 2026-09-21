@@ -502,4 +502,159 @@ describe('Ledger', () => {
       expect(new Ledger().toJSON().schemaVersion).toBe(1);
     });
   });
+
+  describe('rollupThrough', () => {
+    /**
+     * Build a ledger with a spread of activity across ticks.
+     * @returns {Ledger} A populated ledger.
+     */
+    function busyLedger() {
+      const ledger = new Ledger();
+      ledger.post({
+        tick: 0,
+        amount: 100000,
+        debit: { holder: ACME, account: ACCOUNTS.CASH },
+        credit: { holder: ACME, account: ACCOUNTS.CONTRIBUTED_CAPITAL }
+      });
+
+      for (let tick = 1; tick <= 200; tick += 1) {
+        ledger.post({
+          tick,
+          amount: 10,
+          debit: { holder: RIVAL, account: ACCOUNTS.CASH },
+          credit: { holder: ACME, account: ACCOUNTS.CASH },
+          kind: ENTRY_KINDS.GOODS_SALE
+        });
+        ledger.post({
+          tick,
+          amount: 4,
+          debit: { holder: ACME, account: ACCOUNTS.COGS },
+          credit: { holder: ACME, account: ACCOUNTS.INVENTORY },
+          kind: ENTRY_KINDS.COST_OF_SALE
+        });
+      }
+      return ledger;
+    }
+
+    test('should do nothing when there is nothing old enough', () => {
+      const ledger = busyLedger();
+      expect(ledger.rollupThrough(-1)).toEqual({ removed: 0, added: 0 });
+    });
+
+    test('should ignore an invalid tick', () => {
+      const ledger = busyLedger();
+      const before = ledger.entries.length;
+      expect(ledger.rollupThrough(NaN)).toEqual({ removed: 0, added: 0 });
+      expect(ledger.entries).toHaveLength(before);
+    });
+
+    test('should replace old detail with far fewer entries', () => {
+      const ledger = busyLedger();
+      const before = ledger.entries.length;
+
+      const result = ledger.rollupThrough(150);
+
+      expect(result.removed).toBeGreaterThan(200);
+      expect(result.added).toBeLessThan(result.removed);
+      expect(ledger.entries.length).toBeLessThan(before);
+    });
+
+    test('should preserve every balance exactly', () => {
+      const ledger = busyLedger();
+      const accounts = [
+        ACCOUNTS.CASH, ACCOUNTS.INVENTORY, ACCOUNTS.COGS, ACCOUNTS.CONTRIBUTED_CAPITAL
+      ];
+      const before = {};
+      [ACME, RIVAL].forEach((holder, index) => {
+        accounts.forEach(account => {
+          before[`${index}:${account}`] = ledger.balance(holder, account);
+        });
+      });
+
+      ledger.rollupThrough(150);
+
+      [ACME, RIVAL].forEach((holder, index) => {
+        accounts.forEach(account => {
+          expect(ledger.balance(holder, account)).toBe(before[`${index}:${account}`]);
+        });
+      });
+    });
+
+    test('should stay balanced and keep incremental balances honest', () => {
+      const ledger = busyLedger();
+      ledger.rollupThrough(150);
+
+      expect(ledger.audit()).toMatchObject({ balanced: true, balancesMatch: true });
+    });
+
+    test('should conserve total cash', () => {
+      const ledger = busyLedger();
+      const before = ledger.totalAcrossHolders(ACCOUNTS.CASH);
+
+      ledger.rollupThrough(150);
+
+      expect(ledger.totalAcrossHolders(ACCOUNTS.CASH)).toBe(before);
+    });
+
+    test('should keep entries newer than the cutoff untouched', () => {
+      const ledger = busyLedger();
+      const newerBefore = ledger.entries.filter(entry => entry.tick > 150).length;
+
+      ledger.rollupThrough(150);
+
+      expect(ledger.entries.filter(entry => entry.tick > 150)).toHaveLength(newerBefore);
+    });
+
+    test('should mark replacement entries as a period close', () => {
+      const ledger = busyLedger();
+      ledger.rollupThrough(150);
+
+      const rolled = ledger.entries.filter(entry => entry.tick <= 150);
+      expect(rolled.length).toBeGreaterThan(0);
+      rolled.forEach(entry => {
+        expect(entry.kind).toBe(ENTRY_KINDS.PERIOD_CLOSE);
+        expect(entry.refs.rollup).toBe(true);
+      });
+    });
+
+    test('should leave later period queries correct', () => {
+      const ledger = busyLedger();
+      const revenueAfter = ledger.periodMovement(ACME, ACCOUNTS.COGS, 151, 200);
+
+      ledger.rollupThrough(150);
+
+      // Detail inside the retained window must survive the compression
+      expect(ledger.periodMovement(ACME, ACCOUNTS.COGS, 151, 200)).toBe(revenueAfter);
+    });
+
+    test('should survive a second rollup', () => {
+      const ledger = busyLedger();
+      ledger.rollupThrough(100);
+      const cash = ledger.balance(ACME, ACCOUNTS.CASH);
+
+      ledger.rollupThrough(180);
+
+      expect(ledger.balance(ACME, ACCOUNTS.CASH)).toBe(cash);
+      expect(ledger.audit()).toMatchObject({ balanced: true, balancesMatch: true });
+    });
+
+    test('should round trip through JSON after a rollup', () => {
+      const ledger = busyLedger();
+      ledger.rollupThrough(150);
+
+      const restored = Ledger.fromJSON(JSON.parse(JSON.stringify(ledger.toJSON())));
+
+      expect(restored.balance(ACME, ACCOUNTS.CASH)).toBe(ledger.balance(ACME, ACCOUNTS.CASH));
+      expect(restored.audit()).toMatchObject({ balanced: true, balancesMatch: true });
+    });
+
+    test('should be deterministic', () => {
+      const runOnce = () => {
+        const ledger = busyLedger();
+        ledger.rollupThrough(150);
+        return JSON.stringify(ledger.toJSON());
+      };
+      expect(runOnce()).toBe(runOnce());
+    });
+  });
 });

@@ -25,6 +25,9 @@
     "deficit_grace_days": 30,
     "forced_loan_buffer": 0.1
   },
+  "statements": {
+    "detail_quarters_retained": 2
+  },
   "starting_system": {
     "required_objects": [
       {

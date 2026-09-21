@@ -381,6 +381,111 @@ class Ledger {
   }
 
   /**
+   * Compress history older than a tick into a small set of opening balances.
+   *
+   * The journal is append-only, and a busy economy posts tens of thousands of
+   * entries per quarter. Left alone the save file grows without bound and is
+   * written synchronously, so it eventually stalls the UI. Detail older than
+   * the reporting window has no reader: statements for those quarters are
+   * already published and never recalculated.
+   *
+   * The replacement entries reproduce every holder's balance on every account
+   * exactly, so `audit()` still reconciles and money conservation still holds.
+   * Required debits and credits are paired off greedily and split where the
+   * amounts do not match; the totals are guaranteed equal because the journal
+   * they replace was itself balanced.
+   * @param {number} tick - Entries at or before this tick are compressed.
+   * @returns {Object} `{ removed, added }` entry counts.
+   * @example
+   * ledger.rollupThrough(2159);
+   */
+  rollupThrough(tick) {
+    const cutoff = Number(tick);
+    if (!Number.isFinite(cutoff)) {
+      return { removed: 0, added: 0 };
+    }
+
+    const older = this.entries.filter(entry => entry.tick <= cutoff);
+    if (older.length === 0) {
+      return { removed: 0, added: 0 };
+    }
+
+    // Balances produced by the entries being replaced, per holder and account.
+    const opening = new Map();
+    const adjust = (key, account, amount, isDebit) => {
+      const mapKey = `${key}\u0000${account}`;
+      const signedAmount = increasesOnDebit(account) === isDebit ? amount : -amount;
+      opening.set(mapKey, (opening.get(mapKey) || 0) + signedAmount);
+    };
+
+    older.forEach(entry => {
+      adjust(entry.debit.holder, entry.debit.account, entry.amount, true);
+      adjust(entry.credit.holder, entry.credit.account, entry.amount, false);
+    });
+
+    // Split each surviving balance into the leg needed to recreate it.
+    const debits = [];
+    const credits = [];
+    [...opening.entries()].sort().forEach(([mapKey, balance]) => {
+      if (balance === 0) {
+        return;
+      }
+      const [holder, account] = mapKey.split('\u0000');
+      const wantsDebit = increasesOnDebit(account) === (balance > 0);
+      const leg = { holder, account, amount: Math.abs(balance) };
+      (wantsDebit ? debits : credits).push(leg);
+    });
+
+    const rolled = [];
+    let debitIndex = 0;
+    let creditIndex = 0;
+
+    while (debitIndex < debits.length && creditIndex < credits.length) {
+      const debit = debits[debitIndex];
+      const credit = credits[creditIndex];
+      const amount = Math.min(debit.amount, credit.amount);
+
+      if (amount > 0) {
+        rolled.push({
+          id: 0,
+          tick: cutoff,
+          amount,
+          kind: ENTRY_KINDS.PERIOD_CLOSE,
+          debit: { holder: debit.holder, account: debit.account },
+          credit: { holder: credit.holder, account: credit.account },
+          refs: { rollup: true }
+        });
+      }
+
+      debit.amount -= amount;
+      credit.amount -= amount;
+      if (debit.amount === 0) {
+        debitIndex += 1;
+      }
+      if (credit.amount === 0) {
+        creditIndex += 1;
+      }
+    }
+
+    const newer = this.entries.filter(entry => entry.tick > cutoff);
+
+    this.entries = [];
+    this.balances = new Map();
+    rolled.forEach(entry => {
+      entry.id = this.nextEntryId;
+      this.nextEntryId += 1;
+      this.entries.push(entry);
+      this.applyToBalances(entry);
+    });
+    newer.forEach(entry => {
+      this.entries.push(entry);
+      this.applyToBalances(entry);
+    });
+
+    return { removed: older.length, added: rolled.length };
+  }
+
+  /**
    * Serialize the ledger for saving.
    * @returns {Object} Plain serializable object.
    * @example

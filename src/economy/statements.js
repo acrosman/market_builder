@@ -281,7 +281,43 @@ function closeElapsedQuarters({ economy, corporations, settings, tick }) {
     store.lastClosedQuarter = quarter;
   }
 
+  if (published.length > 0) {
+    compressOldJournal({ economy, settings, store });
+  }
+
   return published;
+}
+
+/**
+ * Compress journal detail older than the retained reporting window.
+ *
+ * A busy economy posts tens of thousands of entries per quarter and the journal
+ * is append-only, so the save file grows without bound and is written
+ * synchronously. Once a quarter's statement is published, the entries behind it
+ * have no further reader: published figures are never recalculated.
+ *
+ * A window of recent quarters is kept in full so recent activity can still be
+ * inspected transaction by transaction, and because the current quarter's
+ * statement has not been built yet.
+ * @param {Object} params - Compression parameters.
+ * @param {Object} params.economy - EconomyState holding the ledger.
+ * @param {Object} params.settings - Resolved game settings.
+ * @param {Object} params.store - The statement store, for the last closed quarter.
+ * @returns {Object} `{ removed, added }` entry counts.
+ * @example
+ * compressOldJournal({ economy, settings, store });
+ */
+function compressOldJournal({ economy, settings, store }) {
+  const retained = Number(settings.statements?.detail_quarters_retained);
+  const keepQuarters = Number.isFinite(retained) && retained >= 0 ? retained : 2;
+
+  const oldestRetainedQuarter = (store.lastClosedQuarter - keepQuarters) + 1;
+  if (oldestRetainedQuarter <= 0) {
+    return { removed: 0, added: 0 };
+  }
+
+  const { fromTick } = quarterTickRange(oldestRetainedQuarter, settings);
+  return economy.getLedger().rollupThrough(fromTick - 1);
 }
 
 module.exports = {
@@ -291,5 +327,6 @@ module.exports = {
   buildBalanceSheet,
   buildStatement,
   StatementStore,
-  closeElapsedQuarters
+  closeElapsedQuarters,
+  compressOldJournal
 };
