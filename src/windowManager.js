@@ -71,7 +71,8 @@ function registerIpcHandlers(dependencies) {
       const appraisal = appraiseCorporation(corporation, {
         universe: game.getUniverse(),
         settings: game.getSettings(),
-        tick: game.getTicks()
+        tick: game.getTicks(),
+        costBasis: game.getEconomy().getCostBasis()
       });
 
       return {

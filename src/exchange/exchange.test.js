@@ -9,6 +9,7 @@ const {
   ACCOUNTS, playerHolder, corporationHolder, INVESTOR_POOL_HOLDER
 } = require('../economy/accounts');
 const { ticksPerDay } = require('../economy/clock');
+const { investorHolders } = require('../agents/investorPool');
 
 const settings = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'data/default/en-us/game_settings.json'), 'utf-8')
@@ -347,7 +348,18 @@ describe('the exchange in a running game', () => {
       game.listCorporation('Meridian', 10000);
 
       const exchange = game.getEconomy().getExchange();
-      expect(exchange.portfolio.sharesHeld(INVESTOR_POOL_HOLDER, 'Meridian')).toBe(10000);
+
+      // The issue is spread across the investing public rather than sold to a
+      // single account, which is what leaves several holders who can disagree
+      // about the price and therefore trade
+      const publicHolders = investorHolders(settings);
+      const publicShares = publicHolders.reduce(
+        (total, holder) => total + exchange.portfolio.sharesHeld(holder, 'Meridian'),
+        0
+      );
+
+      expect(publicShares).toBe(10000);
+      expect(exchange.portfolio.capTable('Meridian').length).toBeGreaterThan(1);
       expect(exchange.getListing('Meridian').sharesOutstanding).toBe(10000);
     });
 
@@ -383,6 +395,36 @@ describe('the exchange in a running game', () => {
     });
   });
 
+  /**
+   * Move shares from the investing public to another holder.
+   *
+   * Transferred rather than granted: adding shares to a holder without taking
+   * them from anyone would put more on the register than the company has
+   * issued, and the cap table is supposed to reconcile to that.
+   * @param {Object} exchange - The exchange.
+   * @param {Object} holder - Who receives the shares.
+   * @param {number} shares - How many.
+   * @returns {void}
+   */
+  function transferFromPublic(exchange, holder, shares) {
+    let remaining = shares;
+
+    // The public is several investors now, so take from each in turn rather
+    // than from one account that may not hold enough
+    investorHolders(settings).forEach(investor => {
+      if (remaining <= 0) {
+        return;
+      }
+      const taken = Math.min(remaining, exchange.portfolio.sharesHeld(investor, 'Meridian'));
+      if (taken > 0) {
+        exchange.portfolio.adjust(investor, 'Meridian', -taken);
+        remaining -= taken;
+      }
+    });
+
+    exchange.portfolio.adjust(holder, 'Meridian', shares - remaining);
+  }
+
   describe('trading through the tick loop', () => {
     test('should fill a resting order while the player flies', () => {
       const game = startedGame();
@@ -390,15 +432,20 @@ describe('the exchange in a running game', () => {
       const exchange = game.getEconomy().getExchange();
       const player = playerHolder(game.getPlayer());
 
-      // The public offers stock
+      // A counterparty other than the investing public, whose orders are
+      // withdrawn and re-formed each cycle as its beliefs change
+      const seller = playerHolder('Counterparty');
+      transferFromPublic(exchange, seller, 500);
       exchange.submitOrder({
-        corporationName: 'Meridian', holder: INVESTOR_POOL_HOLDER,
+        corporationName: 'Meridian', holder: seller,
         side: SIDES.SELL, quantity: 500, limitPrice: ipo.pricePerShare, tick: 0
       });
 
       expect(game.submitShareOrder({
         corporationName: 'Meridian', holder: player, side: SIDES.BUY,
-        quantity: 300, limitPrice: ipo.pricePerShare + 2
+        // Bid well clear of fair value: the investing public competes for the
+        // same stock now, and a token premium no longer wins the auction
+        quantity: 300, limitPrice: ipo.pricePerShare * 3
       }).accepted).toBe(true);
 
       game.advanceTicks(DAY, 'jump');
@@ -412,8 +459,10 @@ describe('the exchange in a running game', () => {
       const ipo = game.listCorporation('Meridian', 10000);
       const exchange = game.getEconomy().getExchange();
 
+      const seller = playerHolder('Counterparty');
+      transferFromPublic(exchange, seller, 100);
       exchange.submitOrder({
-        corporationName: 'Meridian', holder: INVESTOR_POOL_HOLDER,
+        corporationName: 'Meridian', holder: seller,
         side: SIDES.SELL, quantity: 100, limitPrice: ipo.pricePerShare, tick: 0
       });
       game.submitShareOrder({
@@ -425,9 +474,13 @@ describe('the exchange in a running game', () => {
       game.getEventBus().on('exchange-cleared', listener);
       game.advanceTicks(DAY, 'jump');
 
+      // The investing public trades in the same auction, so the announced
+      // volume covers the whole clear rather than only this order
       expect(listener).toHaveBeenCalledWith(
-        expect.objectContaining({ corporationName: 'Meridian', volume: 100 })
+        expect.objectContaining({ corporationName: 'Meridian' })
       );
+      expect(listener.mock.calls[0][0].volume).toBeGreaterThanOrEqual(100);
+      expect(listener.mock.calls[0][0].price).toBeGreaterThan(0);
     });
 
     test('should reconcile the cap table to shares outstanding', () => {
@@ -435,8 +488,10 @@ describe('the exchange in a running game', () => {
       const ipo = game.listCorporation('Meridian', 10000);
       const exchange = game.getEconomy().getExchange();
 
+      const seller = playerHolder('Counterparty');
+      transferFromPublic(exchange, seller, 400);
       exchange.submitOrder({
-        corporationName: 'Meridian', holder: INVESTOR_POOL_HOLDER,
+        corporationName: 'Meridian', holder: seller,
         side: SIDES.SELL, quantity: 400, limitPrice: ipo.pricePerShare, tick: 0
       });
       game.submitShareOrder({
@@ -454,13 +509,15 @@ describe('the exchange in a running game', () => {
       const ipo = game.listCorporation('Meridian', 10000);
       const player = playerHolder(game.getPlayer());
 
+      const seller = playerHolder('Counterparty');
+      transferFromPublic(game.getEconomy().getExchange(), seller, 200);
       game.getEconomy().getExchange().submitOrder({
-        corporationName: 'Meridian', holder: INVESTOR_POOL_HOLDER,
+        corporationName: 'Meridian', holder: seller,
         side: SIDES.SELL, quantity: 200, limitPrice: ipo.pricePerShare, tick: 0
       });
       game.submitShareOrder({
         corporationName: 'Meridian', holder: player,
-        side: SIDES.BUY, quantity: 200, limitPrice: ipo.pricePerShare + 5
+        side: SIDES.BUY, quantity: 200, limitPrice: ipo.pricePerShare * 3
       });
 
       const loaded = Game.loadGame(JSON.parse(JSON.stringify(game.getSaveData())));

@@ -61,6 +61,15 @@ class Ledger {
     this.balances = new Map();
     /** Monotonic entry id. */
     this.nextEntryId = 1;
+    /**
+     * Running total of credits injected from outside the simulation.
+     *
+     * Tracked as a number rather than derived by scanning for injection-shaped
+     * entries, because rollup replaces old entries with balance-preserving ones
+     * that do not keep that shape. Deriving it would make the money supply
+     * appear to shrink every time history was compressed.
+     */
+    this.injectedTotal = 0;
   }
 
   /**
@@ -127,6 +136,22 @@ class Ledger {
   }
 
   /**
+   * Whether an entry brought new credits into the simulation.
+   *
+   * Cash debited against the same holder's contributed capital is the only
+   * shape that creates money; everything else moves it sideways.
+   * @param {Object} entry - A normalized entry.
+   * @returns {boolean} True when it injected credits.
+   * @example
+   * ledger.isInjection(entry);
+   */
+  isInjection(entry) {
+    return entry.debit.account === ACCOUNTS.CASH
+      && entry.credit.account === ACCOUNTS.CONTRIBUTED_CAPITAL
+      && entry.debit.holder === entry.credit.holder;
+  }
+
+  /**
    * Adjust one holder/account balance by a signed amount.
    * @param {string} key - Holder key.
    * @param {string} account - Account name.
@@ -173,6 +198,9 @@ class Ledger {
 
     this.entries.push(normalized);
     this.applyToBalances(normalized);
+    if (this.isInjection(normalized)) {
+      this.injectedTotal += normalized.amount;
+    }
 
     return normalized;
   }
@@ -202,6 +230,9 @@ class Ledger {
       this.nextEntryId += 1;
       this.entries.push(entry);
       this.applyToBalances(entry);
+      if (this.isInjection(entry)) {
+        this.injectedTotal += entry.amount;
+      }
       return entry;
     });
   }
@@ -469,6 +500,9 @@ class Ledger {
 
     const newer = this.entries.filter(entry => entry.tick > cutoff);
 
+    // injectedTotal is deliberately not recomputed here. The replacement
+    // entries preserve balances but not entry shapes, so counting them would
+    // make the money supply appear to change whenever history is compressed.
     this.entries = [];
     this.balances = new Map();
     rolled.forEach(entry => {
@@ -495,6 +529,7 @@ class Ledger {
     return {
       schemaVersion: LEDGER_SCHEMA_VERSION,
       nextEntryId: this.nextEntryId,
+      injectedTotal: this.injectedTotal,
       entries: this.entries
     };
   }
@@ -518,6 +553,16 @@ class Ledger {
         ledger.applyToBalances(entry);
       });
     }
+
+    // Restored rather than recounted, for the same reason rollup does not
+    // recount it: compressed history no longer carries the original shapes.
+    const savedInjected = Number(data?.injectedTotal);
+    ledger.injectedTotal = Number.isFinite(savedInjected)
+      ? savedInjected
+      : ledger.entries.reduce(
+        (total, entry) => (ledger.isInjection(entry) ? total + entry.amount : total),
+        0
+      );
 
     const savedNextId = Number(data?.nextEntryId);
     const maxEntryId = ledger.entries.reduce(

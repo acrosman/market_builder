@@ -146,6 +146,53 @@ function createConstructionCreditSupport(stellarObject, player, corporations, ge
 }
 
 /**
+ * Resolve a build-cost goods key to the concrete goods that can satisfy it.
+ *
+ * `buildCost.goods` names things like "metal", which is a good *category* and
+ * not a good: the market stocks metalOre and refinedMetal, and nothing is
+ * called metal. Checking the inventory for the key directly therefore always
+ * found zero, and every building requiring metal was unbuildable -- which is
+ * most of them, for the player as much as for anyone else.
+ *
+ * A key naming a real good resolves to that good; otherwise it is treated as a
+ * category, matching how production resolves its operating-cost inputs.
+ * @param {Object} goodsData - Parsed goods.json.
+ * @param {string} key - Build-cost goods key.
+ * @returns {Array<string>} Candidate good names, cheapest first.
+ * @example
+ * resolveBuildGoods(goodsData, 'metal'); // => ['metalOre', 'refinedMetal', ...]
+ */
+function resolveBuildGoods(goodsData, key) {
+  if (goodsData?.[key]) {
+    return [key];
+  }
+
+  // Cheapest first, so construction consumes raw stock before refined
+  const inCategory = Object.keys(goodsData || {})
+    .filter(name => goodsData[name].category === key)
+    .sort((a, b) => (Number(goodsData[a].value) || 0) - (Number(goodsData[b].value) || 0));
+
+  // A key that is neither a good nor a category falls back to itself, so an
+  // inventory that happens to be stocked under that exact name still works.
+  return inCategory.length > 0 ? inCategory : [key];
+}
+
+/**
+ * Total units available across a set of candidate goods.
+ * @param {Object} inventory - Market inventory.
+ * @param {Array<string>} candidates - Good names.
+ * @returns {number} Units available in total.
+ * @example
+ * availableAcross(inventory, ['metalOre', 'refinedMetal']);
+ */
+function availableAcross(inventory, candidates) {
+  return candidates.reduce(
+    (total, name) => total + (Number(inventory?.[name]) || 0),
+    0
+  );
+}
+
+/**
  * Represents a stellar object (planet, station, asteroid) in the universe.
  * Stellar objects are the primary locations for economic activity and player interaction.
  */
@@ -439,8 +486,11 @@ class StellarObject {
     const externalCredits = Number(externalCreditSupport?.availableCredits || 0);
     const availableGoods = this.marketState?.inventory || {};
 
+    const goodsData = loadContent('goods', this.dataDir);
+
     for (const [goodName, quantity] of Object.entries(requiredGoods)) {
-      const availableQuantity = Number(availableGoods[goodName] || 0);
+      const candidates = resolveBuildGoods(goodsData, goodName);
+      const availableQuantity = availableAcross(availableGoods, candidates);
       if (availableQuantity < quantity) {
         return {
           success: false,
@@ -502,10 +552,21 @@ class StellarObject {
 
     this.buildingCredits = localCredits - localCreditsToSpend;
     Object.entries(requiredGoods).forEach(([goodName, quantity]) => {
-      availableGoods[goodName] -= quantity;
-      if (availableGoods[goodName] <= 0) {
-        delete availableGoods[goodName];
-      }
+      let remaining = quantity;
+      resolveBuildGoods(goodsData, goodName).forEach(candidate => {
+        if (remaining <= 0) {
+          return;
+        }
+        const taken = Math.min(remaining, Number(availableGoods[candidate]) || 0);
+        if (taken <= 0) {
+          return;
+        }
+        availableGoods[candidate] -= taken;
+        remaining -= taken;
+        if (availableGoods[candidate] <= 0) {
+          delete availableGoods[candidate];
+        }
+      });
     });
 
     return {
@@ -758,6 +819,8 @@ class StellarObject {
 }
 
 module.exports = {
+  resolveBuildGoods,
+  availableAcross,
   StellarObject,
   createConstructionCreditSupport
 };

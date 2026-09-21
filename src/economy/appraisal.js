@@ -1,6 +1,7 @@
 const { loadContent } = require('../contentCache');
 const { ticksPerDay, ticksPerYear } = require('./clock');
 const { restockConfig, idealStockFor } = require('./restock');
+const { corporationHolder } = require('./accounts');
 const {
   EXTRACTION_RATINGS,
   productionConfig,
@@ -479,6 +480,8 @@ function discountRateFor(corporation, context = {}) {
  * @param {number} [context.tick=0] - Current absolute game tick.
  * @param {Object} [context.goodsPrices] - Reference prices; defaults to base values.
  * @param {Object} [context.shipValues] - Map of ship id to value.
+ * @param {Object} [context.costBasis] - Inventory positions, when goods are held
+ *   through the economy's cost basis rather than the corporation's own field.
  * @returns {Object} Appraisal breakdown including the final value.
  * @example
  * const { value } = appraiseCorporation(corporation, { universe, settings, tick });
@@ -505,9 +508,20 @@ function appraiseCorporation(corporation, context = {}) {
     }).value;
   });
 
+  // Goods reach a corporation through production and restocking, which record
+  // them in the economy's cost basis rather than on `corporation.goods`. Reading
+  // only the latter made a company that had converted cash into stock look as
+  // though it had simply lost the money.
   let inventoryValue = 0;
-  Object.entries(corporation.goods || {}).forEach(([goodName, quantity]) => {
-    inventoryValue += (Number(prices[goodName]) || 0) * (Number(quantity) || 0);
+  const positions = context.costBasis
+    ? context.costBasis.holderPositions(corporationHolder(corporation))
+    : (corporation.goods || {});
+
+  Object.entries(positions).forEach(([goodName, position]) => {
+    const quantity = typeof position === 'object'
+      ? (Number(position.quantity) || 0)
+      : (Number(position) || 0);
+    inventoryValue += (Number(prices[goodName]) || 0) * quantity;
   });
 
   const shipValues = context.shipValues || {};

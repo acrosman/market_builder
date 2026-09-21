@@ -4,6 +4,7 @@ const { Game } = require('../game');
 const { createUniverse } = require('../universe');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 const { ticksPerYear, ticksPerQuarter } = require('./clock');
+const { checkConservation } = require('./conservation');
 const { recordOpeningBalance } = require('./transactions');
 
 const settings = JSON.parse(
@@ -135,12 +136,17 @@ describe('EconomyTicker interest accrual', () => {
       const ledger = game.getEconomy().getLedger();
       game.takeCorporationLoan('Debt Co', 500000);
 
-      const cashBefore = ledger.totalAcrossHolders(ACCOUNTS.CASH);
       game.advanceTicks(2000, 'test');
 
-      // Interest capitalizes into the balance; no cash changes hands
-      expect(ledger.totalAcrossHolders(ACCOUNTS.CASH)).toBe(cashBefore);
+      // Interest capitalizes into the balance rather than being billed, so it
+      // moves no cash. Checked against the conservation invariant rather than a
+      // raw total, because the investing public's savings are a defined inflow
+      // and would otherwise read as a leak.
+      expect(checkConservation(ledger)).toMatchObject({ holds: true });
       expect(ledger.audit()).toMatchObject({ balanced: true, balancesMatch: true });
+
+      // And interest specifically added nothing to the money supply
+      expect(checkConservation(ledger).byReason.interest_accrual).toBeUndefined();
     });
 
     test('should recognize expense for the borrower and income for the bank', () => {
@@ -153,7 +159,16 @@ describe('EconomyTicker interest accrual', () => {
 
       const expense = ledger.balance(holder, ACCOUNTS.INTEREST_EXPENSE);
       expect(expense).toBeGreaterThan(0);
-      expect(ledger.balance(BANK_HOLDER, ACCOUNTS.REVENUE)).toBe(expense);
+
+      // The bank lends to every corporation, not just this one, so its income
+      // is the total across all borrowers rather than this borrower's expense.
+      const allExpense = game.getCorporations().reduce(
+        (sum, corporation) => sum + ledger.balance(
+          corporationHolder(corporation), ACCOUNTS.INTEREST_EXPENSE
+        ),
+        0
+      );
+      expect(ledger.balance(BANK_HOLDER, ACCOUNTS.REVENUE)).toBe(allExpense);
     });
 
     test('should keep posted interest within one credit of accrued', () => {

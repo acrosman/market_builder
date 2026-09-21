@@ -438,7 +438,7 @@ describe('StellarObject', () => {
         'Test Planet'
       );
       obj.buildingCredits = 600;
-      obj.marketState = { inventory: { metal: 20 } };
+      obj.marketState = { inventory: { metalOre: 20 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData);
 
@@ -446,7 +446,7 @@ describe('StellarObject', () => {
       expect(result.ticksRemaining).toBe(10);
       expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 10 }]);
       expect(obj.buildingCredits).toBe(100);
-      expect(obj.marketState.inventory.metal).toBe(10);
+      expect(obj.marketState.inventory.metalOre).toBe(10);
     });
 
     test('should report missing goods before missing credits', () => {
@@ -459,7 +459,7 @@ describe('StellarObject', () => {
         'Test Planet'
       );
       obj.buildingCredits = 400;
-      obj.marketState = { inventory: { metal: 5 } };
+      obj.marketState = { inventory: { metalOre: 5 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData);
 
@@ -477,7 +477,7 @@ describe('StellarObject', () => {
         'Test Planet'
       );
       obj.buildingCredits = 400;
-      obj.marketState = { inventory: { metal: 20 } };
+      obj.marketState = { inventory: { metalOre: 20 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData);
 
@@ -496,7 +496,7 @@ describe('StellarObject', () => {
       );
       const spendCredits = jest.fn(() => true);
       obj.buildingCredits = 0;
-      obj.marketState = { inventory: { metal: 20 } };
+      obj.marketState = { inventory: { metalOre: 20 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData, {
         availableCredits: 600,
@@ -506,7 +506,7 @@ describe('StellarObject', () => {
       expect(result.success).toBe(true);
       expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Mine', ticksRemaining: 10 }]);
       expect(obj.buildingCredits).toBe(0);
-      expect(obj.marketState.inventory.metal).toBe(10);
+      expect(obj.marketState.inventory.metalOre).toBe(10);
       expect(spendCredits).toHaveBeenCalledWith(500);
     });
 
@@ -521,7 +521,7 @@ describe('StellarObject', () => {
       );
       obj.buildingCredits = 200;
       obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 3 }];
-      obj.marketState = { inventory: { metal: 20 } };
+      obj.marketState = { inventory: { metalOre: 20 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData, {
         availableCredits: 400,
@@ -531,7 +531,7 @@ describe('StellarObject', () => {
       expect(result.success).toBe(false);
       expect(obj.buildingCredits).toBe(200);
       expect(obj.buildingsUnderConstruction).toEqual([{ type: 'Warehouse', ticksRemaining: 3 }]);
-      expect(obj.marketState.inventory.metal).toEqual(20);
+      expect(obj.marketState.inventory.metalOre).toEqual(20);
     });
 
     test('building completion should occur only after required ticks elapse', () => {
@@ -544,7 +544,7 @@ describe('StellarObject', () => {
         'Test Planet'
       );
       obj.buildingCredits = 2000;
-      obj.marketState = { inventory: { metal: 200 } };
+      obj.marketState = { inventory: { metalOre: 200 } };
 
       const result = obj.constructBuilding('Mine', mockBuildingsData);
       expect(result.success).toBe(true);

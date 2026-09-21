@@ -1,6 +1,6 @@
 const { loadContent } = require('../contentCache');
 const { recordGoodsTrade, recordOpeningStock } = require('./transactions');
-const { EXTERNAL_HOLDER } = require('./accounts');
+const { ACCOUNTS, EXTERNAL_HOLDER } = require('./accounts');
 const { operatorHolder } = require('./production');
 
 /**
@@ -25,6 +25,13 @@ const { operatorHolder } = require('./production');
  * The external galaxy is a ledger holder rather than a void, so restocking is a
  * trade: goods and credits cross the boundary rather than being created at it,
  * and total cash stays conserved across all holders.
+ *
+ * Imports are limited to what the operator can pay for. Without that, owning a
+ * world meant being billed to stock its entire market whether or not anyone
+ * there would ever buy the goods, and a corporation holding a couple of thinly
+ * populated worlds was driven into forced borrowing and then bankruptcy by an
+ * inventory it had no use for. A market that cannot be restocked simply runs
+ * short, which lifts its prices and makes it somewhere worth trading to.
  */
 
 /** Defaults for the restock settings block. */
@@ -137,8 +144,8 @@ function restockMarket({ economy, market, stellarObject, corporations, settings,
     const ceiling = ideal * config.maxIdealMultiple;
 
     if (current < ideal) {
-      const units = Math.floor((ideal - current) * closedFraction);
-      if (units <= 0) {
+      const wanted = Math.floor((ideal - current) * closedFraction);
+      if (wanted <= 0) {
         return;
       }
 
@@ -153,6 +160,17 @@ function restockMarket({ economy, market, stellarObject, corporations, settings,
         1,
         Math.round((Number(good.value) || 1) * (1 + config.importMarkup))
       );
+
+      // Buy only what the operator can pay for. Restocking used to spend
+      // whatever it took, so a world nobody lived on could still bill its owner
+      // for a full market's worth of stock it would never sell.
+      const affordable = Math.floor(
+        Math.max(0, economy.getLedger().balance(holder, ACCOUNTS.CASH)) / unitPrice
+      );
+      const units = Math.min(wanted, affordable);
+      if (units <= 0) {
+        return;
+      }
 
       // The galaxy's stock is unmodelled, so give it a basis at the same price
       // before it sells. Otherwise every external sale would book as pure

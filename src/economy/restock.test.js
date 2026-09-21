@@ -5,6 +5,7 @@ const { Market } = require('../market');
 const { restockConfig, idealStockFor, restockMarket } = require('./restock');
 const { loadContent } = require('../contentCache');
 const { ACCOUNTS, EXTERNAL_HOLDER, marketHolder } = require('./accounts');
+const { recordOpeningBalance } = require('./transactions');
 
 const settings = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'data/default/en-us/game_settings.json'), 'utf-8')
@@ -36,6 +37,14 @@ function makeObject(overrides = {}) {
  */
 function restock(stellarObject, options = {}) {
   const economy = options.economy || new EconomyState({ seed: 'restock' });
+
+  // Imports are limited to what the operator can pay for, so a fixture with no
+  // cash would buy nothing at all. Fund it once, generously.
+  const holder = marketHolder(stellarObject);
+  if (economy.getLedger().balance(holder, ACCOUNTS.CASH) <= 0 && options.funded !== false) {
+    recordOpeningBalance(economy, { tick: 0, holder, amount: 10000000 });
+  }
+
   const universe = { systems: [], stellarObjects: [stellarObject] };
   const summary = restockMarket({
     economy,
@@ -168,11 +177,15 @@ describe('restockMarket', () => {
     const object = makeObject();
     object.marketState.inventory.wheat = 0;
 
-    const { economy } = restock(object);
-    const ledger = economy.getLedger();
+    const economy = new EconomyState({ seed: 'import' });
     const holder = marketHolder(object);
+    recordOpeningBalance(economy, { tick: 0, holder, amount: 10000000 });
 
-    expect(ledger.balance(holder, ACCOUNTS.CASH)).toBeLessThan(0);
+    restock(object, { economy, funded: false });
+    const ledger = economy.getLedger();
+
+    // Credits cross the boundary rather than being destroyed at it
+    expect(ledger.balance(holder, ACCOUNTS.CASH)).toBeLessThan(10000000);
     expect(ledger.balance(EXTERNAL_HOLDER, ACCOUNTS.CASH)).toBeGreaterThan(0);
   });
 
@@ -182,10 +195,13 @@ describe('restockMarket', () => {
     object.marketState.inventory.metalOre = 5000;
 
     const economy = new EconomyState({ seed: 'conserve' });
+    recordOpeningBalance(economy, {
+      tick: 0, holder: marketHolder(object), amount: 10000000
+    });
     const cashBefore = economy.getLedger().totalAcrossHolders(ACCOUNTS.CASH);
 
     for (let day = 1; day <= 30; day += 1) {
-      restock(object, { economy, days: 1, tick: day * 24 });
+      restock(object, { economy, days: 1, tick: day * 24, funded: false });
     }
 
     // The wider galaxy is a holder, not a void, so nothing is created at it
@@ -243,5 +259,48 @@ describe('restockMarket', () => {
       });
     };
     expect(runOnce()).toBe(runOnce());
+  });
+
+  describe('affordability', () => {
+    test('should buy nothing when the operator has no cash', () => {
+      const object = makeObject();
+      object.marketState.inventory.wheat = 0;
+
+      const economy = new EconomyState({ seed: 'broke' });
+      const { summary } = restock(object, { economy, funded: false });
+
+      // Owning a world used to mean being billed to stock its entire market
+      // whether or not anyone there would ever buy the goods
+      expect(summary.bought.wheat).toBeUndefined();
+      expect(object.marketState.inventory.wheat).toBe(0);
+    });
+
+    test('should buy only what the operator can pay for', () => {
+      const object = makeObject();
+      object.marketState.inventory.wheat = 0;
+
+      const economy = new EconomyState({ seed: 'thin' });
+      const holder = marketHolder(object);
+      // Enough for a handful of units, far less than the gap to ideal
+      recordOpeningBalance(economy, { tick: 0, holder, amount: 40 });
+
+      const { summary } = restock(object, { economy, funded: false });
+
+      expect(summary.bought.wheat).toBeGreaterThan(0);
+      expect(summary.bought.wheat).toBeLessThan(25);
+      expect(economy.getLedger().balance(holder, ACCOUNTS.CASH))
+        .toBeGreaterThanOrEqual(0);
+    });
+
+    test('should still sell down a glut when the operator has no cash', () => {
+      const object = makeObject();
+      object.marketState.inventory.wheat = 2500;
+
+      const economy = new EconomyState({ seed: 'glut' });
+      const { summary } = restock(object, { economy, funded: false });
+
+      // Selling brings cash in, so it is never blocked by the lack of it
+      expect(summary.sold.wheat).toBeGreaterThan(0);
+    });
   });
 });

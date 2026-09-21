@@ -279,9 +279,14 @@ describe('exchange IPC handlers', () => {
 
       expect(result.success).toBe(true);
       expect(result.sharesOutstanding).toBe(10000);
-      expect(result.holders[0]).toEqual({
-        kind: 'investor_pool', id: 'public', shares: 10000, fraction: 1
-      });
+
+      // Spread across the investing public, so the register has several rows
+      // rather than one account holding the whole float
+      expect(result.holders.length).toBeGreaterThan(1);
+      result.holders.forEach(row => expect(row.kind).toBe('investor_pool'));
+      expect(result.holders.reduce((total, row) => total + row.shares, 0)).toBe(10000);
+      expect(result.holders.reduce((total, row) => total + row.fraction, 0))
+        .toBeCloseTo(1, 6);
     });
 
     test('should fail for an unknown symbol', () => {

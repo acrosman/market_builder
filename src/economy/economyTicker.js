@@ -3,6 +3,9 @@ const { runProduction, consumeFood } = require('./production');
 const { restockMarket } = require('./restock');
 const { enforceSolvency } = require('./solvency');
 const { closeElapsedQuarters } = require('./statements');
+const { payQuarterlyDividends } = require('./dividends');
+const { runInvestorPool } = require('../agents/investorPool');
+const { runCorporateAI, corporateCycleTicks } = require('../agents/corporateAI');
 const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
@@ -168,9 +171,11 @@ class EconomyTicker {
     });
 
     this.settleCorporations(tick);
-    // The exchange clears on the market cycle, after solvency so a distressed
-    // company's state is current, and before the books close so a quarter's
-    // closing balance sheet reflects the day's trading.
+    this.runAgents(tick, elapsedDays);
+    // The exchange clears on the market cycle, after the agents have placed
+    // their orders, after solvency so a distressed company's state is current,
+    // and before the books close so a quarter's closing balance sheet reflects
+    // the day's trading.
     this.clearExchange(tick);
     this.closeBooks(tick);
 
@@ -208,6 +213,31 @@ class EconomyTicker {
       corporation.setCashPosition(ledger.balance(holder, ACCOUNTS.CASH));
       enforceSolvency({ economy, game, corporation, tick });
     });
+  }
+
+  /**
+   * Run the corporate and investor agents.
+   *
+   * Corporations decide on a slower cadence than the market clears: deciding
+   * every day would build out every world almost at once and the differences
+   * between companies would collapse before anyone could price them.
+   * @param {number} tick - Current absolute game tick.
+   * @param {number} elapsedDays - Whole days elapsed.
+   * @returns {void}
+   * @example
+   * ticker.runAgents(168, 1);
+   */
+  runAgents(tick, elapsedDays) {
+    const game = this.game;
+
+    runInvestorPool({ game, days: elapsedDays, tick });
+
+    const cycle = corporateCycleTicks(game.getSettings());
+    if (cycle > 0 && Math.floor(tick / cycle) > Math.floor((tick - elapsedDays * 24) / cycle)) {
+      runCorporateAI({ game, tick }).forEach(build => {
+        game.getEventBus().emit('corporation-built', { tick, ...build });
+      });
+    }
   }
 
   /**
@@ -251,6 +281,13 @@ class EconomyTicker {
       corporations: game.getCorporations(),
       settings: game.getSettings(),
       tick
+    });
+
+    // Paid from the published figures, so a dividend is a share of a quarter's
+    // earnings rather than a draw on whatever cash happens to be lying about.
+    const dividends = payQuarterlyDividends({ game, statements: published, tick });
+    dividends.forEach(dividend => {
+      game.getEventBus().emit('dividend-paid', { tick, ...dividend });
     });
 
     published.forEach(statement => {

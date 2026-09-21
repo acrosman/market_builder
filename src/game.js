@@ -475,6 +475,16 @@ class Game {
       logger.warn('No Farm World found outside system 1; player corporation starts without a planet');
     }
 
+    // Create the corporations the player does not control, before markets are
+    // stocked so their opening inventory lands on their own books.
+    const { createNpcCorporations } = require('./agents/corporateAI');
+    createNpcCorporations(this);
+
+    // Endow the investing public before anything can be listed, so a flotation
+    // has a counterparty with real money rather than an unlimited buyer.
+    const { seedInvestorPool } = require('./agents/investorPool');
+    seedInvestorPool(this);
+
     // Create NPCs (one trader per system for now)
     this.getUniverse().systems.forEach((system) => {
       if (system.id === 1) return; // Skip player's starting system
@@ -1422,7 +1432,8 @@ class Game {
     const appraisal = appraiseCorporation(corporation, {
       universe: this.getUniverse(),
       settings: this.getSettings(),
-      tick: this.getTicks()
+      tick: this.getTicks(),
+      costBasis: this.getEconomy().getCostBasis()
     });
 
     const alreadyIssued = Number(corporation.sharesIssued) || 0;
@@ -1447,22 +1458,24 @@ class Game {
 
     const holder = corporationHolder(corporation);
 
-    // The public buys the shares, so the proceeds are a transfer rather than
-    // credits appearing from nowhere, and the buyers hold a real position.
-    recordShareIssue(this.getEconomy(), {
-      tick: this.getTicks(),
+    // The issue is spread across the investing public rather than sold to a
+    // single account. Investors pay from their own cash, so proceeds are a
+    // transfer rather than credits from nowhere, and the register ends up with
+    // several holders who can disagree about the price and therefore trade.
+    const { subscribeToIssue } = require('./agents/investorPool');
+    const raised = subscribeToIssue({
+      game: this,
       issuer: holder,
-      subscriber: INVESTOR_POOL_HOLDER,
-      amount: proceeds,
-      refs: { corporationName: corporation.name, shares: count, pricePerShare }
+      symbol: listing.symbol,
+      shares: count,
+      pricePerShare
     });
 
-    exchange.portfolio.adjust(INVESTOR_POOL_HOLDER, corporation.name, count);
     corporation.setCashPosition(
       this.getEconomy().getLedger().balance(holder, ACCOUNTS.CASH)
     );
 
-    return { success: true, reason: null, pricePerShare, proceeds, listing };
+    return { success: true, reason: null, pricePerShare, proceeds: raised, listing };
   }
 
   /**

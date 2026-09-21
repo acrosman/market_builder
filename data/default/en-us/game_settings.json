@@ -35,6 +35,25 @@
     "infrastructure_floor_weight": 0.5,
     "max_default_probability": 0.95
   },
+  "npc_corporations": {
+    "count": 12,
+    "starting_cash": 250000,
+    "max_objects_each": 3,
+    "build_cash_floor": 100000,
+    "build_check_days": 7
+  },
+  "investors": {
+    "starting_capital": 50000000,
+    "savings_per_day": 20000,
+    "belief_dispersion": 0.15,
+    "participation_rate": 0.6,
+    "max_position_fraction": 0.35,
+    "order_size_fraction": 0.02,
+    "investor_count": 8
+  },
+  "dividends": {
+    "pay_on_quarter_close": true
+  },
   "starting_system": {
     "required_objects": [
       {

@@ -143,6 +143,14 @@ Overview of src files. These are backend modules that only run on the main proce
   - **exchange.js** - Listings, order submission, and settlement. **Short selling is refused**,
     including selling the same shares twice across two orders; it needs borrow, margin and a
     forced cover first. Listings are keyed by symbol, which for equity is the company name
+  - **conservation.js** - The money invariant: **total cash equals total injected**. Every
+    credit enters the game the same way, debited to a holder's CASH against that holder's
+    CONTRIBUTED_CAPITAL; everything else moves credits sideways. `checkConservation()` says
+    precisely when a subsystem has learned to create or destroy money, and
+    `injectionsByReason()` names which inflow grew
+  - **dividends.js** - Paying shareholders out of a quarter's *earnings*, never out of cash on
+    hand. A company that lost money pays nothing however much cash it holds; paying out of
+    capital is how a treasury gets drained into shareholders' pockets while the business fails
   - **rng.js** - `RandomSource` / `RandomStream`, seeded and serializable PRNG.
     **All new economy, exchange, and agent code must use this, never `Math.random()`.**
     Streams are named (`random.stream('price-noise')`) and independent: a stream's seed is
@@ -163,3 +171,14 @@ Overview of src files. These are backend modules that only run on the main proce
   - Direct listeners unsubscribe with returned function: `const unsubscribe = eventBus.on('tick', cb); unsubscribe();`
   - Subscribers unsubscribe with `eventBus.unsubscribe('tick', subscriber)`
   - **Pattern choice**: Use subscriber interface for objects with lifecycle (StellarObject), direct `on()` for simple callbacks
+
+- **src/agents/** - The actors the player does not control
+  - **corporateAI.js** - The 8-20 corporations that own real worlds, produce real goods and keep
+    real books, so their statements summarize what happened rather than a stochastic process
+    dressed as one. Policy is deliberately simple -- hold a cash buffer, develop the least
+    developed world -- because the worlds differ, so one policy yields divergent results
+  - **investorPool.js** - The investing public, modelled as **several distinct investors rather
+    than one**. That is not cosmetic: a single holder cannot trade with itself, so a one-holder
+    pool can only ever be on one side of the market and the book never crosses. Capital is
+    finite and tracked in the ledger, so the public can run out and a market can lose its bid.
+    Beliefs come from appraisal, which cannot see a share price, so price cannot feed on itself
