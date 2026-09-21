@@ -7,13 +7,15 @@ Overview of src files. These are backend modules that only run on the main proce
   - **Accessors**: All `Game` state is reached through accessor methods. Never read or
     write `game.player`, `game.universe`, `game.turn`, etc. directly from outside the class.
     - Read: `getUniverse()`, `getSettings()`, `getDataDirectory()`, `getEventBus()`, `getMarket()`,
-      `getPlayer()`, `getNPCs()`, `getCorporations()`, `getTurn()`, `getTicks()`, `getExploredSystems()`
+      `getEconomy()`, `getPlayer()`, `getNPCs()`, `getCorporations()`, `getTurn()`, `getTicks()`,
+      `getExploredSystems()`
     - Write: `setPlayer()`, `setNPCs()`, `addNPC()`, `setCorporations()`,
       `addCorporation()`, `setTurn()`, `setTicks()`, `setExploredSystems()`, `addExploredSystem()`
-    - `universe`, `settings`, `eventBus`, and `market` are session-scoped collaborators set
-      in the constructor and have no setters. `Market` caches its own universe reference and
+    - `universe`, `settings`, `eventBus`, `market`, and `economy` are session-scoped collaborators
+      set in the constructor and have no setters. `Market` caches its own universe reference and
       stellar objects subscribe to tick events at setup, so swapping either on a live `Game`
       would desync them — build a new `Game` instead (that is what `loadGame()` does).
+      `loadGame()` passes restored economy state in via the constructor's `options.economy`.
     - Lookups: `findCorporation(name)`, `findStellarObject(id)`, `hasExploredSystem(id)`
     - Setters validate types and throw `TypeError` on bad input; the array getters
       (`getNPCs()`, `getCorporations()`, `getExploredSystems()`) return shallow copies, so
@@ -72,6 +74,21 @@ Overview of src files. These are backend modules that only run on the main proce
   - Determines which goods to stock based on productivity modifiers
   - Dynamic pricing based on supply/demand
   - Integrates with stellar objects' productivity ratings
+
+- **src/economy/** - Economy and exchange simulation (in progress)
+  - **economyState.js** - `EconomyState`, the container for all economy/exchange state.
+    Owns its own `schemaVersion` and serializes itself under the save file's `economy` key.
+    Reached via `game.getEconomy()`. Everything the economy owns belongs here rather than as
+    new top-level save fields, because `getSaveData()` serializes live instances while the
+    deserializers copy hand-maintained field lists — new fields are written but silently
+    not restored. New economy subsystems hang off this object.
+  - **rng.js** - `RandomSource` / `RandomStream`, seeded and serializable PRNG.
+    **All new economy, exchange, and agent code must use this, never `Math.random()`.**
+    Streams are named (`random.stream('price-noise')`) and independent: a stream's seed is
+    derived by hashing its name with the master seed, so adding a new stream never shifts an
+    existing one's sequence. Mulberry32 state is one 32-bit integer, so save/load resumes a
+    sequence exactly. Universe generation still uses unseeded `Math.random()` and is
+    deliberately not covered by this.
 
 - **src/eventBus.js** - Pub/sub event system
   - **Direct listener methods**: `on(eventName, callback)`, `once()`, `emit()`, `clear()`, `listenerCount()`

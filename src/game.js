@@ -8,10 +8,21 @@ const { Market } = require('./market');
 const { getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger } = require('./logger');
 const { createConstructionCreditSupport } = require('./stellarObject');
+const { EconomyState } = require('./economy/economyState');
 
 const logger = createLogger('Game');
 
 const DEFAULT_DATA_DIRECTORY = 'data/default/en-us';
+
+/**
+ * Schema version for the overall save file.
+ *
+ * Saves written before versioning existed have no `schemaVersion` field and are
+ * treated as version 0. Bump this when the top-level save shape changes in a
+ * way `loadGame()` cannot infer. Subsystems that own nested blocks, such as the
+ * economy, carry their own independent version.
+ */
+const SAVE_SCHEMA_VERSION = 1;
 
 /**
  * Throw when a value is not a non-null object.
@@ -74,10 +85,15 @@ class Game {
    * Create a game session.
    * @param {Object} universe - Universe instance holding systems and stellar objects.
    * @param {Object} settings - Resolved game settings.
+   * @param {Object} [options={}] - Optional session options.
+   * @param {number|string} [options.seed] - Master seed for economy determinism.
+   *   Omit for a new game to get a generated seed.
+   * @param {EconomyState} [options.economy] - Pre-built economy state, used by
+   *   `loadGame()` to restore exact PRNG positions. Takes precedence over seed.
    * @example
    * const game = new Game(universe, gameSettings);
    */
-  constructor(universe, settings) {
+  constructor(universe, settings, options = {}) {
     assertObject(universe, 'universe');
     assertObject(settings, 'settings');
 
@@ -91,6 +107,11 @@ class Game {
     this.exploredSystems = []; // List of system ids the player has explored
     this.eventBus = new EventBus(); // Event system for tick events
     this.market = new Market(universe, settings); // Market management
+    // Economy and exchange state. Session-scoped like universe/market: established
+    // here and never swapped, because subsystems hold references into it.
+    this.economy = options.economy instanceof EconomyState
+      ? options.economy
+      : new EconomyState({ seed: options.seed });
   }
 
   /**
@@ -134,6 +155,19 @@ class Game {
    */
   getEventBus() {
     return this.eventBus;
+  }
+
+  /**
+   * Get the economy and exchange state for this game session.
+   * Read-only by design, matching the other session-scoped collaborators:
+   * subsystems hold references into it, so swapping it on a live Game would
+   * leave them out of sync. Build a new Game instead, as loadGame() does.
+   * @returns {Object} EconomyState instance.
+   * @example
+   * const noise = game.getEconomy().getRandom().stream('price-noise');
+   */
+  getEconomy() {
+    return this.economy;
   }
 
   /**
@@ -1239,6 +1273,7 @@ class Game {
     };
 
     return {
+      schemaVersion: SAVE_SCHEMA_VERSION,
       universe: universeData,
       player: this.getPlayer(),
       corporations: this.getCorporations(),
@@ -1246,7 +1281,8 @@ class Game {
       turn: this.getTurn(),
       ticks: this.getTicks(),
       settings: this.getSettings(),
-      exploredSystems: this.getExploredSystems()
+      exploredSystems: this.getExploredSystems(),
+      economy: this.getEconomy().toJSON()
     };
   }
 
@@ -1283,7 +1319,13 @@ class Game {
     }
 
     const universe = Game.deserializeUniverse(saveData.universe);
-    const game = new Game(universe, saveData.settings);
+
+    // Economy state is restored at construction, including exact mid-stream PRNG
+    // positions, so a loaded session replays identically. Saves written before
+    // the economy existed carry no block and get fresh state instead of throwing.
+    const game = new Game(universe, saveData.settings, {
+      economy: EconomyState.fromJSON(saveData.economy)
+    });
 
     game.setPlayer(Game.deserializePlayer(saveData.player, saveData.settings));
     game.setNPCs(saveData.npcs || []);

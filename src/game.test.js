@@ -1233,6 +1233,82 @@ describe('Game Module', () => {
         expect(loadedGame.getTicks()).toBe(0);
       });
 
+      test('should stamp a schema version on save data', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        expect(game.getSaveData().schemaVersion).toBe(1);
+      });
+
+      test('should load a pre-versioning save with no schemaVersion or economy', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.advanceTicks(4, 'test');
+
+        // Simulate a save written before versioning and the economy existed
+        const saveData = game.getSaveData();
+        delete saveData.schemaVersion;
+        delete saveData.economy;
+
+        const loadedGame = Game.loadGame(saveData);
+        expect(loadedGame.getTicks()).toBe(4);
+        expect(loadedGame.getPlayer().name).toBe('TestPlayer');
+        // Fresh economy state rather than a throw
+        expect(Number.isFinite(loadedGame.getEconomy().getRandom().stream('x').next()))
+          .toBe(true);
+      });
+
+      test('should ignore unknown future top-level fields', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const saveData = game.getSaveData();
+        saveData.somethingFromTheFuture = { nested: true };
+
+        expect(() => Game.loadGame(saveData)).not.toThrow();
+      });
+
+      test('should resume economy randomness mid-stream across a save and load', () => {
+        const game = new Game(mockUniverse, mockSettings, { seed: 'determinism-check' });
+        game.initializeGame(createTestPlayerData());
+
+        // Draw partway through two streams before saving
+        const noise = game.getEconomy().getRandom().stream('price-noise');
+        const beliefs = game.getEconomy().getRandom().stream('investor-beliefs');
+        for (let i = 0; i < 11; i += 1) {
+          noise.next();
+          beliefs.int(1, 100);
+        }
+
+        // Round trip through JSON exactly as the save file does
+        const saveData = JSON.parse(JSON.stringify(game.getSaveData()));
+        const loadedGame = Game.loadGame(saveData);
+
+        const loadedRandom = loadedGame.getEconomy().getRandom();
+        expect(loadedRandom.stream('price-noise').next()).toBe(noise.next());
+        expect(loadedRandom.stream('investor-beliefs').int(1, 100)).toBe(beliefs.int(1, 100));
+      });
+
+      test('should carry the economy seed through a save and load', () => {
+        const game = new Game(mockUniverse, mockSettings, { seed: 4242 });
+        game.initializeGame(createTestPlayerData());
+
+        const loadedGame = Game.loadGame(JSON.parse(JSON.stringify(game.getSaveData())));
+        expect(loadedGame.getEconomy().getRandom().seed).toBe(4242);
+      });
+
+      test('should give two games with the same seed identical economy streams', () => {
+        const first = new Game(mockUniverse, mockSettings, { seed: 'same-seed' });
+        const second = new Game(mockUniverse, mockSettings, { seed: 'same-seed' });
+
+        const drawTen = (game) => Array.from(
+          { length: 10 },
+          () => game.getEconomy().getRandom().stream('price-noise').next()
+        );
+
+        expect(drawTen(first)).toEqual(drawTen(second));
+      });
+
       test('should recreate EventBus on load', () => {
         const game = new Game(mockUniverse, mockSettings);
         game.initializeGame(createTestPlayerData());
