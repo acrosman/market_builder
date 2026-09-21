@@ -566,3 +566,71 @@ describe('the exchange in a running game', () => {
     });
   });
 });
+
+describe('order pruning', () => {
+  test('should drop dead orders while keeping live ones', () => {
+    const { exchange, economy } = setup({ aliceShares: 500, bobShares: 500 });
+
+    // A filled order and a resting one
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: ALICE, side: SIDES.SELL,
+      quantity: 100, limitPrice: 40, tick: 0
+    });
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: BOB, side: SIDES.BUY,
+      quantity: 100, limitPrice: 60, tick: 0
+    });
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: BOB, side: SIDES.BUY,
+      quantity: 50, limitPrice: 1, tick: 0
+    });
+
+    exchange.clearAll({ economy, tick: DAY });
+    const listing = exchange.getListing('Meridian');
+    const beforePrune = listing.orders.length;
+
+    // Far enough ahead that the dead orders fall outside the retained window
+    exchange.pruneClosedOrders(DAY * 200, DAY);
+
+    expect(listing.orders.length).toBeLessThan(beforePrune);
+    // The unfilled bid is a standing instruction and must survive
+    expect(listing.openOrders()).toHaveLength(1);
+  });
+
+  test('should keep recent dead orders so a book can still be inspected', () => {
+    const { exchange, economy } = setup({ aliceShares: 500, bobShares: 500 });
+
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: ALICE, side: SIDES.SELL,
+      quantity: 100, limitPrice: 40, tick: DAY
+    });
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: BOB, side: SIDES.BUY,
+      quantity: 100, limitPrice: 60, tick: DAY
+    });
+    exchange.clearAll({ economy, tick: DAY });
+
+    expect(exchange.getListing('Meridian').orders.length).toBeGreaterThan(0);
+  });
+
+  test('should not disturb balances or holdings', () => {
+    const { exchange, economy } = setup({ aliceShares: 500, bobShares: 500 });
+
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: ALICE, side: SIDES.SELL,
+      quantity: 200, limitPrice: 40, tick: 0
+    });
+    exchange.submitOrder({
+      corporationName: 'Meridian', holder: BOB, side: SIDES.BUY,
+      quantity: 200, limitPrice: 60, tick: 0
+    });
+    exchange.clearAll({ economy, tick: DAY });
+
+    const held = exchange.portfolio.sharesHeld(BOB, 'Meridian');
+    exchange.pruneClosedOrders(DAY * 200, DAY);
+
+    expect(exchange.portfolio.sharesHeld(BOB, 'Meridian')).toBe(held);
+    expect(exchange.portfolio.totalHeld('Meridian')).toBe(1000);
+  });
+});
+

@@ -217,8 +217,33 @@ class Exchange {
       }
     });
 
+    this.pruneClosedOrders(tick);
     this.lastClearedTick = tick;
     return cleared;
+  }
+
+  /**
+   * Drop filled and cancelled orders older than the retained window.
+   *
+   * Every clear leaves behind the orders it consumed, and the agents replace
+   * their whole book daily, so a year of trading accumulates far more dead
+   * orders than live ones. They have no reader once the auction that used them
+   * has run, and the price history already records what happened.
+   * @param {number} tick - Current absolute game tick.
+   * @param {number} [retainTicks=2160] - How much recent history to keep.
+   * @returns {number} Orders removed.
+   * @example
+   * exchange.pruneClosedOrders(tick);
+   */
+  pruneClosedOrders(tick, retainTicks = 2160) {
+    const cutoff = Math.max(0, tick - retainTicks);
+    let removed = 0;
+
+    this.listings.forEach(listing => {
+      removed += listing.pruneClosedOrders(cutoff);
+    });
+
+    return removed;
   }
 
   /**

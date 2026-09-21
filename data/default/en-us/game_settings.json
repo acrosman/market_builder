@@ -26,7 +26,7 @@
     "forced_loan_buffer": 0.1
   },
   "statements": {
-    "detail_quarters_retained": 2
+    "detail_quarters_retained": 1
   },
   "appraisal": {
     "base_discount_rate": 0.12,
