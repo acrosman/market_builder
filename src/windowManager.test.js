@@ -447,6 +447,47 @@ describe('windowManager IPC registration', () => {
       .toEqual({ success: false });
     expect(handleHandlers['set-company-loan-repayment-rate']({}, { companyName: 'Missing', loanId: 1, repaymentRate: 0.1 }))
       .toEqual({ success: false });
+    expect(handleHandlers['get-company-statements']({}, { companyName: 'Missing' }))
+      .toEqual({ success: false, statements: [] });
+  });
+
+  test('returns published statements for a player-controlled company', () => {
+    const statements = [{ quarterIndex: 0, corporationName: 'Test Corp' }];
+    const corporation = {
+      name: 'Test Corp',
+      isPlayerOwned: true,
+      getCompanyManagementState: jest.fn(() => ({ name: 'Test Corp' }))
+    };
+
+    const game = createGameMock({
+      corporations: [corporation],
+      player: { getOwnedCorporations: jest.fn(() => [corporation]) },
+      getEconomy: jest.fn(() => ({
+        getStatements: () => ({ forHolder: jest.fn(() => statements) })
+      }))
+    });
+    const { handleHandlers } = registerWithMocks({ getCurrentGame: jest.fn(() => game) });
+
+    expect(handleHandlers['get-company-statements']({}, { companyName: 'Test Corp' }))
+      .toEqual({ success: true, statements });
+  });
+
+  test('returns an empty statement list when the economy is unavailable', () => {
+    const corporation = {
+      name: 'Test Corp',
+      isPlayerOwned: true,
+      getCompanyManagementState: jest.fn(() => ({ name: 'Test Corp' }))
+    };
+
+    const game = createGameMock({
+      corporations: [corporation],
+      player: { getOwnedCorporations: jest.fn(() => [corporation]) },
+      getEconomy: jest.fn(() => undefined)
+    });
+    const { handleHandlers } = registerWithMocks({ getCurrentGame: jest.fn(() => game) });
+
+    expect(handleHandlers['get-company-statements']({}, { companyName: 'Test Corp' }))
+      .toEqual({ success: true, statements: [] });
   });
 
   test('reads nested game messages and handles missing keys and read errors', () => {

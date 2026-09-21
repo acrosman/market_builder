@@ -90,7 +90,8 @@ contextBridge.exposeInMainWorld('api', {
       'issue-company-shares',
       'take-company-loan',
       'make-company-loan-payment',
-      'set-company-loan-repayment-rate'
+      'set-company-loan-repayment-rate',
+      'get-company-statements'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

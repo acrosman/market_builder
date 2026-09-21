@@ -109,6 +109,7 @@
       "profile": "Profile",
       "finance": "Finance",
       "loans": "Loans",
+      "reports": "Reports",
       "trade_routes": "Trade Routes"
     },
     "profile": {
@@ -152,6 +153,33 @@
       "none_outstanding": "No outstanding loans.",
       "loan_option": "Loan #{loanId} ({balance})",
       "loan_line": "Loan #{loanId} | Principal: {principal} | Remaining: {remaining} | Interest: {interestRate}% | Repayment: {repaymentRate}%"
+    },
+    "reports": {
+      "heading": "Quarterly Reports",
+      "no_statements": "No quarter has closed yet. The first report publishes at the end of quarter one.",
+      "select_quarter": "Quarter",
+      "quarter_option": "Q{quarterIndex}",
+      "period": "Ticks {fromTick} to {toTick}",
+      "income_heading": "Income Statement",
+      "revenue": "Revenue",
+      "cogs": "Cost of goods sold",
+      "gross_profit": "Gross profit",
+      "operating_expense": "Operating expenses",
+      "interest_expense": "Interest",
+      "net_income": "Net income",
+      "balance_heading": "Balance Sheet",
+      "cash": "Cash",
+      "inventory": "Inventory at cost",
+      "property": "Property",
+      "investments": "Investments",
+      "loan_receivable": "Loans receivable",
+      "total_assets": "Total assets",
+      "debt": "Debt",
+      "total_liabilities": "Total liabilities",
+      "net_worth": "Net worth",
+      "shares_issued": "Shares issued",
+      "bankrupt": "This company has been declared bankrupt.",
+      "load_error": "Could not load quarterly reports."
     },
     "trade_routes": {
       "heading": "Trade Routes",

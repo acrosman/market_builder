@@ -1,6 +1,7 @@
 const { RandomSource } = require('./rng');
 const { Ledger } = require('./ledger');
 const { CostBasis } = require('./costBasis');
+const { StatementStore } = require('./statements');
 
 /**
  * Schema version for the economy save block.
@@ -41,6 +42,7 @@ class EconomyState {
     this.random = new RandomSource(seed);
     this.ledger = new Ledger();
     this.costBasis = new CostBasis();
+    this.statements = new StatementStore();
     // Last tick production was run through. Persisted so day boundaries are not
     // lost or double-counted across a save and load.
     this.lastProductionTick = Number(options.lastProductionTick) || 0;
@@ -80,6 +82,20 @@ class EconomyState {
   }
 
   /**
+   * Get the published quarterly statement store.
+   *
+   * Only closed quarters are in here. A quarter in progress is deliberately
+   * unpublished: the market has to form an expectation rather than read the
+   * current period, and that gap is what makes investing a game.
+   * @returns {StatementStore} The economy's statement store.
+   * @example
+   * game.getEconomy().getStatements().latestForHolder(holder);
+   */
+  getStatements() {
+    return this.statements;
+  }
+
+  /**
    * Serialize economy state for saving.
    * @returns {Object} Plain serializable object carrying its own schema version.
    * @example
@@ -91,6 +107,7 @@ class EconomyState {
       random: this.random.toJSON(),
       ledger: this.ledger.toJSON(),
       costBasis: this.costBasis.toJSON(),
+      statements: this.statements.toJSON(),
       lastProductionTick: this.lastProductionTick
     };
   }
@@ -115,6 +132,7 @@ class EconomyState {
 
     economy.ledger = Ledger.fromJSON(data?.ledger);
     economy.costBasis = CostBasis.fromJSON(data?.costBasis);
+    economy.statements = StatementStore.fromJSON(data?.statements);
     economy.lastProductionTick = Number(data?.lastProductionTick) || 0;
 
     return economy;

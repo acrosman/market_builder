@@ -2,6 +2,7 @@ const { ticksPerYear, ticksPerDay } = require('./clock');
 const { runProduction, consumeFood } = require('./production');
 const { restockMarket } = require('./restock');
 const { enforceSolvency } = require('./solvency');
+const { closeElapsedQuarters } = require('./statements');
 const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
@@ -167,6 +168,7 @@ class EconomyTicker {
     });
 
     this.settleCorporations(tick);
+    this.closeBooks(tick);
 
     return elapsedDays;
   }
@@ -202,6 +204,37 @@ class EconomyTicker {
       corporation.setCashPosition(ledger.balance(holder, ACCOUNTS.CASH));
       enforceSolvency({ economy, game, corporation, tick });
     });
+  }
+
+  /**
+   * Publish statements for any quarter that has fully elapsed.
+   *
+   * Runs after solvency settlement so a quarter's closing balance sheet
+   * reflects any forced borrowing that happened in it.
+   * @param {number} tick - Current absolute game tick.
+   * @returns {Array<Object>} Statements published by this call.
+   * @example
+   * ticker.closeBooks(2160);
+   */
+  closeBooks(tick) {
+    const game = this.game;
+    const published = closeElapsedQuarters({
+      economy: game.getEconomy(),
+      corporations: game.getCorporations(),
+      settings: game.getSettings(),
+      tick
+    });
+
+    published.forEach(statement => {
+      game.getEventBus().emit('statement-published', {
+        tick,
+        corporationName: statement.corporationName,
+        quarterIndex: statement.quarterIndex,
+        netIncome: statement.income.netIncome
+      });
+    });
+
+    return published;
   }
 }
 

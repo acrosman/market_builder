@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const { getGameMessages: loadGameMessages, getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger, validLogLevels } = require('./logger');
+const { corporationHolder } = require('./economy/accounts');
 
 /**
  * Register all main-process IPC listeners and handlers.
@@ -359,6 +360,22 @@ function registerIpcHandlers(dependencies) {
     const repaymentRate = Number(payload.repaymentRate);
     const success = corporation.setLoanRepaymentRate(loanId, repaymentRate);
     return { success, company: getCompanyManagementState(corporation) };
+  });
+
+  // IPC: Return published quarterly statements for a player-controlled company.
+  ipcMain.handle('get-company-statements', (event, payload = {}) => {
+    const corporation = findPlayerControlledCorporation(payload.companyName);
+    if (!corporation) {
+      return { success: false, statements: [] };
+    }
+
+    const game = getCurrentGame();
+    const statements = game
+      ?.getEconomy()
+      ?.getStatements()
+      ?.forHolder(corporationHolder(corporation)) || [];
+
+    return { success: true, statements };
   });
 
   // IPC: Return map data, including explored systems, for map rendering.

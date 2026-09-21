@@ -738,20 +738,38 @@ describe('modalManager', () => {
   });
 
   describe('openCompanyManagementModal', () => {
+    const STATEMENT_LINE_TEMPLATE = `
+      <div class="player-stat statement-line">
+        <span class="player-stat-label statement-line-label"></span>
+        <span class="player-stat-value statement-line-value"></span>
+      </div>
+    `;
+
     function setupCompanyManagementModal() {
-      global.fetch.mockResolvedValue({
-        ok: true,
-        text: jest.fn().mockResolvedValue(`
+      // Dispatch on path: the reports tab loads a row template separately from
+      // the modal body, and serving the modal markup for both leaves the row
+      // renderer with no label or value element to fill.
+      const modalMarkup = `
           <div class="company-management-tabs">
             <button id="company-tab-profile" data-tab="profile"></button>
             <button id="company-tab-finance" data-tab="finance"></button>
             <button id="company-tab-loans" data-tab="loans"></button>
+            <button id="company-tab-reports" data-tab="reports"></button>
             <button id="company-tab-trade-routes" data-tab="trade-routes"></button>
           </div>
           <div id="company-tab-content-profile"></div>
           <div id="company-tab-content-finance"></div>
           <div id="company-tab-content-loans"></div>
+          <div id="company-tab-content-reports"></div>
           <div id="company-tab-content-trade-routes"></div>
+          <p id="company-reports-empty" class="hidden"></p>
+          <p id="company-reports-bankrupt" class="hidden"></p>
+          <div id="company-reports-body" class="hidden">
+            <select id="company-report-quarter-select"></select>
+            <span id="company-report-period"></span>
+            <div id="company-report-income-lines"></div>
+            <div id="company-report-balance-lines"></div>
+          </div>
           <span id="company-overview-total-value"></span>
           <span id="company-overview-cash-reserves"></span>
           <div id="company-owned-stellar-objects-list"></div>
@@ -778,8 +796,14 @@ describe('modalManager', () => {
           <input id="company-loan-payment-amount-input" />
           <button id="set-company-loan-repayment-btn"></button>
           <input id="company-loan-repayment-rate-input" />
-        `)
-      });
+        `;
+
+      global.fetch.mockImplementation((url) => Promise.resolve({
+        ok: true,
+        text: jest.fn().mockResolvedValue(
+          String(url).includes('statement-line') ? STATEMENT_LINE_TEMPLATE : modalMarkup
+        )
+      }));
     }
 
     test('loads and displays company management data', async () => {
@@ -888,6 +912,162 @@ describe('modalManager', () => {
         description: 'Updated description'
       });
     });
+    describe('quarterly reports tab', () => {
+      /**
+       * Build a published statement for the reports tab.
+       * @param {number} quarterIndex - Quarter index.
+       * @param {Object} [overrides={}] - Fields to override.
+       * @returns {Object} A statement.
+       */
+      function makeStatement(quarterIndex, overrides = {}) {
+        return {
+          holder: 'corporation:Test Corp',
+          corporationName: 'Test Corp',
+          quarterIndex,
+          fromTick: quarterIndex * 2160,
+          toTick: ((quarterIndex + 1) * 2160) - 1,
+          closedAtTick: (quarterIndex + 1) * 2160,
+          income: {
+            revenue: 5000, cogs: 3000, grossProfit: 2000,
+            operatingExpense: 400, interestExpense: 100, netIncome: 1500
+          },
+          balance: {
+            assets: { cash: 7000, inventory: 12000, property: 0, investments: 0, loan_receivable: 0 },
+            totalAssets: 19000,
+            liabilities: { debt: 4000 },
+            totalLiabilities: 4000,
+            netWorth: 15000
+          },
+          sharesIssued: 1000,
+          isBankrupt: false,
+          ...overrides
+        };
+      }
+
+      /**
+       * Open the modal and switch to the reports tab.
+       * @param {Object} statementsResult - Result for get-company-statements.
+       * @returns {Promise<void>} Resolves once the tab has rendered.
+       */
+      async function openReportsTab(statementsResult) {
+        setupCompanyManagementModal();
+        mockApi.invoke.mockImplementation((channel) => {
+          if (channel === 'get-company-statements') {
+            return Promise.resolve(statementsResult);
+          }
+          if (channel === 'get-company-management-state') {
+            return Promise.resolve({
+              name: 'Test Corp', description: '', value: 0, totalCashReserves: 0,
+              dividendRate: 0, sharesIssued: 0, creditRating: 'AAA', interestRate: 4,
+              outstandingDebt: 0, ownedStellarObjects: [], ships: [], loans: []
+            });
+          }
+          return Promise.resolve(null);
+        });
+
+        await modalManager.openCompanyManagementModal('Test Corp');
+        document.getElementById('company-tab-reports').click();
+        // Let the lazy statement fetch and render settle
+        await Promise.resolve();
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      test('shows the empty state before any quarter has closed', async () => {
+        await openReportsTab({ success: true, statements: [] });
+
+        expect(document.getElementById('company-reports-empty').classList.contains('hidden'))
+          .toBe(false);
+        expect(document.getElementById('company-reports-body').classList.contains('hidden'))
+          .toBe(true);
+      });
+
+      test('renders the income statement and balance sheet', async () => {
+        await openReportsTab({ success: true, statements: [makeStatement(0)] });
+
+        expect(document.getElementById('company-reports-body').classList.contains('hidden'))
+          .toBe(false);
+
+        const incomeValues = Array.from(
+          document.querySelectorAll('#company-report-income-lines .statement-line-value')
+        ).map(node => node.textContent);
+
+        // Costs render as negatives so the column reads as a sum to net income
+        expect(incomeValues).toEqual(['5,000', '-3,000', '2,000', '-400', '-100', '1,500']);
+
+        const balanceValues = Array.from(
+          document.querySelectorAll('#company-report-balance-lines .statement-line-value')
+        ).map(node => node.textContent);
+        expect(balanceValues).toContain('19,000');
+        expect(balanceValues).toContain('15,000');
+      });
+
+      test('lists quarters newest first and renders the latest by default', async () => {
+        await openReportsTab({
+          success: true,
+          statements: [makeStatement(0), makeStatement(1), makeStatement(2)]
+        });
+
+        const options = Array.from(
+          document.getElementById('company-report-quarter-select').options
+        ).map(option => option.value);
+        expect(options).toEqual(['2', '1', '0']);
+      });
+
+      test('switches the displayed quarter on selection', async () => {
+        const older = makeStatement(0);
+        const newer = makeStatement(1, {
+          income: {
+            revenue: 9999, cogs: 0, grossProfit: 9999,
+            operatingExpense: 0, interestExpense: 0, netIncome: 9999
+          }
+        });
+        await openReportsTab({ success: true, statements: [older, newer] });
+
+        const select = document.getElementById('company-report-quarter-select');
+        select.value = '0';
+        await select.onchange();
+
+        const firstValue = document.querySelector(
+          '#company-report-income-lines .statement-line-value'
+        ).textContent;
+        expect(firstValue).toBe('5,000');
+      });
+
+      test('shows a bankruptcy notice when the latest statement reports one', async () => {
+        await openReportsTab({
+          success: true,
+          statements: [makeStatement(0, { isBankrupt: true })]
+        });
+
+        expect(document.getElementById('company-reports-bankrupt').classList.contains('hidden'))
+          .toBe(false);
+      });
+
+      test('surfaces a message when the statements call fails', async () => {
+        setupCompanyManagementModal();
+        mockApi.invoke.mockImplementation((channel) => {
+          if (channel === 'get-company-statements') {
+            return Promise.reject(new Error('ipc failed'));
+          }
+          if (channel === 'get-company-management-state') {
+            return Promise.resolve({
+              name: 'Test Corp', description: '', value: 0, totalCashReserves: 0,
+              dividendRate: 0, sharesIssued: 0, creditRating: 'AAA', interestRate: 4,
+              outstandingDebt: 0, ownedStellarObjects: [], ships: [], loans: []
+            });
+          }
+          return Promise.resolve(null);
+        });
+
+        await modalManager.openCompanyManagementModal('Test Corp');
+        document.getElementById('company-tab-reports').click();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockContext.addMessage)
+          .toHaveBeenCalledWith('message:company_management.reports.load_error');
+      });
+    });
+
   });
 
   describe('openBuildingsModal', () => {

@@ -2,6 +2,7 @@
   <button id="company-tab-profile" class="action-btn company-management-tab-btn" data-tab="profile" role="tab" aria-controls="company-tab-content-profile" aria-selected="false"></button>
   <button id="company-tab-finance" class="action-btn company-management-tab-btn" data-tab="finance" role="tab" aria-controls="company-tab-content-finance" aria-selected="false"></button>
   <button id="company-tab-loans" class="action-btn company-management-tab-btn" data-tab="loans" role="tab" aria-controls="company-tab-content-loans" aria-selected="false"></button>
+  <button id="company-tab-reports" class="action-btn company-management-tab-btn" data-tab="reports" role="tab" aria-controls="company-tab-content-reports" aria-selected="false"></button>
   <button id="company-tab-trade-routes" class="action-btn company-management-tab-btn" data-tab="trade-routes" role="tab" aria-controls="company-tab-content-trade-routes" aria-selected="false"></button>
 </div>
 
@@ -95,6 +96,28 @@
     <label id="company-loan-repayment-rate-label" for="company-loan-repayment-rate-input" class="player-stat-label"></label>
     <input id="company-loan-repayment-rate-input" type="number" min="0" step="0.1" class="company-management-number-input">
     <button id="set-company-loan-repayment-btn" class="action-btn company-management-inline-btn"></button>
+  </div>
+</div>
+
+<div id="company-tab-content-reports" class="company-management-tab-content hidden" role="tabpanel">
+  <h3 id="company-reports-heading"></h3>
+  <p id="company-reports-empty" class="hidden"></p>
+  <p id="company-reports-bankrupt" class="hidden"></p>
+
+  <div id="company-reports-body" class="hidden">
+    <div class="player-stat company-management-form-row">
+      <label id="company-report-quarter-label" for="company-report-quarter-select" class="player-stat-label"></label>
+      <select id="company-report-quarter-select" class="company-management-number-input"></select>
+    </div>
+    <div class="player-stat">
+      <span id="company-report-period" class="player-stat-value"></span>
+    </div>
+
+    <h4 id="company-report-income-heading"></h4>
+    <div id="company-report-income-lines"></div>
+
+    <h4 id="company-report-balance-heading"></h4>
+    <div id="company-report-balance-lines"></div>
   </div>
 </div>
 
