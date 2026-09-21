@@ -264,7 +264,7 @@ describe('Game Module', () => {
     });
 
     test('gets current location state', () => {
-      game.initializeGame('TestPlayer');
+      game.initializeGame(createTestPlayerData());
       const state = game.getCurrentLocationState();
 
       expect(state.system).toBe(mockUniverse.systems[1]);

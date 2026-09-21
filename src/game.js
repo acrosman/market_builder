@@ -9,6 +9,18 @@ const { getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger } = require('./logger');
 const { createConstructionCreditSupport } = require('./stellarObject');
 const { EconomyState } = require('./economy/economyState');
+const {
+  recordOpeningBalance,
+  recordOpeningStock,
+  recordGoodsTrade,
+  recordConstructionSpend
+} = require('./economy/transactions');
+const {
+  BANK_HOLDER,
+  corporationHolder,
+  playerHolder,
+  marketHolder
+} = require('./economy/accounts');
 
 const logger = createLogger('Game');
 
@@ -23,6 +35,19 @@ const DEFAULT_DATA_DIRECTORY = 'data/default/en-us';
  * economy, carry their own independent version.
  */
 const SAVE_SCHEMA_VERSION = 1;
+
+/**
+ * Opening cash endowments, in credits.
+ *
+ * Markets are endowed generously enough that their cash never binds in normal
+ * play, preserving the long-standing behaviour that a market will absorb any
+ * quantity a player wants to sell. The constraint exists in the books and can
+ * be made to bite later by lowering this number, without touching the ledger.
+ */
+const OPENING_ENDOWMENTS = {
+  bank: 100000000,
+  market: 10000000
+};
 
 /**
  * Throw when a value is not a non-null object.
@@ -454,8 +479,127 @@ class Game {
     // Mark starting system as explored
     this.addExploredSystem(player.location);
 
+    // Record opening balances once markets are stocked, so their opening stock
+    // gets a cost basis. Loads skip this: the journal is restored instead.
+    this.recordOpeningBalances();
+
     // Subscribe all stellar objects to tick events for automatic updates
     this.subscribeStellarObjectsToTicks();
+  }
+
+  /**
+   * Record every opening balance into the ledger.
+   *
+   * Starting credits, corporate reserves, bank capital, and the goods markets
+   * are stocked with at world generation all arrive from outside the simulation,
+   * so they are the only defined sources of value. Booking them as contributed
+   * capital means every later movement is a transfer between holders, which is
+   * what makes money conservation an assertable invariant rather than a hope.
+   *
+   * Runs once, at game start only. A loaded game already has these entries in
+   * its restored journal.
+   * @returns {void}
+   * @example
+   * game.recordOpeningBalances();
+   */
+  recordOpeningBalances() {
+    const economy = this.getEconomy();
+    const tick = this.getTicks();
+    const player = this.getPlayer();
+
+    // A holder is keyed by name, so an unnamed player or corporation cannot be
+    // tracked. Warn and skip rather than throwing: bookkeeping must not be able
+    // to stop a game from starting, and a silent skip would hide the bad state.
+    const openingBalanceFor = (holder, amount, label) => {
+      if (!holder?.id) {
+        logger.warn(`Skipping opening balance for unnamed ${label}`);
+        return;
+      }
+      recordOpeningBalance(economy, { tick, holder, amount });
+    };
+
+    if (player) {
+      openingBalanceFor(playerHolder(player), player.credits, 'player');
+    }
+
+    this.getCorporations().forEach(corporation => {
+      openingBalanceFor(
+        corporationHolder(corporation),
+        corporation.getTotalCashReserves(),
+        'corporation'
+      );
+    });
+
+    recordOpeningBalance(economy, {
+      tick,
+      holder: BANK_HOLDER,
+      amount: OPENING_ENDOWMENTS.bank
+    });
+
+    this.recordOpeningMarketBalances();
+  }
+
+  /**
+   * Endow each market with cash and record the cost basis of its opening stock.
+   *
+   * The assumed unit cost is the good's base value from goods.json. Without a
+   * basis, a market's first sale would book its entire sale price as profit and
+   * every market would look implausibly profitable to anyone valuing it.
+   * @returns {void}
+   * @example
+   * game.recordOpeningMarketBalances();
+   */
+  recordOpeningMarketBalances() {
+    const economy = this.getEconomy();
+    const tick = this.getTicks();
+    const goodsData = this.getGoodsData();
+
+    this.getUniverse().stellarObjects.forEach(stellarObject => {
+      const inventory = stellarObject.marketState?.inventory;
+      if (!inventory) {
+        return;
+      }
+
+      const holder = marketHolder(stellarObject);
+
+      recordOpeningBalance(economy, {
+        tick,
+        holder,
+        amount: OPENING_ENDOWMENTS.market
+      });
+
+      Object.entries(inventory).forEach(([goodName, quantity]) => {
+        const units = Math.round(Number(quantity) || 0);
+        if (units <= 0) {
+          return;
+        }
+
+        const unitValue = Number(goodsData[goodName]?.value) || 0;
+        recordOpeningStock(economy, {
+          tick,
+          holder,
+          goodName,
+          quantity: units,
+          totalCost: Math.round(unitValue * units)
+        });
+      });
+    });
+  }
+
+  /**
+   * Load the goods catalog from the configured data directory.
+   * @returns {Object} Parsed goods.json contents, or an empty object on failure.
+   * @example
+   * const goods = game.getGoodsData();
+   */
+  getGoodsData() {
+    try {
+      const goodsPath = path.join(__dirname, '..', this.getDataDirectory(), 'goods.json');
+      return JSON.parse(fs.readFileSync(goodsPath, 'utf-8'));
+    } catch (error) {
+      logger.error('Failed to load goods data for opening balances:', error);
+      return {};
+    }
   }
 
   /**
@@ -978,7 +1122,23 @@ class Game {
    * const result = game.buyGood(1, 'wheat', 5);
    */
   buyGood(stellarObjectId, goodName, quantity, price) {
-    return this.getMarket().buyGood(this.getPlayer(), stellarObjectId, goodName, quantity, price);
+    const result = this.getMarket().buyGood(
+      this.getPlayer(), stellarObjectId, goodName, quantity, price
+    );
+
+    if (result.success) {
+      recordGoodsTrade(this.getEconomy(), {
+        tick: this.getTicks(),
+        buyer: playerHolder(this.getPlayer()),
+        seller: marketHolder(stellarObjectId),
+        goodName: result.goodName,
+        quantity: result.quantity,
+        totalPrice: result.totalPrice,
+        refs: { stellarObjectId }
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -992,7 +1152,23 @@ class Game {
    * const result = game.sellGood(1, 'wheat', 5);
    */
   sellGood(stellarObjectId, goodName, quantity, price) {
-    return this.getMarket().sellGood(this.getPlayer(), stellarObjectId, goodName, quantity, price);
+    const result = this.getMarket().sellGood(
+      this.getPlayer(), stellarObjectId, goodName, quantity, price
+    );
+
+    if (result.success) {
+      recordGoodsTrade(this.getEconomy(), {
+        tick: this.getTicks(),
+        buyer: marketHolder(stellarObjectId),
+        seller: playerHolder(this.getPlayer()),
+        goodName: result.goodName,
+        quantity: result.quantity,
+        totalPrice: result.totalPrice,
+        refs: { stellarObjectId }
+      });
+    }
+
+    return result;
   }
 
   /**

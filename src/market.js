@@ -301,7 +301,17 @@ class Market {
     stellarObject.marketState.inventory[goodName] -= quantity;
     player.addCargo(goodName, quantity);
 
-    return { success: true, message: `Bought ${quantity} units of ${good.label || goodName} for ${totalCost} credits` };
+    // The numeric fields let the caller post this trade to the ledger using the
+    // same figures the trade actually used, rather than re-deriving a price that
+    // may have moved as inventory changed.
+    return {
+      success: true,
+      message: `Bought ${quantity} units of ${good.label || goodName} for ${totalCost} credits`,
+      goodName,
+      quantity,
+      unitPrice: actualPrice,
+      totalPrice: totalCost
+    };
   }
 
   /**
@@ -343,7 +353,15 @@ class Market {
     stellarObject.marketState.inventory[goodName] = (stellarObject.marketState.inventory[goodName] || 0) + quantity;
     player.removeCargo(goodName, quantity);
 
-    return { success: true, message: `Sold ${quantity} units of ${good?.label || goodName} for ${totalRevenue} credits` };
+    // See buyGood: the caller posts this trade to the ledger using these figures.
+    return {
+      success: true,
+      message: `Sold ${quantity} units of ${good?.label || goodName} for ${totalRevenue} credits`,
+      goodName,
+      quantity,
+      unitPrice: actualPrice,
+      totalPrice: totalRevenue
+    };
   }
 
   /**
