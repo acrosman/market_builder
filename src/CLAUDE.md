@@ -1,5 +1,7 @@
 Overview of src files. These are backend modules that only run on the main process.
 
+Always sign comments so it's clear when they were AI generated. Both commit comments and Github messages.
+
 - **src/game.js** - Central state manager
   - `Game` class: Tracks universe, player, NPCs, corporations, turn/tick counters
   - Methods: `initializeGame()`, `jumpToSystem()`, `dockAtStation()`, `landOnPlanet()`, `takeOff()`, `advanceTicks()`
@@ -104,7 +106,7 @@ Overview of src files. These are backend modules that only run on the main proce
   - **transactions.js** - Multi-leg recorders (`recordGoodsTrade`, `recordLoanDraw`,
     `recordConstructionSpend`, `recordAssetTransfer`, ...). **Post through these, not the ledger
     directly**, so the ledger and cost basis cannot drift apart. `recordAssetTransfer` books
-    every transfer at *appraised* value with any difference to contributed capital and never to
+    every transfer at _appraised_ value with any difference to contributed capital and never to
     income, which is what stops self-dealing between commonly controlled companies from
     manufacturing earnings
   - **clock.js** - Tick/day/quarter/year conversions from `game_settings.json` `time` block
@@ -112,7 +114,7 @@ Overview of src files. These are backend modules that only run on the main proce
     Raw extraction only: no building has manufacturing recipes yet (see issue #32)
   - **restock.js** - Markets drift toward ideal stock by trading with the wider galaxy, which
     gives prices their mean reversion and stops local economies dead-locking at zero
-  - **appraisal.js** - What things are *worth*, as distinct from what they cost. Discounted
+  - **appraisal.js** - What things are _worth_, as distinct from what they cost. Discounted
     cash flows at prevailing goods prices, with output capped by input supply.
     **This module must never see a share price.** It does not import the exchange, takes no
     price argument, and tests enforce that on three axes. If it could read a share price while
@@ -155,7 +157,7 @@ Overview of src files. These are backend modules that only run on the main proce
     company collapsed. **Every item carries the system it happened in.** Nothing reads that yet
     -- knowledge is global and instant -- but making news travel at ship speed later is only
     possible if origin was captured when items were written
-  - **dividends.js** - Paying shareholders out of a quarter's *earnings*, never out of cash on
+  - **dividends.js** - Paying shareholders out of a quarter's _earnings_, never out of cash on
     hand. A company that lost money pays nothing however much cash it holds; paying out of
     capital is how a treasury gets drained into shareholders' pockets while the business fails
   - **rng.js** - `RandomSource` / `RandomStream`, seeded and serializable PRNG.
