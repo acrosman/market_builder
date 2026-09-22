@@ -8,7 +8,9 @@ All interface code lives in this directory tree.
   - Ship status panel
   - Action buttons (context-sensitive: jump/dock/land/takeoff)
   - Console for messages (uses template system)
-  - Modals: player status, corporation status, jump planner
+  - Modals: player status, corporation status, company management, buildings, trade, jump planner, universe map, exchange
+- **modalManager.js** - Registers and drives most modals; `app/exchangeModal.js` is the exception (see below)
+- **gameHelpers.js** - Canonical shared helpers; add cross-module utility logic here rather than duplicating it
 - **images** - This is for universal game images, like the logo. These images cannot be overridden by the data directory content.
 
 ## Shared patterns
@@ -20,6 +22,8 @@ All interface code lives in this directory tree.
 - CSS files in `app/css/` (one per page + shared)
 - **Modal pattern**: Fetch from `app/modals/`, create overlay div, append modal content, add close handlers
 - **Data directory pattern**: Thread `dataDir` parameter through constructors (defaults to `data/default/en-us`), use `path.join(__dirname, '..', dataDir, 'file.json')` for file access
+- **IPC error handling**: Wrap every `window.api.invoke()` in `try`/`catch` and surface the failure with `addMessage('message:...')` using a key that exists in `game_messages.json`. Never swallow an IPC error silently — from the renderer, a channel missing from `preload.js` looks exactly like a handler that did nothing
+- **Validation happens twice**: in the renderer for the player's benefit, and again in the main process for the game's. The renderer is untrusted by design; `contextIsolation` is the security boundary
 
 ### Template Loading Pattern
 
@@ -79,3 +83,15 @@ would collapse the y domain to a point, so a flat series is padded.
 
 A blank limit-price field means a market order, not a limit of zero. That distinction is load
 bearing on both sides of the IPC boundary.
+
+Its markup is `app/modals/exchange.html` with rows built from `app/templates/exchange-listing-row.html`,
+`exchange-depth-row.html` and `exchange-order-row.html`. The main-process side is
+`src/ipc/exchangeHandlers.js`, not `src/windowManager.js` — see `src/ipc/CLAUDE.md`. Its channels
+(`get-exchange-listings`, `get-exchange-listing`, `get-exchange-portfolio`, `submit-share-order`,
+`cancel-share-order`, `list-corporation`, `get-cap-table`) are whitelisted in `app/preload.js`
+like any other.
+
+Orders can be placed personally or on behalf of a corporation, and the payload has to say which.
+The main process defaults to the player when it cannot tell, because that spends the requester's
+own credits rather than a company's — so an omitted field fails safe but silently, and the
+renderer should send it explicitly.

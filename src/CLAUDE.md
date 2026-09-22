@@ -89,88 +89,6 @@ Always sign comments so it's clear when they were AI generated. Both commit comm
   - Deliberately not used for save files (always read fresh), `universe.js` name lookups
     (re-read on purpose for tests), or `windowManager.js` (its tests mock `fs`)
 
-- **src/economy/** - Economy and exchange simulation (in progress)
-  - **economyState.js** - `EconomyState`, the container for all economy/exchange state.
-    Owns its own `schemaVersion` and serializes itself under the save file's `economy` key.
-    Reached via `game.getEconomy()`. Everything the economy owns belongs here rather than as
-    new top-level save fields, because `getSaveData()` serializes live instances while the
-    deserializers copy hand-maintained field lists — new fields are written but silently
-    not restored. New economy subsystems hang off this object.
-  - **accounts.js** - Chart of accounts and holder identity (`holderKey`, `corporationHolder`,
-    `marketHolder`, `playerHolder`, plus the bank, external-galaxy and investor-pool singletons)
-  - **ledger.js** - Double-entry journal. Every money or goods movement posts here with both
-    legs named, which is what makes money conservation structural rather than hoped for.
-    `audit()` verifies incremental balances against a full journal replay
-  - **costBasis.js** - Weighted-average inventory cost per holder per good, so COGS and gross
-    margin are real. Selling out releases exactly the recorded cost, leaving no rounding residue
-  - **transactions.js** - Multi-leg recorders (`recordGoodsTrade`, `recordLoanDraw`,
-    `recordConstructionSpend`, `recordAssetTransfer`, ...). **Post through these, not the ledger
-    directly**, so the ledger and cost basis cannot drift apart. `recordAssetTransfer` books
-    every transfer at _appraised_ value with any difference to contributed capital and never to
-    income, which is what stops self-dealing between commonly controlled companies from
-    manufacturing earnings
-  - **clock.js** - Tick/day/quarter/year conversions from `game_settings.json` `time` block
-  - **production.js** - Per-tick goods extraction, operating costs, and population food demand.
-    Raw extraction only: no building has manufacturing recipes yet (see issue #32)
-  - **restock.js** - Markets drift toward ideal stock by trading with the wider galaxy, which
-    gives prices their mean reversion and stops local economies dead-locking at zero
-  - **appraisal.js** - What things are _worth_, as distinct from what they cost. Discounted
-    cash flows at prevailing goods prices, with output capped by input supply.
-    **This module must never see a share price.** It does not import the exchange, takes no
-    price argument, and tests enforce that on three axes. If it could read a share price while
-    the market priced companies on appraised book value, the two would drive each other.
-    Also holds `defaultProbability()`, which makes the balloon cliff priceable, and
-    `discountRateFor()`. Its level is currently ~2.5x the simulation's; see the module header
-  - **solvency.js** - Deficit grace window, forced loans, and bankruptcy. `bookNetWorth()` reads
-    the ledger directly
-  - **statements.js** - Quarterly income statement and balance sheet derived from the journal.
-    Only closed quarters publish; a quarter in progress is deliberately invisible
-  - **economyTicker.js** - The single `'tick'` subscriber driving the economy: interest accrual
-    every tick, then production/consumption/restock, solvency, the share auction, and book
-    close on day boundaries
-
-- **src/exchange/** - The share exchange
-  - **instruments.js** - What can be listed. Equity only today; the seam exists so commodity
-    instruments (futures on goods) can be listed alongside shares without reworking the book,
-    the auction or the holdings register. **Settlement branches on instrument kind**, so a new
-    tradeable is a new branch rather than an edit to the equity path. Expiry, delivery, margin
-    and mark-to-market are deliberately absent
-  - **auction.js** - Periodic call clearing: one price per market cycle, chosen to maximize
-    executed volume. Ties break toward the smaller imbalance, then the reference price, so the
-    outcome depends on the book and not on iteration order
-  - **listing.js** - One instrument's order book and price history. Orders rest across clears
-    and across saves; history is a fixed-length ring
-  - **portfolio.js** - Signed positions by holder and symbol, plus the cap table. Personal,
-    corporate and public holdings share one register
-  - **control.js** - Who controls a listing, from the cap table and nothing else. A majority is
-    control, whoever holds it. Detecting a change is deliberately separate from deciding what a
-    new controller may do with the company's worlds and debts, which is tracked in issue #33
-  - **exchange.js** - Listings, order submission, and settlement. **Short selling is refused**,
-    including selling the same shares twice across two orders; it needs borrow, margin and a
-    forced cover first. Listings are keyed by symbol, which for equity is the company name
-  - **conservation.js** - The money invariant: **total cash equals total injected**. Every
-    credit enters the game the same way, debited to a holder's CASH against that holder's
-    CONTRIBUTED_CAPITAL; everything else moves credits sideways. `checkConservation()` says
-    precisely when a subsystem has learned to create or destroy money, and
-    `injectionsByReason()` names which inflow grew
-  - **news.js** - A bounded record of what happened, so a player three jumps away can learn a
-    company collapsed. **Every item carries the system it happened in.** Nothing reads that yet
-    -- knowledge is global and instant -- but making news travel at ship speed later is only
-    possible if origin was captured when items were written
-  - **dividends.js** - Paying shareholders out of a quarter's _earnings_, never out of cash on
-    hand. A company that lost money pays nothing however much cash it holds; paying out of
-    capital is how a treasury gets drained into shareholders' pockets while the business fails
-  - **rng.js** - `RandomSource` / `RandomStream`, seeded and serializable PRNG.
-    **All new economy, exchange, and agent code must use this, never `Math.random()`.**
-    Streams are named (`random.stream('price-noise')`) and independent: a stream's seed is
-    derived by hashing its name with the master seed, so adding a new stream never shifts an
-    existing one's sequence. Mulberry32 state is one 32-bit integer, so save/load resumes a
-    sequence exactly.
-    **Universe generation is deliberately non-deterministic and will stay that way** -- worlds
-    are meant to differ between games. Parts of the exchange may become non-deterministic too
-    as it grows. Reproducibility is a property of individual seeded streams, not a
-    whole-simulation guarantee, so do not write tests that assume two games agree.
-
 - **src/eventBus.js** - Pub/sub event system
   - **Direct listener methods**: `on(eventName, callback)`, `once()`, `emit()`, `clear()`, `listenerCount()`
   - **Subscriber interface**: `subscribe(eventName, subscriber)` - object-based subscription where subscriber implements `onEventName()` methods (e.g., `onTick()`, `onGameEnd()`)
@@ -181,16 +99,42 @@ Always sign comments so it's clear when they were AI generated. Both commit comm
   - Subscribers unsubscribe with `eventBus.unsubscribe('tick', subscriber)`
   - **Pattern choice**: Use subscriber interface for objects with lifecycle (StellarObject), direct `on()` for simple callbacks
 
-- **src/agents/** - The actors the player does not control
-  - **corporateAI.js** - The 8-20 corporations that own real worlds, produce real goods and keep
-    real books, so their statements summarize what happened rather than a stochastic process
-    dressed as one. Policy is deliberately simple -- hold a cash buffer, develop the least
-    developed world -- because the worlds differ, so one policy yields divergent results
-  - **investorPool.js** - The investing public, modelled as **several distinct investors rather
-    than one**. That is not cosmetic: a single holder cannot trade with itself, so a one-holder
-    pool can only ever be on one side of the market and the book never crosses. Capital is
-    finite and tracked in the ledger, so the public can run out and a market can lose its bid.
-    Beliefs come from appraisal, which cannot see a share price, so price cannot feed on itself.
-    Investors **withdraw from the bid** as a company's default probability climbs, and refuse to
-    bid at all once it appraises at nothing, while still offering their holdings -- everyone
-    wanting out and nobody buying is the shape of a failing company and has to be visible
+## Subdirectories
+
+Each has its own `CLAUDE.md` with the module inventory, the invariants that directory is
+responsible for, and the traps already paid for. **Read the nested file before changing anything
+in that directory** -- the detail is there rather than restated here.
+
+- **[src/economy/](economy/CLAUDE.md)** - The simulation that produces the numbers: production,
+  consumption, restocking, the double-entry ledger, cost basis, quarterly statements, solvency
+  and bankruptcy, appraisal, dividends, news, the seeded RNG, and the single tick subscriber
+  (`economyTicker.js`) that drives all of it.
+
+  Four invariants live here and are enforced by tests: **money is conserved**, **the ledger is
+  the truth about cash**, **appraisal cannot see a share price**, and **no `Math.random()`**.
+  Money and goods move through `economy/transactions.js`, never through `ledger.post()` directly.
+
+- **[src/exchange/](exchange/CLAUDE.md)** - The share market: order books, the periodic call
+  auction, holdings and cap tables, instrument kinds, and control detection. **Short selling is
+  refused.** Clearing is volume-maximizing and independent of iteration order. The instrument
+  seam exists so commodity futures can be listed later without reworking the book.
+
+- **[src/agents/](agents/CLAUDE.md)** - The actors the player does not control: the NPC
+  corporations that own worlds and keep real books, and the investing public, modelled as
+  several distinct investors because a single holder cannot trade with itself. Both are driven
+  from `EconomyTicker.runAgents()`, not from their own tick subscriptions.
+
+- **[src/ipc/](ipc/CLAUDE.md)** - Feature-clustered IPC handler registration, called from
+  `windowManager.js`. Handlers take the game through a getter rather than a captured value,
+  because `currentGame` is replaced wholesale on new-game and load. The three-place rule
+  (preload whitelist, handler, renderer call) applies here exactly as it does in
+  `windowManager.js`.
+
+## Where economy state lives in the save file
+
+Everything the economy and exchange own hangs off `EconomyState` and serializes under the save
+file's `economy` key. **Do not add new top-level save fields for it.** `Game.getSaveData()`
+serializes live instances, but `deserializeCorporation()` and friends copy hand-maintained field
+lists, so a new top-level field is written to the save and silently not restored -- saves look
+fine and loads are quietly lossy. `EconomyState` has a real `fromJSON`, so anything it owns
+round-trips.
