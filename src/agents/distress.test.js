@@ -21,8 +21,8 @@ const DAY = ticksPerDay(settings);
  * @param {string} [seed='distress'] - Economy seed.
  * @returns {Object} An initialized Game.
  */
-function listedGame(seed = 'distress') {
-  const game = new Game(createUniverse(10, 14, 40), settings, { seed });
+function listedGame(seed = 'distress', gameSettings = settings) {
+  const game = new Game(createUniverse(10, 14, 40), gameSettings, { seed });
   game.initializeGame({
     name: 'Trader',
     pronouns: { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself' },
@@ -34,6 +34,26 @@ function listedGame(seed = 'distress') {
     .slice(0, 4)
     .forEach(corporation => game.listCorporation(corporation.name, 10000));
   return game;
+}
+
+/**
+ * Give a corporation cash from outside the simulation.
+ * @param {Object} game - The game.
+ * @param {Object} corporation - Who receives it.
+ * @param {number} amount - How much.
+ * @returns {void}
+ */
+function fund(game, corporation, amount) {
+  const ledger = game.getEconomy().getLedger();
+  const holder = corporationHolder(corporation);
+
+  ledger.post({
+    tick: game.getTicks(),
+    amount,
+    debit: { holder, account: ACCOUNTS.CASH },
+    credit: { holder, account: ACCOUNTS.CONTRIBUTED_CAPITAL }
+  });
+  corporation.setCashPosition(ledger.balance(holder, ACCOUNTS.CASH));
 }
 
 /**
@@ -249,25 +269,16 @@ describe('distressed acquisition', () => {
 });
 
 describe('the Stage 5 milestone', () => {
-  test('a failing company loses its bid and is taken over below asset value', () => {
+  test('a failing company loses its bid and is bought up below asset value', () => {
     const game = listedGame('milestone');
     const victim = game.getCorporations().find(c => !c.isPlayerOwned);
     loadWithDebt(game, victim);
 
-    // One rival with the means to move
+    // One rival with obvious means. Others accumulate cash of their own over
+    // the run and may join in, which is deliberate: a failing company draws
+    // more than one bidder.
     const buyer = game.getCorporations().filter(c => !c.isPlayerOwned && c !== victim)[0];
-    game.getEconomy().getLedger().post({
-      tick: 0,
-      amount: 8000000,
-      debit: { holder: corporationHolder(buyer), account: ACCOUNTS.CASH },
-      credit: { holder: corporationHolder(buyer), account: ACCOUNTS.CONTRIBUTED_CAPITAL }
-    });
-    buyer.setCashPosition(
-      game.getEconomy().getLedger().balance(corporationHolder(buyer), ACCOUNTS.CASH)
-    );
-
-    const changes = [];
-    game.getEventBus().on('control-changed', change => changes.push(change));
+    fund(game, buyer, 8000000);
 
     const exchange = game.getEconomy().getExchange();
     const listing = exchange.getListing(victim.name);
@@ -282,26 +293,60 @@ describe('the Stage 5 milestone', () => {
       tick: game.getTicks(),
       costBasis: game.getEconomy().getCostBasis()
     });
-    const controller = controllingHolder(exchange.portfolio, listing);
 
     // Distress rose toward the date
     expect(distress.probability).toBeGreaterThan(0.2);
-    // The investing public has withdrawn entirely. The bids that remain are the
-    // acquirer's, which is the point: the only buyer left is the one who wants
-    // the company rather than the stock.
+
+    // The investing public left the bid entirely
     const publicBids = investorHolders(settings).flatMap(
       holder => exchange.openOrdersFor(holder)
     ).filter(order => order.symbol === listing.symbol && order.side === 'buy');
     expect(publicBids).toHaveLength(0);
-    // A rival took control anyway
-    expect(controller).not.toBeNull();
-    expect(controller.holder.kind).toBe('corporation');
-    expect(changes.some(change => change.corporationName === victim.name)).toBe(true);
-    // And paid less than the assets are worth
+
+    // And sold out to corporate buyers, who took the stock below what the
+    // assets are worth
+    const corporateShares = exchange.portfolio.capTable(listing.symbol)
+      .filter(row => row.holder.kind === 'corporation')
+      .reduce((total, row) => total + row.shares, 0);
+
+    expect(corporateShares).toBeGreaterThan(listing.sharesOutstanding / 2);
     expect(listing.lastPrice)
       .toBeLessThan(appraisal.assets / listing.sharesOutstanding);
     expect(listing.lastPrice).toBeLessThan(openingPrice);
+
     // Without a credit being created or destroyed anywhere
+    expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
+  });
+
+  test('an uncontested bidder takes control outright', () => {
+    // Only one corporation can afford to bid, so the float is not split
+    // between rivals. A contested takeover is a real outcome -- three buyers
+    // splitting a company between them and nobody reaching a majority -- but
+    // it is a different assertion from this one.
+    const exclusive = {
+      ...settings,
+      npc_corporations: { ...settings.npc_corporations, acquisition_cash_floor: 5000000 }
+    };
+
+    const game = listedGame('uncontested', exclusive);
+    const victim = game.getCorporations().find(c => !c.isPlayerOwned);
+    loadWithDebt(game, victim);
+
+    const buyer = game.getCorporations().filter(c => !c.isPlayerOwned && c !== victim)[0];
+    fund(game, buyer, 20000000);
+
+    const changes = [];
+    game.getEventBus().on('control-changed', change => changes.push(change));
+
+    game.advanceTicks(DAY * 200, 'test');
+
+    const exchange = game.getEconomy().getExchange();
+    const listing = exchange.getListing(victim.name);
+    const controller = controllingHolder(exchange.portfolio, listing);
+
+    expect(controller).not.toBeNull();
+    expect(controller.holder).toEqual(corporationHolder(buyer));
+    expect(changes.some(change => change.corporationName === victim.name)).toBe(true);
     expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
   });
 });
