@@ -37,6 +37,26 @@
     _executeJumpSequence = context.executeJumpSequence;
     _refreshCompanyManagementButtons = context.refreshCompanyManagementButtons;
 
+    // The exchange modal lives in its own file because this one already carries
+    // every other modal, but it is still a modal: game code asks this module
+    // for it like any other, and this module wires it up.
+    if (typeof window !== 'undefined' && window.exchangeModal) {
+      window.exchangeModal.init({
+        api: _api,
+        addMessage: _addMessage,
+        resolveMessageText: _resolveMessageText,
+        loadModal
+      });
+    }
+
+    if (typeof window !== 'undefined' && window.companyStatements) {
+      window.companyStatements.init({
+        api: _api,
+        addMessage: _addMessage,
+        resolveMessageText: _resolveMessageText
+      });
+    }
+
     _gameModal = document.getElementById('game-modal');
     _modalTitle = document.getElementById('modal-title');
     _modalBody = document.getElementById('modal-body');
@@ -272,205 +292,33 @@
 
       /**
        * Populate static labels and button text for the modal.
+       *
+       * The element-id to message-key map lives in
+       * `app/modals/company-management.labels.json` beside the modal markup, so
+       * adding a label is a change to the modal's own files rather than a new
+       * line in this file.
        * @returns {Promise<void>}
        */
       async function setCompanyManagementLabels() {
-        const labelMappings = [
-          ['company-tab-profile', 'company_management.tabs.profile'],
-          ['company-tab-finance', 'company_management.tabs.finance'],
-          ['company-tab-loans', 'company_management.tabs.loans'],
-          ['company-tab-trade-routes', 'company_management.tabs.trade_routes'],
-          ['company-profile-heading', 'company_management.profile.heading'],
-          ['company-overview-heading', 'company_management.profile.overview_heading'],
-          ['company-overview-total-value-label', 'company_management.finance.total_value'],
-          ['company-overview-cash-reserves-label', 'company_management.finance.cash_reserves'],
-          ['company-owned-stellar-objects-heading', 'company_management.profile.owned_stellar_objects'],
-          ['company-fleet-heading', 'company_management.profile.fleet'],
-          ['company-name-label', 'company_management.profile.name'],
-          ['company-description-label', 'company_management.profile.description'],
-          ['save-company-profile-btn', 'company_management.profile.save'],
-          ['company-finance-heading', 'company_management.finance.heading'],
-          ['company-value-label', 'company_management.finance.total_value'],
-          ['company-appraised-value-label', 'company_management.finance.appraised_value'],
-          ['company-book-value-note', 'company_management.finance.book_value_note'],
-          ['company-cash-reserves-label', 'company_management.finance.cash_reserves'],
-          ['company-shares-issued-label', 'company_management.finance.shares_issued'],
-          ['company-dividend-rate-label', 'company_management.finance.dividend_rate'],
-          ['set-company-dividend-btn', 'company_management.finance.set_dividend'],
-          ['company-issue-shares-label', 'company_management.finance.issue_shares'],
-          ['issue-company-shares-btn', 'company_management.finance.issue_shares_action'],
-          ['company-loans-heading', 'company_management.loans.heading'],
-          ['company-credit-rating-label', 'company_management.loans.credit_rating'],
-          ['company-interest-rate-label', 'company_management.loans.interest_rate'],
-          ['company-outstanding-debt-label', 'company_management.loans.outstanding_debt'],
-          ['company-loan-amount-label', 'company_management.loans.take_loan_amount'],
-          ['take-company-loan-btn', 'company_management.loans.take_loan_action'],
-          ['company-outstanding-loans-heading', 'company_management.loans.outstanding_loans'],
-          ['company-loan-payment-select-label', 'company_management.loans.loan_label'],
-          ['company-loan-payment-amount-label', 'company_management.loans.payment_amount'],
-          ['make-company-loan-payment-btn', 'company_management.loans.make_payment'],
-          ['company-loan-repayment-select-label', 'company_management.loans.loan_label'],
-          ['company-loan-repayment-rate-label', 'company_management.loans.repayment_rate'],
-          ['set-company-loan-repayment-btn', 'company_management.loans.set_repayment_rate'],
-          ['company-tab-reports', 'company_management.tabs.reports'],
-          ['company-reports-heading', 'company_management.reports.heading'],
-          ['company-reports-empty', 'company_management.reports.no_statements'],
-          ['company-reports-bankrupt', 'company_management.reports.bankrupt'],
-          ['company-report-quarter-label', 'company_management.reports.select_quarter'],
-          ['company-report-income-heading', 'company_management.reports.income_heading'],
-          ['company-report-balance-heading', 'company_management.reports.balance_heading'],
-          ['company-trade-routes-heading', 'company_management.trade_routes.heading'],
-          ['company-trade-routes-placeholder', 'company_management.trade_routes.placeholder']
-        ];
-
-        await Promise.all(labelMappings.map(([elementId, messageKey]) => setElementTextFromMessage(elementId, messageKey)));
-      }
-
-      /**
-       * Render one labelled figure into a statement section.
-       * @param {HTMLElement} container - Element to append the line to.
-       * @param {string} template - Loaded statement-line template markup.
-       * @param {string} labelKey - Message key for the line label.
-       * @param {number} value - Figure to display.
-       * @param {Object} [options={}] - `{ negate }` to show a cost as negative.
-       * @returns {Promise<void>} Resolves once the line is appended.
-       */
-      async function appendStatementLine(container, template, labelKey, value, options = {}) {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = template;
-        const line = wrapper.firstElementChild;
-        if (!line) {
-          return;
-        }
-
-        const amount = options.negate ? -value : value;
-        line.querySelector('.statement-line-label').textContent =
-          await _resolveMessageText(labelKey);
-        line.querySelector('.statement-line-value').textContent = amount.toLocaleString();
-        container.appendChild(line);
-      }
-
-      /**
-       * Render one published quarterly statement into the reports tab.
-       * @param {Object} statement - Statement from the economy.
-       * @returns {Promise<void>} Resolves once both sections are rendered.
-       */
-      async function renderStatement(statement) {
-        const incomeLines = document.getElementById('company-report-income-lines');
-        const balanceLines = document.getElementById('company-report-balance-lines');
-        if (!incomeLines || !balanceLines) {
-          return;
-        }
-
-        incomeLines.textContent = '';
-        balanceLines.textContent = '';
-
-        const template = await window.gameHelpers.loadTemplate('./templates/statement-line.html');
-        const period = document.getElementById('company-report-period');
-        if (period) {
-          period.textContent = await _resolveMessageText('company_management.reports.period', {
-            fromTick: statement.fromTick.toLocaleString(),
-            toTick: statement.toTick.toLocaleString()
-          });
-        }
-
-        const income = statement.income;
-        const prefix = 'company_management.reports.';
-
-        // Costs are shown as negatives so the column reads as an arithmetic
-        // sum down to net income rather than as unsigned magnitudes.
-        await appendStatementLine(incomeLines, template, `${prefix}revenue`, income.revenue);
-        await appendStatementLine(incomeLines, template, `${prefix}cogs`, income.cogs, { negate: true });
-        await appendStatementLine(incomeLines, template, `${prefix}gross_profit`, income.grossProfit);
-        await appendStatementLine(incomeLines, template, `${prefix}operating_expense`, income.operatingExpense, { negate: true });
-        await appendStatementLine(incomeLines, template, `${prefix}interest_expense`, income.interestExpense, { negate: true });
-        await appendStatementLine(incomeLines, template, `${prefix}net_income`, income.netIncome);
-
-        const balance = statement.balance;
-        await appendStatementLine(balanceLines, template, `${prefix}cash`, balance.assets.cash || 0);
-        await appendStatementLine(balanceLines, template, `${prefix}inventory`, balance.assets.inventory || 0);
-        await appendStatementLine(balanceLines, template, `${prefix}property`, balance.assets.property || 0);
-        await appendStatementLine(balanceLines, template, `${prefix}investments`, balance.assets.investments || 0);
-        await appendStatementLine(balanceLines, template, `${prefix}loan_receivable`, balance.assets.loan_receivable || 0);
-        await appendStatementLine(balanceLines, template, `${prefix}total_assets`, balance.totalAssets);
-        await appendStatementLine(balanceLines, template, `${prefix}debt`, balance.totalLiabilities, { negate: true });
-        await appendStatementLine(balanceLines, template, `${prefix}net_worth`, balance.netWorth);
-        await appendStatementLine(balanceLines, template, `${prefix}shares_issued`, statement.sharesIssued);
-      }
-
-      /**
-       * Load and display the published quarterly reports for the selected company.
-       *
-       * Only closed quarters exist, so a new game shows an empty-state message
-       * until the first quarter ends rather than an incomplete report.
-       * @returns {Promise<void>} Resolves once the tab is populated.
-       */
-      async function refreshCompanyStatements() {
-        const emptyMessage = document.getElementById('company-reports-empty');
-        const bankruptMessage = document.getElementById('company-reports-bankrupt');
-        const body = document.getElementById('company-reports-body');
-        const select = document.getElementById('company-report-quarter-select');
-        if (!emptyMessage || !body || !select) {
-          return;
-        }
-
-        let statements = [];
         try {
-          const result = await _api.invoke('get-company-statements', {
-            companyName: selectedCompanyName
-          });
-          statements = Array.isArray(result?.statements) ? result.statements : [];
+          const labels = await window.gameHelpers.loadLabelMap(
+            './modals/company-management.labels.json'
+          );
+          await window.gameHelpers.applyLabelMap(labels, _resolveMessageText);
         } catch (error) {
-          window.gameHelpers.logClientError('Failed to load company statements', error);
-          _addMessage('message:company_management.reports.load_error');
-          return;
+          window.gameHelpers.logClientError('Error loading company labels:', error);
         }
-
-        if (statements.length === 0) {
-          emptyMessage.classList.remove('hidden');
-          body.classList.add('hidden');
-          bankruptMessage.classList.add('hidden');
-          return;
-        }
-
-        emptyMessage.classList.add('hidden');
-        body.classList.remove('hidden');
-
-        const latest = statements[statements.length - 1];
-        if (latest.isBankrupt) {
-          bankruptMessage.classList.remove('hidden');
-        } else {
-          bankruptMessage.classList.add('hidden');
-        }
-
-        // Newest first: the most recent report is the one that matters
-        const ordered = [...statements].reverse();
-        select.textContent = '';
-        for (const statement of ordered) {
-          const option = document.createElement('option');
-          option.value = String(statement.quarterIndex);
-          option.textContent = await _resolveMessageText(
-            'company_management.reports.quarter_option',
-            { quarterIndex: statement.quarterIndex }
-          );
-          select.appendChild(option);
-        }
-
-        select.onchange = async () => {
-          const chosen = statements.find(
-            statement => String(statement.quarterIndex) === select.value
-          );
-          if (chosen) {
-            await renderStatement(chosen);
-          }
-        };
-
-        await renderStatement(ordered[0]);
       }
 
       /**
-       * Switch the active company tab.
+       * Switch the active company tab and load anything that tab needs.
+       *
+       * Reports are fetched when the tab is opened rather than on every state
+       * refresh: a company's statement history only changes when a quarter
+       * closes, so there is no reason to pull it after every dividend or loan
+       * action.
        * @param {string} tabName - Tab name key.
+       * @returns {void}
        */
       function setActiveTab(tabName) {
         const tabNames = ['profile', 'finance', 'loans', 'reports', 'trade-routes'];
@@ -493,6 +341,12 @@
             }
           }
         });
+
+        if (tabName === 'reports') {
+          window.companyStatements.refresh(selectedCompanyName).catch((error) => {
+            window.gameHelpers.logClientError('Failed to refresh company statements', error);
+          });
+        }
       }
 
       /**
@@ -740,32 +594,13 @@
         }
 
         nextTabButton.focus();
-        activateTab(nextTabButton.getAttribute('data-tab'));
-      }
-
-      /**
-       * Activate a tab and load anything that tab needs.
-       *
-       * Reports are fetched when the tab is opened rather than on every state
-       * refresh: a company's statement history does not change between closes,
-       * so there is no reason to pull it after every dividend or loan action.
-       * @param {string} tabName - Tab name key.
-       * @returns {void}
-       */
-      function activateTab(tabName) {
-        setActiveTab(tabName);
-
-        if (tabName === 'reports') {
-          refreshCompanyStatements().catch((error) => {
-            window.gameHelpers.logClientError('Failed to refresh company statements', error);
-          });
-        }
+        setActiveTab(nextTabButton.getAttribute('data-tab'));
       }
 
       const companyTabButtons = Array.from(document.querySelectorAll('.company-management-tabs [data-tab]'));
       companyTabButtons.forEach((button, index) => {
         button.addEventListener('click', () => {
-          activateTab(button.getAttribute('data-tab'));
+          setActiveTab(button.getAttribute('data-tab'));
         });
 
         button.addEventListener('keydown', (event) => {
@@ -1685,6 +1520,24 @@
     document.getElementById('system-connections').textContent = connections || 'None';
   }
 
+  /**
+   * Open the share exchange.
+   *
+   * Delegates to `app/exchangeModal.js`, which owns the exchange's rendering.
+   * Routed through here so game code has one module to ask for a modal rather
+   * than having to know which ones were split into their own files.
+   * @returns {Promise<void>} Resolves once the modal is open.
+   * @throws {Error} When the exchange module is unavailable.
+   * @example
+   * await window.modalManager.openExchangeModal();
+   */
+  async function openExchangeModal() {
+    if (typeof window === 'undefined' || !window.exchangeModal) {
+      throw new Error('Exchange modal module is not loaded');
+    }
+    return window.exchangeModal.openExchangeModal();
+  }
+
   const api = {
     init,
     loadModal,
@@ -1693,6 +1546,7 @@
     openPlayerStatusModal,
     openCorporationStatusModal,
     openCompanyManagementModal,
+    openExchangeModal,
     openTradeModal,
     openBuildingsModal,
     openUniverseMapModal,

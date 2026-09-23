@@ -45,36 +45,19 @@
 
   /**
    * Apply every static label in the modal.
+   *
+   * The element-id to message-key map lives in `app/modals/exchange.labels.json`
+   * beside the modal markup, so adding a label is a change to the modal's own
+   * files rather than to this module.
    * @returns {Promise<void>} Resolves once labelled.
    */
   async function applyLabels() {
-    const labels = [
-      ['exchange-listings-heading', 'exchange.listings_heading'],
-      ['exchange-no-listings', 'exchange.no_listings'],
-      ['exchange-header-symbol', 'exchange.symbol'],
-      ['exchange-header-last', 'exchange.last_price'],
-      ['exchange-header-shares', 'exchange.shares_outstanding'],
-      ['exchange-chart-heading', 'exchange.chart_heading'],
-      ['exchange-no-history', 'exchange.no_history'],
-      ['exchange-book-heading', 'exchange.book_heading'],
-      ['exchange-bids-heading', 'exchange.bids'],
-      ['exchange-asks-heading', 'exchange.asks'],
-      ['exchange-no-bids', 'exchange.no_bids'],
-      ['exchange-no-asks', 'exchange.no_asks'],
-      ['exchange-place-heading', 'exchange.place_heading'],
-      ['exchange-account-label', 'exchange.account_label'],
-      ['exchange-side-label', 'exchange.side_buy'],
-      ['exchange-quantity-label', 'exchange.quantity_label'],
-      ['exchange-limit-label', 'exchange.limit_label'],
-      ['exchange-submit-order-btn', 'exchange.submit_order'],
-      ['exchange-portfolio-heading', 'exchange.portfolio_heading'],
-      ['exchange-credits-label', 'exchange.available_credits'],
-      ['exchange-no-positions', 'exchange.no_positions'],
-      ['exchange-orders-heading', 'exchange.orders_heading'],
-      ['exchange-no-orders', 'exchange.no_orders']
-    ];
-
-    await Promise.all(labels.map(([elementId, key]) => setText(elementId, key)));
+    try {
+      const labels = await window.gameHelpers.loadLabelMap('./modals/exchange.labels.json');
+      await window.gameHelpers.applyLabelMap(labels, _resolveMessageText);
+    } catch (error) {
+      window.gameHelpers.logClientError('Error loading exchange labels:', error);
+    }
   }
 
   /**

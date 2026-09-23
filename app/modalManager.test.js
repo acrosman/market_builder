@@ -1,5 +1,7 @@
 const modalManager = require('./modalManager');
 const gameHelpers = require('./gameHelpers');
+const COMPANY_LABELS = require('./modals/company-management.labels.json');
+const companyStatements = require('./companyStatements');
 
 describe('modalManager', () => {
   let mockApi;
@@ -42,13 +44,16 @@ describe('modalManager', () => {
       refreshCompanyManagementButtons: jest.fn().mockResolvedValue(undefined)
     };
 
-    modalManager.init(mockContext);
-
     global.fetch = jest.fn();
     window.navigationHandlers = {
       handleBuild: jest.fn()
     };
     window.gameHelpers = gameHelpers;
+    // Registered before init: modalManager wires the split-out modules from
+    // there, so one that is not on window yet never receives its context.
+    window.companyStatements = companyStatements;
+
+    modalManager.init(mockContext);
   });
 
   afterEach(() => {
@@ -56,6 +61,7 @@ describe('modalManager', () => {
     document.body.innerHTML = '';
     delete window.navigationHandlers;
     delete window.gameHelpers;
+    delete window.companyStatements;
   });
 
   describe('init', () => {
@@ -800,12 +806,23 @@ describe('modalManager', () => {
           <input id="company-loan-repayment-rate-input" />
         `;
 
-      global.fetch.mockImplementation((url) => Promise.resolve({
-        ok: true,
-        text: jest.fn().mockResolvedValue(
-          String(url).includes('statement-line') ? STATEMENT_LINE_TEMPLATE : modalMarkup
-        )
-      }));
+      global.fetch.mockImplementation((url) => {
+        // The label map is fetched as JSON. A mock that only answers text()
+        // sends label loading down the error path, and every label assertion
+        // would then pass against an unlabelled modal.
+        if (String(url).includes('company-management.labels.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: jest.fn().mockResolvedValue(COMPANY_LABELS)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          text: jest.fn().mockResolvedValue(
+            String(url).includes('statement-line') ? STATEMENT_LINE_TEMPLATE : modalMarkup
+          )
+        });
+      });
     }
 
     test('loads and displays company management data', async () => {

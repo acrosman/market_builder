@@ -152,11 +152,7 @@ async function loadGameJs() {
     openTradeModal: jest.fn(),
     openBuildingsModal: jest.fn(),
     closeModal: jest.fn(),
-    loadModal: jest.fn()
-  };
-
-  window.exchangeModal = {
-    init: jest.fn(),
+    loadModal: jest.fn(),
     openExchangeModal: jest.fn().mockResolvedValue(undefined)
   };
 

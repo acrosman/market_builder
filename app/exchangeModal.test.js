@@ -1,4 +1,5 @@
 const exchangeModal = require('./exchangeModal');
+const EXCHANGE_LABELS = require('./modals/exchange.labels.json');
 require('./gameHelpers');
 
 describe('exchangeModal', () => {
@@ -116,6 +117,12 @@ describe('exchangeModal', () => {
 
     global.fetch = jest.fn().mockImplementation((url) => {
       const path = String(url);
+      // The label map is fetched as JSON, so serve the real file rather than
+      // markup: a mock that only answers text() sends label loading down the
+      // error path and the assertions below would pass on an unlabelled modal.
+      if (path.includes('exchange.labels.json')) {
+        return Promise.resolve({ ok: true, json: jest.fn().mockResolvedValue(EXCHANGE_LABELS) });
+      }
       let text = MODAL_HTML;
       if (path.includes('exchange-listing-row')) text = LISTING_ROW;
       else if (path.includes('exchange-depth-row')) text = DEPTH_ROW;
@@ -151,6 +158,14 @@ describe('exchangeModal', () => {
 
       expect(document.querySelector('.modal-content').classList.contains('wide')).toBe(true);
       expect(document.getElementById('exchange-detail').classList.contains('hidden')).toBe(true);
+    });
+
+    test('should label the modal from its label map file', async () => {
+      await openWith();
+
+      // resolveMessageText is mocked to echo the key, so the text is the key
+      expect(document.getElementById('exchange-listings-heading').textContent)
+        .toBe(EXCHANGE_LABELS['exchange-listings-heading']);
     });
 
     test('should render a row per listing', async () => {
