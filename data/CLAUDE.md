@@ -30,12 +30,12 @@ rather than reading `settings.x.y` directly.
 | `time` | `src/economy/clock.js` | `ticks_per_day`, `days_per_quarter`, `quarters_per_year`. Nothing else should hardcode a tick count |
 | `production` | `src/economy/production.js` | Extraction rate per productivity point, staff wages, energy cost, food eaten per billion people per day |
 | `restock` | `src/economy/restock.js` | How fast a market closes the gap to ideal stock, and the markup/discount it pays the wider galaxy |
-| `solvency` | `src/economy/solvency.js` | The deficit grace window before a loan is forced, and the buffer that loan carries |
+| `solvency` | `src/corporation/solvency.js` | The deficit grace window before a loan is forced, and the buffer that loan carries |
 | `statements` | `src/economy/statements.js` | `detail_quarters_retained` — how many quarters of journal detail survive before rollup. **This is the main control on save file size** |
 | `appraisal` | `src/economy/appraisal.js` | Discount rate, distress spread, liquidation haircut, default probability ceiling |
 | `npc_corporations` | `src/npc/npcCorporations.js` | Rivals' starting cash, the cash floors gating building and acquisition, and `agent_mix`, the relative weight of each strategy in `src/npc/agents/`. `count` is a default: the number of rivals is chosen when a universe is created |
 | `investors` | `src/npc/investorPool.js` | The investing public's size, capital, savings rate, belief dispersion and position limits |
-| `dividends` | `src/economy/dividends.js` | Whether dividends pay on quarter close |
+| `dividends` | `src/corporation/dividends.js` | Whether dividends pay on quarter close |
 | `news` | `src/economy/news.js` | How many news items are kept before the oldest fall off |
 | `credit` | `src/corporation.js` | The rating ladder: each grade with its leverage band and its annual interest rate, best to worst |
 | `opening_endowments` | `src/game.js` | Opening cash for the bank and for each market |

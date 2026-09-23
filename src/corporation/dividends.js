@@ -1,4 +1,4 @@
-const { ACCOUNTS, corporationHolder, holderKey } = require('./accounts');
+const { ACCOUNTS, corporationHolder, holderKey } = require('../economy/accounts');
 
 /**
  * Paying shareholders out of a quarter's earnings.

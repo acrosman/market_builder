@@ -1,9 +1,9 @@
 const { ticksPerYear, ticksPerDay } = require('./clock');
 const { runProduction, consumeFood } = require('./production');
 const { restockMarket } = require('./restock');
-const { enforceSolvency } = require('./solvency');
+const { enforceSolvency } = require('../corporation/solvency');
 const { closeElapsedQuarters } = require('./statements');
-const { payQuarterlyDividends } = require('./dividends');
+const { payQuarterlyDividends } = require('../corporation/dividends');
 const { runInvestorPool } = require('../npc/investorPool');
 const { runNpcCorporations, corporateCycleTicks } = require('../npc/npcCorporations');
 const { detectControlChanges } = require('../exchange/control');

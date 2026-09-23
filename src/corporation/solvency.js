@@ -1,21 +1,25 @@
-const { ticksPerDay } = require('./clock');
-const { ACCOUNTS, corporationHolder } = require('./accounts');
-const { NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('./news');
+const { ticksPerDay } = require('../economy/clock');
+const {
+  ACCOUNTS,
+  ASSET_ACCOUNTS,
+  LIABILITY_ACCOUNTS,
+  corporationHolder
+} = require('../economy/accounts');
+const { NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('../economy/news');
 const { numericReader } = require('../settings');
 
 /**
  * Solvency enforcement for corporations.
  *
- * Corporations could previously run an unlimited cash deficit. Wages, energy,
- * and restock purchases all draw on cash, so a corporation with production and
- * no sales simply went further and further negative with nothing to stop it.
- * That is credits borrowed from nowhere, which breaks the same rule the ledger
- * exists to enforce everywhere else.
+ * A cash deficit is a dated obligation, not something a company can simply
+ * carry. Wages, energy and restock purchases all draw on cash, so a corporation
+ * with production and no sales goes negative; left unchecked that is credits
+ * borrowed from nowhere, which breaks the rule the ledger exists to enforce.
  *
- * A deficit is now a dated obligation. A corporation that goes cash-negative
- * has a grace window to trade its way back to positive. If the window closes
- * while it is still short, it is forced to borrow enough to cover the gap,
- * which is what a real business with a credit line would do.
+ * A corporation that goes cash-negative has a grace window to trade its way
+ * back to positive. If the window closes while it is still short, it is forced
+ * to borrow enough to cover the gap, which is what a real business with a
+ * credit line would do.
  *
  * That borrowing is what eventually kills it. Each forced loan adds debt, the
  * debt accrues interest, and the interest deepens the deficit. When net worth
@@ -25,18 +29,6 @@ const { numericReader } = require('../settings');
  * What happens to a bankrupt corporation's worlds, goods, shares and debts is
  * deliberately out of scope here and tracked separately.
  */
-
-/** Asset accounts that count toward net worth. */
-const ASSET_ACCOUNTS = [
-  ACCOUNTS.CASH,
-  ACCOUNTS.INVENTORY,
-  ACCOUNTS.PROPERTY,
-  ACCOUNTS.INVESTMENTS,
-  ACCOUNTS.LOAN_RECEIVABLE
-];
-
-/** Liability accounts that count against net worth. */
-const LIABILITY_ACCOUNTS = [ACCOUNTS.DEBT];
 
 /**
  * Read solvency configuration from settings, filling in defaults.
@@ -324,10 +316,8 @@ function declareBankrupt({ game, corporation, tick, assessment }) {
 }
 
 module.exports = {
-  ASSET_ACCOUNTS,
   warnOnApproachingMaturity,
   declareBankrupt,
-  LIABILITY_ACCOUNTS,
   solvencyConfig,
   bookNetWorth,
   assessSolvency,

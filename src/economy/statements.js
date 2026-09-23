@@ -1,6 +1,11 @@
 const { quarterForTick, quarterTickRange } = require('./clock');
-const { ACCOUNTS, holderKey, corporationHolder } = require('./accounts');
-const { ASSET_ACCOUNTS, LIABILITY_ACCOUNTS } = require('./solvency');
+const {
+  ACCOUNTS,
+  ASSET_ACCOUNTS,
+  LIABILITY_ACCOUNTS,
+  holderKey,
+  corporationHolder
+} = require('./accounts');
 
 /**
  * Quarterly financial statements derived from the ledger.

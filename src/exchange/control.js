@@ -1,7 +1,9 @@
 const { holderKey, parseHolderKey } = require('../economy/accounts');
-
-/** Share of a company that constitutes control. */
-const CONTROL_THRESHOLD = 0.5;
+const {
+  CONTROL_THRESHOLD,
+  isControllingStake,
+  isControlledBy
+} = require('../corporation/control');
 
 /**
  * Who controls a listed company.
@@ -42,7 +44,7 @@ function controllingHolder(portfolio, listing) {
   const largest = table[0];
   const fraction = largest.shares / outstanding;
 
-  if (fraction <= CONTROL_THRESHOLD) {
+  if (!isControllingStake(fraction)) {
     return null;
   }
 
@@ -88,16 +90,19 @@ function detectControlChanges(exchange) {
 
 /**
  * Whether a holder controls a listing.
+ *
+ * Reads the cap table here and asks the corporation whether that amounts to
+ * control, rather than deciding it: what counts as controlling a company is a
+ * fact about companies, not about the market they trade on.
  * @param {Object} portfolio - The holdings register.
  * @param {Object} listing - The listing.
  * @param {Object} holder - The holder to check.
- * @returns {boolean} True when that holder holds a majority.
+ * @returns {boolean} True when that holder controls the company.
  * @example
  * controls(exchange.portfolio, listing, playerHolder(player));
  */
 function controls(portfolio, listing, holder) {
-  const controller = controllingHolder(portfolio, listing);
-  return Boolean(controller) && holderKey(controller.holder) === holderKey(holder);
+  return isControlledBy(controllingHolder(portfolio, listing), holder);
 }
 
 module.exports = {

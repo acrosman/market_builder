@@ -1,4 +1,4 @@
-const { settingsBlock } = require('./settings');
+const { settingsBlock } = require('../settings');
 /**
  * Represents a Corporation in Universe Market Builder.
  * Corporations own assets (stellar objects, ships, goods) and track their total value.

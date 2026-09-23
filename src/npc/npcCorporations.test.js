@@ -23,7 +23,7 @@ const {
   accrueSavings, fairValuePerShare, ordersForListing, clearPoolOrders,
   runInvestorPool, investorCapital
 } = require('./investorPool');
-const { dividendDue, payDividend } = require('../economy/dividends');
+const { dividendDue, payDividend } = require('../corporation/dividends');
 const { RandomSource } = require('../economy/rng');
 const { ACCOUNTS, corporationHolder, playerHolder } = require('../economy/accounts');
 const { ticksPerDay, ticksPerQuarter } = require('../economy/clock');

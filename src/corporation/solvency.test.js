@@ -9,9 +9,9 @@ const {
   assessSolvency,
   enforceSolvency
 } = require('./solvency');
-const { recordOpeningBalance, recordConstructionSpend } = require('./transactions');
-const { ACCOUNTS, corporationHolder, marketHolder } = require('./accounts');
-const { ticksPerDay } = require('./clock');
+const { recordOpeningBalance, recordConstructionSpend } = require('../economy/transactions');
+const { ACCOUNTS, corporationHolder, marketHolder } = require('../economy/accounts');
+const { ticksPerDay } = require('../economy/clock');
 
 const settings = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'data/default/en-us/game_settings.json'), 'utf-8')

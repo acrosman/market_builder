@@ -64,16 +64,6 @@ Always sign comments so it's clear when they were AI generated. Both commit comm
   - Methods: `addBuilding(type, buildingsData)` (queues construction), `removeBuilding()`, `getShieldStrength()`, `getCannonStrength()`, `addFighters()`, `updatePopulation()`, `calculateValue()`, `onTick(data)` (automatic time-based updates)
   - **EventBus Integration**: Subscribes to tick events during game initialization for automatic updates (population growth, construction advancement)
 
-- **src/corporation.js** - Economic entities
-  - Tracks owned assets (stellar objects, ships, goods inventory), cash, loans and solvency state
-  - **`calculateTotalValue()` is net of debt; `calculateTotalAssetValue()` is gross.** Borrowing
-    must not raise reported value, and net worth may legitimately be negative
-  - `getCreditRating(universe)` ladders on leverage, not the size of the debt, and takes the
-    universe so collateral counts. `Corporation.RATING_ORDER` orders the ladder
-  - `cashReserves` is a projection of the ledger, set via `setCashPosition()`, and may be
-    negative. The ledger is the source of truth for cash
-  - Player and NPC corporations
-
 - **src/market.js** - Market and trading system
   - `Market` class: Manages all trading, pricing, and market initialization
   - Methods: `initializeMarkets()`, `updatePrices()`, `processTrade()`
@@ -128,6 +118,12 @@ in that directory** -- the detail is there rather than restated here.
   `src/npc/agents/`: a strategy module deciding what one corporation does with a turn, so a new
   kind of rival is a new module there rather than another branch in a decision function.
   `npc/agents/agentInterface.js` holds the contract.
+
+- **[src/corporation/](corporation/CLAUDE.md)** - Everything a company is and does: the
+  `Corporation` class plus the behaviours that belong to a company rather than to the economy or
+  the exchange -- solvency and bankruptcy, dividends, and what counts as control.
+  `calculateTotalValue()` is net of debt, `cashReserves` is a projection of the ledger, and the
+  credit rating ladders on leverage with its grades and rates in one settings table.
 
 - **[src/ipc/](ipc/CLAUDE.md)** - Feature-clustered IPC handler registration, called from
   `windowManager.js`. Handlers take the game through a getter rather than a captured value,

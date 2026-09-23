@@ -223,8 +223,28 @@ function playerHolder(player) {
   return { kind: HOLDER_KINDS.PLAYER, id };
 }
 
+/**
+ * Asset accounts, in balance-sheet order.
+ *
+ * Grouped here with the rest of the chart of accounts rather than beside the
+ * code that happens to read them, so the statements and the net worth
+ * calculation cannot end up disagreeing about what an asset is.
+ */
+const ASSET_ACCOUNTS = [
+  ACCOUNTS.CASH,
+  ACCOUNTS.INVENTORY,
+  ACCOUNTS.PROPERTY,
+  ACCOUNTS.INVESTMENTS,
+  ACCOUNTS.LOAN_RECEIVABLE
+];
+
+/** Liability accounts, which count against net worth. */
+const LIABILITY_ACCOUNTS = [ACCOUNTS.DEBT];
+
 module.exports = {
   ACCOUNTS,
+  ASSET_ACCOUNTS,
+  LIABILITY_ACCOUNTS,
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_BY_ACCOUNT,
   HOLDER_KINDS,

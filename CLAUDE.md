@@ -65,7 +65,8 @@ This is a **multi-process Electron app** with strict security boundaries:
 ### Game Code Structure
 
 - Core Game Logic: `src/` Backend modules run in main process only
-  - `src/economy/` — production, consumption, the double-entry ledger, statements, solvency, appraisal, and the single tick subscriber that drives them
+  - `src/corporation/` — the `Corporation` class and the behaviours that belong to a company: solvency, dividends, control
+  - `src/economy/` — production, consumption, the double-entry ledger, statements, appraisal, and the single tick subscriber that drives them
   - `src/exchange/` — the share market: order books, the periodic call auction, holdings, cap tables, control
   - `src/npc/` — rival corporations and the investing public; `src/npc/agents/` holds the strategy modules that decide what one corporation does with a turn
   - `src/ipc/` — feature-clustered IPC handler registration, called from `windowManager.js`
@@ -99,8 +100,8 @@ that moves money.
 1. **Money is conserved.** Total cash across every holder equals total credits ever injected.
    Credits enter the game exactly one way — debited to a holder's `CASH` against that same
    holder's `CONTRIBUTED_CAPITAL` — and everything else moves credits sideways between holders.
-   A money movement without a counterparty destroys or creates credits and the conservation test
-   will find it. This has already caught bugs in construction spend, loan overpayment and restocking.
+   `Ledger.addCapital()` is the only way credits are created, and `Ledger.audit()` reports
+   `cashMatches: false` the moment something else learns to. This has already caught bugs in construction spend, loan overpayment and restocking.
 2. **Post through `src/economy/transactions.js`, never through `ledger.post()` directly.** The
    recorders keep the journal and the inventory cost basis in step. If no recorder fits, add one.
 3. **Appraisal must never see a share price.** `src/economy/appraisal.js` does not import the
@@ -135,7 +136,7 @@ block degrades rather than throws and older saves keep loading.
 - JSDOM environment: `app/**/*.test.js` (simulates browser)
 - Helper pattern: See `createTestPlayerData()` in `src/game.test.js`
 - E2E test: `app/game.e2e.test.js` (integration-style test)
-- **Conservation harness**: `checkConservation()` is asserted over long tick runs in `src/economy/economyTickSubscriber.test.js`, `src/npc/npcCorporations.test.js` and `src/npc/distress.test.js`; `src/economy/economyIntegration.test.js` covers the ledger's round trip through individual money movements. When one of these breaks, read the failure's per-holder cash breakdown (`cashByHolder()`) before reading the diff — it names the subsystem that learned to create or destroy credits
+- **Conservation harness**: `ledger.audit().cashMatches` is asserted over long tick runs in `src/economy/economyTickSubscriber.test.js`, `src/npc/npcCorporations.test.js` and `src/npc/distress.test.js`; `src/economy/economyIntegration.test.js` covers the ledger's round trip through individual money movements. When one of these breaks, read the failure's per-holder cash breakdown (`cashByHolder()`) before reading the diff — it names the subsystem that learned to create or destroy credits
 - **Never assume two games agree.** Universe generation is not seeded, so a test that builds two games from the same settings and compares them passes by luck. Pin the values you assert on
 - **Emergent outcomes need their own tests.** A test that asserts on the end of a simulated year is asserting on a distribution, not a return value. Where more than one outcome is legitimate, test each separately and force it with settings rather than accepting an intermittent failure — see the paired takeover tests in `src/npc/distress.test.js`
 - **Lazy-require the logger in modules `windowManager.js` pulls in.** Its tests mock the logger; constructing one at module load reaches the mock before the test initializes it, and the failure surfaces as a temporal dead zone error far from the cause
@@ -288,7 +289,7 @@ See also Code Style Section above.
 - `src/trader.js` - Shared base class for `Player`/`NPC`; always use its methods (`addCredits()`, `removeCargo()`, etc.) instead of direct property mutation — see `src/CLAUDE.md`
 - `src/player.js` - Player character (extends `Trader`)
 - `src/npc.js` - AI traders (extends `Trader`)
-- `src/corporation.js` - Economic entities: owned assets and asset valuation
+- `src/corporation/` - Everything a company is and does: the class, solvency and bankruptcy, dividends, and what counts as control
 - `src/universe.js` - World generation and graph algorithms
 - `src/market.js` - Market initialization, trading, and dynamic pricing
 - `src/stellarObject.js` - Stellar object state and capabilities management
@@ -296,8 +297,7 @@ See also Code Style Section above.
 - `src/contentCache.js` - Cached, deep-frozen loader for `data/` content files; use instead of `fs.readFileSync` for game content
 - `src/economy/economyState.js` - `EconomyState`, the container all economy and exchange state hangs off; reached via `game.getEconomy()`
 - `src/economy/economyTickSubscriber.js` - The single `'tick'` subscriber driving the whole economy
-- `src/economy/ledger.js` / `src/economy/transactions.js` - Double-entry journal and the recorders that are the only supported way to move money or goods
-- `src/economy/conservation.js` - `checkConservation()`, the money invariant, and `cashByHolder()` for when it fails
+- `src/economy/ledger.js` / `src/economy/transactions.js` - Double-entry journal and the recorders that are the only supported way to move money or goods. `addCapital()` is the only way money is created; `audit()` reports whether the supply still matches
 - `src/economy/appraisal.js` - What things are worth; must never see a share price
 - `src/economy/rng.js` - Seeded, serializable PRNG; the only permitted randomness in economy, exchange and agent code
 - `src/exchange/exchange.js` - Listings, order submission and settlement; short selling is refused

@@ -1,5 +1,5 @@
 const { Corporation } = require('./corporation');
-const { Universe, System, StellarObject } = require('./universe');
+const { Universe, System, StellarObject } = require('../universe');
 
 // Grades from strongest to weakest, read from the settings ladder so these
 // tests assert one rating is worse than another without restating the bands.
