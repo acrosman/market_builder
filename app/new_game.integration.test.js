@@ -81,6 +81,7 @@ describe('new_game.js (integration)', () => {
           <input type="text" name="systemCount" value="10" />
           <input type="text" name="connectionCount" value="2" />
           <input type="text" name="stellarObjectCount" value="3" />
+          <input type="text" name="corporationCount" value="8" />
           <button id="generate-btn" type="submit">Generate Universe</button>
         </form>
         <button id="close-btn">Close</button>
@@ -114,7 +115,8 @@ describe('new_game.js (integration)', () => {
     expect(window.api.send).toHaveBeenCalledWith('create-universe', {
       systemCount: 10,
       connectionCount: 2,
-      stellarObjectCount: 3
+      stellarObjectCount: 3,
+      corporationCount: 8
     });
   });
 

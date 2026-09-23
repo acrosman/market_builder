@@ -142,12 +142,16 @@ function createNpcCorporations(game) {
   const created = [];
   let next = 0;
 
+  const description = game.getMessage(
+    'npc_corporations.default_description', {}, ''
+  );
+
   names.forEach(name => {
     // Cash is set on the corporation only. Game.recordOpeningBalances runs after
     // this and posts every corporation's reserves to the ledger; posting here
     // as well would credit each of them twice.
     const corporation = new Corporation(
-      name, 'An independent operator', false, config.startingCash
+      name, description, false, config.startingCash
     );
 
     // Each pays out a different share of its earnings. Without a rate they

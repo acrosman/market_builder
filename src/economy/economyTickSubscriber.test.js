@@ -46,7 +46,7 @@ function startedGame() {
   return game;
 }
 
-describe('EconomyTicker interest accrual', () => {
+describe('EconomyTickSubscriber interest accrual', () => {
   describe('balloon loan structure', () => {
     test('should give a loan an origin and maturity tick', () => {
       const game = startedGame();

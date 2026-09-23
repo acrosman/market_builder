@@ -73,14 +73,14 @@ single-holder version produced zero trades across a full simulated year.
 - **Config lives in `game_settings.json`** under `npc_corporations` and `investors`, read
   through `npcCorporationConfig()` / `investorConfig()` with `DEFAULT_*` fallbacks. Company names
   come from `data/default/en-us/corporation_names.json`.
-- Agents are driven from `EconomyTicker.runAgents()` -- investors, then acquisitions, then
+- Agents are driven from `EconomyTickSubscriber.runAgents()` -- investors, then acquisitions, then
   building -- not from their own tick subscriptions.
 
 ## Testing notes
 
-`distress.test.js` holds the Stage 5 milestone and is the most failure-prone file here, because
-it asserts on an emergent outcome rather than on a function's return value. Two lessons already
-paid for:
+`distress.test.js` asserts on emergent outcomes -- what a whole simulated year produces -- rather
+than on a function's return value, which makes it the most failure-prone file here. Two lessons
+already paid for:
 
 - **Split contested and uncontested outcomes into separate tests.** The original single test
   assumed a takeover completes, and failed roughly one run in six when three corporations split

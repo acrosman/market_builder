@@ -54,7 +54,7 @@ function appraisalConfig(settings = {}) {
   return {
     baseDiscountRate: read('base_discount_rate'),
     distressSpread: read('distress_spread'),
-    inventoryLiquidationHaircut: read('inventory_liquidation_haircut'),
+    inventoryLiquidationDiscount: read('inventory_liquidation_discount'),
     infrastructureFloorWeight: read('infrastructure_floor_weight'),
     maxDefaultProbability: read('max_default_probability')
   };
@@ -329,7 +329,7 @@ function liquidValue(corporation, context = {}) {
     inventory += (Number(prices[goodName]) || 0) * (Number(quantity) || 0);
   });
 
-  return cash + (inventory * (1 - config.inventoryLiquidationHaircut));
+  return cash + (inventory * (1 - config.inventoryLiquidationDiscount));
 }
 
 /**

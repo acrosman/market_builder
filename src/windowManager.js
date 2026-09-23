@@ -41,6 +41,35 @@ function registerIpcHandlers(dependencies) {
   const baseDir = path.join(__dirname, '..');
   let currentUniverse = null;
 
+  // Choices made on the new-universe screen that belong to the game rather than
+  // to the universe graph. Cleared with the universe they were chosen for.
+  let currentSetupOptions = {};
+
+  /**
+   * Game settings with the new-universe choices folded in.
+   *
+   * The settings file holds the defaults; the setup screen overrides the few a
+   * player picks per game. Merging here keeps `Game` reading one settings
+   * object rather than knowing which values came from where.
+   * @returns {Object} Settings for the game about to be created.
+   * @example
+   * const newGame = new Game(currentUniverse, setupSettings());
+   */
+  function setupSettings() {
+    const { npcCorporationCount } = currentSetupOptions;
+    if (npcCorporationCount === undefined) {
+      return gameSettings;
+    }
+
+    return {
+      ...gameSettings,
+      npc_corporations: {
+        ...(gameSettings.npc_corporations || {}),
+        count: npcCorporationCount
+      }
+    };
+  }
+
   /**
    * Get a renderer-friendly company management snapshot.
    * @param {Object} corporation - Corporation instance.
@@ -201,6 +230,13 @@ function registerIpcHandlers(dependencies) {
       params.stellarObjectCount
     );
 
+    // How many rivals populate this universe is chosen at creation, like its
+    // size, and is fixed for the life of the game.
+    const requested = Number(params.corporationCount);
+    currentSetupOptions = Number.isFinite(requested) && requested >= 0
+      ? { npcCorporationCount: Math.round(requested) }
+      : {};
+
     const setupWindow = getGameSetupWindow();
     if (setupWindow) {
       setupWindow.webContents.send('universe-created', {
@@ -230,7 +266,7 @@ function registerIpcHandlers(dependencies) {
       return;
     }
 
-    const newGame = new Game(currentUniverse, gameSettings);
+    const newGame = new Game(currentUniverse, setupSettings());
     newGame.initializeGame(playerData);
     setCurrentGame(newGame);
 

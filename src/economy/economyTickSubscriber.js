@@ -11,23 +11,25 @@ const { corporationOriginSystem } = require('./news');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
 /**
- * Drives the per-tick economy from the game's tick events.
+ * Subscribes to the game's tick events and drives the economy from them.
  *
- * Registered as an EventBus subscriber alongside the stellar objects, so it
- * implements `onTick`. Like those subscriptions it is behaviour rather than
- * state: it is not persisted and is re-created after a load.
+ * This emits no ticks of its own. It is an EventBus subscriber registered
+ * alongside the stellar objects, so it implements `onTick`, and like those
+ * subscriptions it is behaviour rather than state: it is not persisted and is
+ * re-created after a load.
  *
- * This is the single entry point for everything that happens to the economy as
- * time passes. Interest accrual lives here now; production and period close
- * will hang off the same tick.
+ * It is the single place recurring economic work is sequenced. Interest accrues
+ * every tick; production, consumption, restocking, solvency, the agents, the
+ * share auction and the book close all run on day boundaries, in an order that
+ * matters and is commented where it is set.
  */
-class EconomyTicker {
+class EconomyTickSubscriber {
   /**
-   * Create a ticker bound to a game session.
+   * Create a tick subscriber bound to a game session.
    * @param {Object} game - The Game whose economy this drives.
    * @example
-   * const ticker = new EconomyTicker(game);
-   * game.getEventBus().subscribe('tick', ticker);
+   * const subscriber = new EconomyTickSubscriber(game);
+   * game.getEventBus().subscribe('tick', subscriber);
    */
   constructor(game) {
     this.game = game;
@@ -387,5 +389,5 @@ class EconomyTicker {
 }
 
 module.exports = {
-  EconomyTicker
+  EconomyTickSubscriber
 };

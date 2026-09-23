@@ -1,5 +1,15 @@
-/** How many items to retain. */
-const DEFAULT_NEWS_LENGTH = 256;
+const { numericReader } = require('../settings');
+
+/**
+ * How many items the news keeps before the oldest fall off.
+ * @param {Object} [settings] - Resolved game settings.
+ * @returns {number} Item capacity.
+ * @example
+ * newsCapacity(game.getSettings()); // => 256
+ */
+function newsCapacity(settings = {}) {
+  return numericReader(settings, 'news', true)('items_retained');
+}
 
 /**
  * Things worth knowing about, in the order they happened.
@@ -47,10 +57,10 @@ class NewsStore {
    * @example
    * const news = new NewsStore();
    */
-  constructor(capacity = DEFAULT_NEWS_LENGTH) {
+  constructor(capacity = newsCapacity()) {
     /** @type {Array<Object>} Items oldest first. */
     this.items = [];
-    this.capacity = Math.max(1, Math.round(Number(capacity) || DEFAULT_NEWS_LENGTH));
+    this.capacity = Math.max(1, Math.round(Number(capacity) || newsCapacity()));
     this.nextId = 1;
   }
 
@@ -169,8 +179,8 @@ function corporationOriginSystem(game, corporation) {
 }
 
 module.exports = {
-  DEFAULT_NEWS_LENGTH,
   NEWS_KINDS,
+  newsCapacity,
   SEVERITY,
   NewsStore,
   corporationOriginSystem

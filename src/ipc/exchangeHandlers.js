@@ -1,6 +1,15 @@
 const { playerHolder, corporationHolder } = require('../economy/accounts');
 
 /**
+ * IPC handlers for the share exchange.
+ *
+ * Split out of `windowManager.js` rather than added to it. That file already
+ * registers every other channel in the game and is close to the size at which
+ * this project splits modules, and the exchange adds a cluster of related
+ * channels that belong together.
+ */
+
+/**
  * Build the logger on demand rather than at module load.
  *
  * windowManager requires this module at the top of the file, and its tests mock
@@ -14,15 +23,6 @@ function exchangeLogger() {
   const { createLogger } = require('../logger');
   return createLogger('exchange-ipc');
 }
-
-/**
- * IPC handlers for the share exchange.
- *
- * Split out of `windowManager.js` rather than added to it. That file already
- * registers every other channel in the game and is close to the size at which
- * this project splits modules, and the exchange adds a cluster of related
- * channels that belong together.
- */
 
 /**
  * Resolve the holder a renderer request is acting as.

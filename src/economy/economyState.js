@@ -8,15 +8,14 @@ const { NewsStore } = require('./news');
 /**
  * Container for all economy and exchange simulation state.
  *
- * This exists to solve a specific persistence hazard. `Game.getSaveData()`
- * serializes `player` and `corporations` as live class instances, so new fields
- * are written to disk, but the deserializers copy hand-maintained field lists,
- * so those fields come back undefined. Saves look fine and loads are quietly
- * lossy. Rather than extend that pattern, everything the economy owns lives
- * under one key that serializes and restores itself, with its own version.
+ * Holds the random source, ledger, cost basis, published statements, exchange
+ * and news, and serializes them together under the save file's `economy` key.
  *
- * Today it holds only the random source. The ledger, listings, portfolios, and
- * agent state will hang off this same object as they are built.
+ * It exists because `Game.getSaveData()` serializes live class instances while
+ * the deserializers copy hand-maintained field lists, so a field added to a
+ * saved class is written to disk and then comes back undefined -- saves look
+ * fine and loads are quietly lossy. Anything hanging off this object has a real
+ * `fromJSON` behind it and round-trips.
  */
 class EconomyState {
   /**

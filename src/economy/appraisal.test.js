@@ -273,11 +273,11 @@ describe('liquidValue', () => {
     corporation.addGoods('wheat', 100);
 
     const gross = 100 * goodsData.wheat.value;
-    const { inventoryLiquidationHaircut } = appraisalConfig(settings);
+    const { inventoryLiquidationDiscount } = appraisalConfig(settings);
 
     // A forced seller dumping stock does not get the prevailing price
     expect(liquidValue(corporation, { settings }))
-      .toBeCloseTo(gross * (1 - inventoryLiquidationHaircut), 6);
+      .toBeCloseTo(gross * (1 - inventoryLiquidationDiscount), 6);
   });
 
   test('should exclude stellar objects', () => {

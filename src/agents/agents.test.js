@@ -15,6 +15,7 @@ const { dividendDue, payDividend } = require('../economy/dividends');
 const { RandomSource } = require('../economy/rng');
 const { ACCOUNTS, corporationHolder, playerHolder } = require('../economy/accounts');
 const { ticksPerDay, ticksPerQuarter } = require('../economy/clock');
+const { defaultSettings } = require('../settings');
 
 const settings = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'data/default/en-us/game_settings.json'), 'utf-8')
@@ -45,8 +46,10 @@ describe('corporateAI configuration', () => {
   });
 
   test('should fall back for missing or unusable values', () => {
-    expect(npcCorporationConfig({}).count).toBe(12);
-    expect(npcCorporationConfig({ npc_corporations: { count: 'x' } }).count).toBe(12);
+    const shipped = defaultSettings().npc_corporations.count;
+
+    expect(npcCorporationConfig({}).count).toBe(shipped);
+    expect(npcCorporationConfig({ npc_corporations: { count: 'x' } }).count).toBe(shipped);
   });
 
   test('should derive the decision cadence from the clock', () => {

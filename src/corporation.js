@@ -195,17 +195,13 @@ class Corporation {
   /**
    * Set the corporation's cash position from the ledger.
    *
-   * The ledger is the single source of truth for cash: production pays wages,
-   * restocking buys stock, and interest accrues, all of which post there.
-   * `cashReserves` is a cached projection of that so the UI and the
-   * discretionary-spend guards have a number to read without querying the
+   * The ledger is the source of truth for cash; `cashReserves` is a cached
+   * projection of it so callers have a number to read without querying the
    * journal.
    *
-   * Unlike `addCashReserve` and `spendCashReserve`, this accepts a negative
-   * value. A corporation genuinely can be overdrawn -- unavoidable costs do not
-   * stop for lack of funds -- and hiding that behind a floor at zero is what
-   * let corporations run unlimited deficits unnoticed. Solvency enforcement
-   * reads this to decide when to force a loan.
+   * Accepts a negative value, unlike the add and spend methods. A corporation
+   * genuinely can be overdrawn, and solvency enforcement reads this to decide
+   * when to force a loan.
    * @param {number} amount - Cash position, which may be negative.
    * @returns {number} The position that was set.
    * @example

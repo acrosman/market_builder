@@ -266,7 +266,7 @@ describe('distressed acquisition', () => {
   });
 });
 
-describe('the Stage 5 milestone', () => {
+describe('a company failing under its debt', () => {
   test('a failing company loses its bid and is bought up below asset value', () => {
     const game = listedGame('milestone');
     const victim = game.getCorporations().find(c => !c.isPlayerOwned);

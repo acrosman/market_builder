@@ -108,7 +108,7 @@ in that directory** -- the detail is there rather than restated here.
 - **[src/economy/](economy/CLAUDE.md)** - The simulation that produces the numbers: production,
   consumption, restocking, the double-entry ledger, cost basis, quarterly statements, solvency
   and bankruptcy, appraisal, dividends, news, the seeded RNG, and the single tick subscriber
-  (`economyTicker.js`) that drives all of it.
+  (`economyTickSubscriber.js`) that drives all of it.
 
   Four invariants live here and are enforced by tests: **money is conserved**, **the ledger is
   the truth about cash**, **appraisal cannot see a share price**, and **no `Math.random()`**.
@@ -122,7 +122,7 @@ in that directory** -- the detail is there rather than restated here.
 - **[src/agents/](agents/CLAUDE.md)** - The actors the player does not control: the NPC
   corporations that own worlds and keep real books, and the investing public, modelled as
   several distinct investors because a single holder cannot trade with itself. Both are driven
-  from `EconomyTicker.runAgents()`, not from their own tick subscriptions.
+  from `EconomyTickSubscriber.runAgents()`, not from their own tick subscriptions.
 
 - **[src/ipc/](ipc/CLAUDE.md)** - Feature-clustered IPC handler registration, called from
   `windowManager.js`. Handlers take the game through a getter rather than a captured value,

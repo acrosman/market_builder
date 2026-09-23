@@ -10,10 +10,11 @@ const { createLogger } = require('./logger');
 const { createConstructionCreditSupport } = require('./stellarObject');
 const { EconomyState } = require('./economy/economyState');
 const { loadContent } = require('./contentCache');
-const { EconomyTicker } = require('./economy/economyTicker');
+const { EconomyTickSubscriber } = require('./economy/economyTickSubscriber');
 const { operatorHolder } = require('./economy/production');
 const { INVESTOR_POOL_HOLDER, ACCOUNTS } = require('./economy/accounts');
 const { ticksPerQuarter } = require('./economy/clock');
+const { settingsBlock } = require('./settings');
 const {
   recordOpeningBalance,
   recordOpeningStock,
@@ -45,17 +46,20 @@ const DEFAULT_DATA_DIRECTORY = 'data/default/en-us';
 const SAVE_SCHEMA_VERSION = 1;
 
 /**
- * Opening cash endowments, in credits.
+ * Opening cash endowments, in credits, from the `opening_endowments` setting.
  *
  * Markets are endowed generously enough that their cash never binds in normal
  * play, preserving the long-standing behaviour that a market will absorb any
  * quantity a player wants to sell. The constraint exists in the books and can
- * be made to bite later by lowering this number, without touching the ledger.
+ * be made to bite by lowering the setting, without touching the ledger.
+ * @param {Object} [settings] - Resolved game settings.
+ * @returns {Object} `{ bank, market }` opening cash.
+ * @example
+ * openingEndowments(this.getSettings()).bank; // => 100000000
  */
-const OPENING_ENDOWMENTS = {
-  bank: 100000000,
-  market: 10000000
-};
+function openingEndowments(settings = {}) {
+  return settingsBlock(settings, 'opening_endowments');
+}
 
 /**
  * Throw when a value is not a non-null object.
@@ -551,7 +555,7 @@ class Game {
     recordOpeningBalance(economy, {
       tick,
       holder: BANK_HOLDER,
-      amount: OPENING_ENDOWMENTS.bank
+      amount: openingEndowments(this.getSettings()).bank
     });
 
     this.recordOpeningMarketBalances();
@@ -592,7 +596,7 @@ class Game {
         recordOpeningBalance(economy, {
           tick,
           holder,
-          amount: OPENING_ENDOWMENTS.market
+          amount: openingEndowments(this.getSettings()).market
         });
       }
 
@@ -652,8 +656,8 @@ class Game {
    * game.subscribeEconomyToTicks();
    */
   subscribeEconomyToTicks() {
-    this.economyTicker = new EconomyTicker(this);
-    this.getEventBus().subscribe('tick', this.economyTicker);
+    this.economyTickSubscriber = new EconomyTickSubscriber(this);
+    this.getEventBus().subscribe('tick', this.economyTickSubscriber);
   }
 
   /**

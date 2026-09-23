@@ -6,6 +6,7 @@ document.getElementById('new-game-form').addEventListener('submit', (e) => {
   data.systemCount = parseInt(data.systemCount, 10);
   data.connectionCount = parseInt(data.connectionCount, 10);
   data.stellarObjectCount = parseInt(data.stellarObjectCount, 10);
+  data.corporationCount = parseInt(data.corporationCount, 10);
 
   // Send data to main process to create the universe
   window.api.send('create-universe', data);

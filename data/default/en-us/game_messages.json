@@ -233,5 +233,8 @@
   },
   "settings": {
     "not_implemented": "Game Settings feature is not yet implemented."
+  },
+  "npc_corporations": {
+    "default_description": "An independent operator"
   }
 }

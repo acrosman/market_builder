@@ -148,7 +148,7 @@ If no recorder fits what you are doing, add one rather than reaching past them.
 
 ### The driver
 
-- **economyTicker.js** -- The single `'tick'` subscriber for the whole economy. Interest accrues
+- **economyTickSubscriber.js** -- The single `'tick'` subscriber for the whole economy. Interest accrues
   every tick; everything else runs on day boundaries, in this order:
 
   1. per world: `runProduction` → `consumeFood` → `restockMarket`
@@ -177,7 +177,7 @@ throws and old saves keep loading.
 ## Testing notes
 
 - `economyIntegration.test.js` covers the ledger's round trip through individual money movements:
-  opening balances, trades, loans, construction, and save/load. `economyTicker.test.js` asserts
+  opening balances, trades, loans, construction, and save/load. `economyTickSubscriber.test.js` asserts
   `checkConservation()` over long tick runs, as do `src/agents/agents.test.js` and
   `distress.test.js`. When one breaks, read `cashByHolder()` before reading the diff.
 - Mock the universe and settings and build fixtures with helpers rather than standing up a full

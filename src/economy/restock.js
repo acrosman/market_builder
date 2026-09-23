@@ -7,32 +7,20 @@ const { numericReader } = require('../settings');
 /**
  * Market restocking: trade between a local market and the wider galaxy.
  *
- * Markets were stocked once at world generation and never again, so the only
- * dynamics they had were the player draining them. Three things need this:
- *
- * Prices need something to revert toward. Without restocking, a market the
- * player has bought out stays empty and its price stays pinned at the supply
- * ceiling forever, so there is no mean reversion for a valuation to anchor on.
- *
- * Production needs its inputs to be obtainable. A Farm consumes chemicals, and
- * on a world that makes few of them local stock reaches zero and every farm
- * stops. Worse, Recycling consumes chemicals to make chemicals, so once the
- * stock is gone nothing can restart it. Restocking breaks that deadlock.
- *
- * And the simulated systems are not the whole galaxy. A market drifting back
- * toward its ideal stock is that world trading with everywhere this game does
- * not simulate.
+ * The systems this game simulates are not the whole galaxy. A market drifting
+ * back toward its ideal stock is that world trading with everywhere outside it,
+ * which does three jobs at once: it gives prices something to revert toward, it
+ * keeps production inputs obtainable on worlds that cannot make their own, and
+ * it keeps a market the player has bought out from staying empty forever.
  *
  * The external galaxy is a ledger holder rather than a void, so restocking is a
  * trade: goods and credits cross the boundary rather than being created at it,
  * and total cash stays conserved across all holders.
  *
- * Imports are limited to what the operator can pay for. Without that, owning a
- * world meant being billed to stock its entire market whether or not anyone
- * there would ever buy the goods, and a corporation holding a couple of thinly
- * populated worlds was driven into forced borrowing and then bankruptcy by an
- * inventory it had no use for. A market that cannot be restocked simply runs
- * short, which lifts its prices and makes it somewhere worth trading to.
+ * Imports are limited to what the operator can pay for, so owning a thinly
+ * populated world does not mean being billed to stock a market nobody buys
+ * from. A market that cannot be restocked simply runs short, which lifts its
+ * prices and makes it somewhere worth trading to.
  */
 
 /**

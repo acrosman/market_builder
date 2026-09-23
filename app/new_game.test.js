@@ -394,6 +394,7 @@ describe('New Game Module Integration', () => {
         <input type="number" name="systemCount" value="10" />
         <input type="number" name="connectionCount" value="3" />
         <input type="number" name="stellarObjectCount" value="20" />
+        <input type="number" name="corporationCount" value="10" />
         <button id="generate-btn" type="submit">Generate Universe</button>
       </form>
       <button id="close-btn">Close</button>
@@ -421,7 +422,8 @@ describe('New Game Module Integration', () => {
     expect(window.api.send).toHaveBeenCalledWith('create-universe', {
       systemCount: 10,
       connectionCount: 3,
-      stellarObjectCount: 20
+      stellarObjectCount: 20,
+      corporationCount: 10
     });
     expect(document.getElementById('generate-btn').disabled).toBe(true);
   });
