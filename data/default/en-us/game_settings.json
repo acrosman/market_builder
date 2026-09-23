@@ -55,7 +55,11 @@
     ],
     "acquisition_cash_floor": 400000,
     "acquisition_distress_threshold": 0.3,
-    "acquisition_discount": 0.7
+    "acquisition_discount": 0.7,
+    "agent_mix": {
+      "market": 1,
+      "military": 0
+    }
   },
   "investors": {
     "starting_capital": 50000000,

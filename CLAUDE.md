@@ -28,7 +28,7 @@ When in doubt about the best solution or request details ask. Propose potential 
 
 ## Architecture Overview
 
-`app/`, `src/`, and `data/` each have their own `CLAUDE.md` with module-level detail (class responsibilities, data shapes, shared-helper inventories) that this file does not restate, and `src/economy/`, `src/exchange/`, `src/agents/` and `src/ipc/` each have one as well. Read the nested file for the directory you're working in alongside this one; where a nested file states an invariant, that invariant is binding.
+`app/`, `src/`, and `data/` each have their own `CLAUDE.md` with module-level detail (class responsibilities, data shapes, shared-helper inventories) that this file does not restate, and `src/economy/`, `src/exchange/`, `src/npc/` and `src/ipc/` each have one as well. Read the nested file for the directory you're working in alongside this one; where a nested file states an invariant, that invariant is binding.
 
 ### Process Model (Electron-specific)
 
@@ -67,7 +67,7 @@ This is a **multi-process Electron app** with strict security boundaries:
 - Core Game Logic: `src/` Backend modules run in main process only
   - `src/economy/` — production, consumption, the double-entry ledger, statements, solvency, appraisal, and the single tick subscriber that drives them
   - `src/exchange/` — the share market: order books, the periodic call auction, holdings, cap tables, control
-  - `src/agents/` — NPC corporations and the investing public
+  - `src/npc/` — rival corporations and the investing public; `src/npc/agents/` holds the strategy modules that decide what one corporation does with a turn
   - `src/ipc/` — feature-clustered IPC handler registration, called from `windowManager.js`
 - All game content is loaded from from `data/default/en-us/`
 - The UI: `app/` All front end display related html templates and JavaScript
@@ -107,7 +107,7 @@ that moves money.
    exchange and takes no price argument. If it could read a share price while the market priced
    companies on appraised value, the two would drive each other.
 4. **Use the seeded RNG, never `Math.random()`**, anywhere in `src/economy/`, `src/exchange/` or
-   `src/agents/`. `src/economy/rng.js` provides named, independent, save-restorable streams.
+   `src/npc/`. `src/economy/rng.js` provides named, independent, save-restorable streams.
    **Universe generation is deliberately not deterministic and will stay that way** — reproducibility
    is a property of an individual seeded stream, not a whole-simulation guarantee, so do not write
    tests that assume two games agree.
@@ -115,7 +115,7 @@ that moves money.
 The ledger is the source of truth for cash. `corporation.cashReserves` is a projection of it,
 refreshed by the ticker; never adjust it to make a figure come out right.
 
-All economy work runs from one `'tick'` subscriber, `src/economy/economyTicker.js`. Interest
+All economy work runs from one `'tick'` subscriber, `src/economy/economyTickSubscriber.js`. Interest
 accrues every tick; production, consumption, restocking, solvency, agents, exchange clearing and
 book close run on day boundaries in a commented, load-bearing order. **Add new recurring economy
 work there rather than subscribing another listener to `'tick'`.**
@@ -135,9 +135,9 @@ block degrades rather than throws and older saves keep loading.
 - JSDOM environment: `app/**/*.test.js` (simulates browser)
 - Helper pattern: See `createTestPlayerData()` in `src/game.test.js`
 - E2E test: `app/game.e2e.test.js` (integration-style test)
-- **Conservation harness**: `checkConservation()` is asserted over long tick runs in `src/economy/economyTicker.test.js`, `src/agents/agents.test.js` and `src/agents/distress.test.js`; `src/economy/economyIntegration.test.js` covers the ledger's round trip through individual money movements. When one of these breaks, read the failure's per-holder cash breakdown (`cashByHolder()`) before reading the diff — it names the subsystem that learned to create or destroy credits
+- **Conservation harness**: `checkConservation()` is asserted over long tick runs in `src/economy/economyTickSubscriber.test.js`, `src/npc/npcCorporations.test.js` and `src/npc/distress.test.js`; `src/economy/economyIntegration.test.js` covers the ledger's round trip through individual money movements. When one of these breaks, read the failure's per-holder cash breakdown (`cashByHolder()`) before reading the diff — it names the subsystem that learned to create or destroy credits
 - **Never assume two games agree.** Universe generation is not seeded, so a test that builds two games from the same settings and compares them passes by luck. Pin the values you assert on
-- **Emergent outcomes need their own tests.** A test that asserts on the end of a simulated year is asserting on a distribution, not a return value. Where more than one outcome is legitimate, test each separately and force it with settings rather than accepting an intermittent failure — see the two milestone tests in `src/agents/distress.test.js`
+- **Emergent outcomes need their own tests.** A test that asserts on the end of a simulated year is asserting on a distribution, not a return value. Where more than one outcome is legitimate, test each separately and force it with settings rather than accepting an intermittent failure — see the paired takeover tests in `src/npc/distress.test.js`
 - **Lazy-require the logger in modules `windowManager.js` pulls in.** Its tests mock the logger; constructing one at module load reaches the mock before the test initializes it, and the failure surfaces as a temporal dead zone error far from the cause
 
 ### Debugging IPC Issues
@@ -257,7 +257,7 @@ When modifying code:
 6. **No hardcoding file paths** - Always use `path.join(__dirname, ...)` and respect `data_directory` setting
 7. **Avoid breaking message token replacement** - Ensure tokens match `game_messages.json` format
 8. **Don't add top-level save fields for economy state** - It belongs to `EconomyState` under the save file's `economy` key; a new top-level field is written and silently not restored
-9. **Don't subscribe another listener to `'tick'` for recurring economy work** - Add it to `src/economy/economyTicker.js`, where the order is inspectable in one place
+9. **Don't subscribe another listener to `'tick'` for recurring economy work** - Add it to `src/economy/economyTickSubscriber.js`, where the order is inspectable in one place
 
 ### Code Quality Violations
 
@@ -267,7 +267,7 @@ See also Code Style Section above.
 2. **Don't duplicate test setup** - Create reusable helper functions for common mocks
 3. **Don't forget error handling** - Always wrap async operations, especially template loading and IPC calls
 4. **Never Reimplement shared helper logic** - Use canonical helpers (`window.gameHelpers`) instead of local duplicates in multiple renderer modules
-5. **Never use `Math.random()` in `src/economy/`, `src/exchange/` or `src/agents/`** - Draw from a named stream via `src/economy/rng.js`
+5. **Never use `Math.random()` in `src/economy/`, `src/exchange/` or `src/npc/`** - Draw from a named stream via `src/economy/rng.js`
 6. **Never call `ledger.post()` directly** - Go through `src/economy/transactions.js` so the journal and the inventory cost basis cannot drift apart
 7. **Never move money without a counterparty** - Both legs name a holder, or the money conservation invariant breaks
 8. **Never let `src/economy/appraisal.js` see a share price** - No exchange import, no price argument
@@ -295,14 +295,15 @@ See also Code Style Section above.
 - `src/eventBus.js` - Event system for game-wide notifications
 - `src/contentCache.js` - Cached, deep-frozen loader for `data/` content files; use instead of `fs.readFileSync` for game content
 - `src/economy/economyState.js` - `EconomyState`, the container all economy and exchange state hangs off; reached via `game.getEconomy()`
-- `src/economy/economyTicker.js` - The single `'tick'` subscriber driving the whole economy
+- `src/economy/economyTickSubscriber.js` - The single `'tick'` subscriber driving the whole economy
 - `src/economy/ledger.js` / `src/economy/transactions.js` - Double-entry journal and the recorders that are the only supported way to move money or goods
 - `src/economy/conservation.js` - `checkConservation()`, the money invariant, and `cashByHolder()` for when it fails
 - `src/economy/appraisal.js` - What things are worth; must never see a share price
 - `src/economy/rng.js` - Seeded, serializable PRNG; the only permitted randomness in economy, exchange and agent code
 - `src/exchange/exchange.js` - Listings, order submission and settlement; short selling is refused
 - `src/exchange/auction.js` - Periodic call clearing at the volume-maximizing price
-- `src/agents/corporateAI.js` / `src/agents/investorPool.js` - NPC corporations and the investing public
+- `src/npc/npcCorporations.js` / `src/npc/investorPool.js` - Rival corporations and the investing public
+- `src/npc/agents/` - NPC decision strategies behind one interface; add a strategy here rather than a branch
 - `src/ipc/exchangeHandlers.js` - Exchange IPC channels, registered from `windowManager.js`
 - `app/exchangeModal.js` - Exchange renderer module (its own file, not part of `modalManager.js`)
 - `app/gameHelpers.js` - Canonical shared renderer helper module (`loadTemplate()`, `calculateCargoMass()`, `replaceMessageVariables()`) - see `app/CLAUDE.md`

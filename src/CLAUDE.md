@@ -119,10 +119,15 @@ in that directory** -- the detail is there rather than restated here.
   refused.** Clearing is volume-maximizing and independent of iteration order. The instrument
   seam exists so commodity futures can be listed later without reworking the book.
 
-- **[src/agents/](agents/CLAUDE.md)** - The actors the player does not control: the NPC
+- **[src/npc/](npc/CLAUDE.md)** - The actors the player does not control: the rival
   corporations that own worlds and keep real books, and the investing public, modelled as
   several distinct investors because a single holder cannot trade with itself. Both are driven
   from `EconomyTickSubscriber.runAgents()`, not from their own tick subscriptions.
+
+  **NPC** is what these actors are called. An **agent** is the narrower thing in
+  `src/npc/agents/`: a strategy module deciding what one corporation does with a turn, so a new
+  kind of rival is a new module there rather than another branch in a decision function.
+  `npc/agents/agentInterface.js` holds the contract.
 
 - **[src/ipc/](ipc/CLAUDE.md)** - Feature-clustered IPC handler registration, called from
   `windowManager.js`. Handlers take the game through a getter rather than a captured value,

@@ -4,8 +4,8 @@ const { restockMarket } = require('./restock');
 const { enforceSolvency } = require('./solvency');
 const { closeElapsedQuarters } = require('./statements');
 const { payQuarterlyDividends } = require('./dividends');
-const { runInvestorPool } = require('../agents/investorPool');
-const { runCorporateAI, runAcquisitions, corporateCycleTicks } = require('../agents/corporateAI');
+const { runInvestorPool } = require('../npc/investorPool');
+const { runNpcCorporations, corporateCycleTicks } = require('../npc/npcCorporations');
 const { detectControlChanges } = require('../exchange/control');
 const { corporationOriginSystem } = require('./news');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
@@ -259,18 +259,22 @@ class EconomyTickSubscriber {
 
     runInvestorPool({ game, days: elapsedDays, tick });
 
-    // Bids for failing rivals go on the same book as everything else, so a
-    // distressed company is bought rather than seized.
-    runAcquisitions({ game, tick }).forEach(bid => {
-      game.getEventBus().emit('acquisition-bid', { tick, ...bid });
-    });
-
+    // Building runs on a slower cadence than the rest of a corporation's turn
     const cycle = corporateCycleTicks(game.getSettings());
-    if (cycle > 0 && Math.floor(tick / cycle) > Math.floor((tick - elapsedDays * 24) / cycle)) {
-      runCorporateAI({ game, tick }).forEach(build => {
-        game.getEventBus().emit('corporation-built', { tick, ...build });
-      });
-    }
+    const buildThisCycle = cycle > 0
+      && Math.floor(tick / cycle) > Math.floor((tick - elapsedDays * 24) / cycle);
+
+    // Every NPC corporation takes its turn through its agent. Bids for failing
+    // rivals go on the same book as everything else, so a distressed company is
+    // bought rather than seized.
+    runNpcCorporations({ game, tick, buildThisCycle }).forEach(action => {
+      const { kind, ...details } = action;
+      if (kind === 'acquisition_bid') {
+        game.getEventBus().emit('acquisition-bid', { tick, ...details });
+      } else if (kind === 'build') {
+        game.getEventBus().emit('corporation-built', { tick, ...details });
+      }
+    });
   }
 
   /**

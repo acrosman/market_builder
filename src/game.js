@@ -481,12 +481,12 @@ class Game {
 
     // Create the corporations the player does not control, before markets are
     // stocked so their opening inventory lands on their own books.
-    const { createNpcCorporations } = require('./agents/corporateAI');
+    const { createNpcCorporations } = require('./npc/npcCorporations');
     createNpcCorporations(this);
 
     // Endow the investing public before anything can be listed, so a flotation
     // has a counterparty with real money rather than an unlimited buyer.
-    const { seedInvestorPool } = require('./agents/investorPool');
+    const { seedInvestorPool } = require('./npc/investorPool');
     seedInvestorPool(this);
 
     // Create NPCs (one trader per system for now)
@@ -1466,7 +1466,7 @@ class Game {
     // single account. Investors pay from their own cash, so proceeds are a
     // transfer rather than credits from nowhere, and the register ends up with
     // several holders who can disagree about the price and therefore trade.
-    const { subscribeToIssue } = require('./agents/investorPool');
+    const { subscribeToIssue } = require('./npc/investorPool');
     const raised = subscribeToIssue({
       game: this,
       issuer: holder,
@@ -1987,6 +1987,11 @@ class Game {
     corp.goods = corpData.goods || {};
     corp.dividendRate = corpData.dividendRate || 0;
     corp.sharesIssued = corpData.sharesIssued || 0;
+
+    // Which strategy drives this company. A save written before agents existed
+    // has no name, and agentFor falls back to the default, so it loads as an
+    // ordinary market-driven company.
+    corp.setAgentName(corpData.agentName || null);
 
     // Solvency state. These must be listed here or they would be written to the
     // save and silently not restored, which is the standing hazard with this

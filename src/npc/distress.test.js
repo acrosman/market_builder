@@ -2,7 +2,17 @@ const fs = require('fs');
 const path = require('path');
 const { Game } = require('../game');
 const { createUniverse } = require('../universe');
-const { runAcquisitions, npcCorporationConfig } = require('./corporateAI');
+const { runNpcCorporations, npcCorporationConfig } = require('./npcCorporations');
+
+/**
+ * Run a corporate turn and keep only the acquisition bids.
+ * @param {Object} params - `{ game, tick }`.
+ * @returns {Array<Object>} Acquisition bids placed.
+ */
+function runAcquisitions({ game, tick }) {
+  return runNpcCorporations({ game, tick })
+    .filter(action => action.kind === 'acquisition_bid');
+}
 const { ordersForListing, investorHolder, investorHolders } = require('./investorPool');
 const { defaultProbability, appraiseCorporation } = require('../economy/appraisal');
 const { controllingHolder } = require('../exchange/control');

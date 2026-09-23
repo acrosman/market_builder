@@ -4,8 +4,20 @@ const { Game } = require('../game');
 const { createUniverse } = require('../universe');
 const {
   npcCorporationConfig, corporationNames, createNpcCorporations,
-  buildingScore, buildOnWorld, runCorporateAI, corporateCycleTicks, corporateCreditSupport
-} = require('./corporateAI');
+  corporateCycleTicks, corporateCreditSupport, runNpcCorporations, pickAgentName
+} = require('./npcCorporations');
+const { buildingScore, buildOnWorld } = require('./agents/marketAgent');
+const { agentNames, DEFAULT_AGENT_NAME } = require('./agents');
+
+/**
+ * Run a corporate turn including the slower build cadence.
+ * @param {Object} params - `{ game, tick }`.
+ * @returns {Array<Object>} Build actions taken.
+ */
+function runCorporateAI({ game, tick }) {
+  return runNpcCorporations({ game, tick, buildThisCycle: true })
+    .filter(action => action.kind === 'build');
+}
 const {
   investorConfig, investorHolder, investorHolders, seedInvestorPool,
   accrueSavings, fairValuePerShare, ordersForListing, clearPoolOrders,
@@ -38,7 +50,7 @@ function startedGame({ seed = 'agents', objects = 30 } = {}) {
   return game;
 }
 
-describe('corporateAI configuration', () => {
+describe('NPC corporation configuration', () => {
   test('should read configured values and keep a configured zero', () => {
     expect(npcCorporationConfig(settings).count).toBeGreaterThan(0);
     expect(npcCorporationConfig({ npc_corporations: { build_cash_floor: 0 } }).buildCashFloor)
@@ -128,6 +140,50 @@ describe('createNpcCorporations', () => {
       });
 
     expect(ledger.audit().cashMatches).toBe(true);
+  });
+});
+
+describe('agent assignment', () => {
+  test('should give every NPC corporation an agent and leave the player without one', () => {
+    const game = startedGame();
+
+    game.getCorporations().forEach(corporation => {
+      if (corporation.isPlayerOwned) {
+        expect(corporation.agentName).toBeNull();
+      } else {
+        expect(agentNames()).toContain(corporation.agentName);
+      }
+    });
+  });
+
+  test('should follow the configured mix', () => {
+    const stream = { float: () => 0.1 };
+
+    expect(pickAgentName({ market: 0, military: 1 }, stream)).toBe('military');
+    expect(pickAgentName({ market: 1, military: 0 }, stream)).toBe('market');
+  });
+
+  test('should fall back to the default when no agent has any weight', () => {
+    const stream = { float: () => 0 };
+
+    expect(pickAgentName({}, stream)).toBe(DEFAULT_AGENT_NAME);
+    expect(pickAgentName({ market: 0, military: 0 }, stream)).toBe(DEFAULT_AGENT_NAME);
+  });
+
+  test('should survive a save and load', () => {
+    const game = startedGame();
+    const before = game.getCorporations()
+      .filter(corporation => !corporation.isPlayerOwned)
+      .map(corporation => [corporation.name, corporation.agentName]);
+
+    const restored = game.getCorporations().map(
+      corporation => Game.deserializeCorporation(JSON.parse(JSON.stringify(corporation)))
+    );
+
+    before.forEach(([name, agentName]) => {
+      expect(restored.find(corporation => corporation.name === name).agentName)
+        .toBe(agentName);
+    });
   });
 });
 

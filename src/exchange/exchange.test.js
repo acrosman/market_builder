@@ -9,7 +9,7 @@ const {
   ACCOUNTS, playerHolder, corporationHolder, INVESTOR_POOL_HOLDER
 } = require('../economy/accounts');
 const { ticksPerDay } = require('../economy/clock');
-const { investorHolders } = require('../agents/investorPool');
+const { investorHolders } = require('../npc/investorPool');
 
 const settings = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'data/default/en-us/game_settings.json'), 'utf-8')

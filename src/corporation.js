@@ -28,6 +28,7 @@ class Corporation {
     this.isBankrupt = false;
     /** Tick bankruptcy was declared, or null. */
     this.bankruptSinceTick = null;
+    this.agentName = null;
     this.nextLoanId = 1;
   }
 
@@ -190,6 +191,22 @@ class Corporation {
     }
     this.sharesIssued += count;
     return true;
+  }
+
+  /**
+   * Set which agent drives this corporation's decisions.
+   *
+   * Player corporations have no agent: the player is the strategy. NPC
+   * corporations store the name rather than the module, so a save restores the
+   * same behaviour without serializing code.
+   * @param {string} name - An agent name from `src/npc/agents`.
+   * @returns {string} The name that was set.
+   * @example
+   * corporation.setAgentName('military');
+   */
+  setAgentName(name) {
+    this.agentName = typeof name === 'string' && name.length > 0 ? name : null;
+    return this.agentName;
   }
 
   /**

@@ -235,6 +235,10 @@
     "not_implemented": "Game Settings feature is not yet implemented."
   },
   "npc_corporations": {
-    "default_description": "An independent operator"
+    "default_description": "An independent operator",
+    "agents": {
+      "market": "Builds and buys its way up",
+      "military": "Takes what it wants by force"
+    }
   }
 }

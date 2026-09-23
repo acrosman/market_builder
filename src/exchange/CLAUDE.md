@@ -66,7 +66,7 @@ learn a share price. The dependency runs exchange → appraisal and never the ot
   distressed company can split the float three ways with no holder above half. The company then
   stays listed, keeps accruing interest toward a maturity it cannot meet, and fails with its
   stock spread across rivals who each hold a blocking stake and none of whom can act. This is
-  reachable in ordinary play -- see the two milestone tests in `src/agents/distress.test.js`,
+  reachable in ordinary play -- see the two milestone tests in `src/npc/distress.test.js`,
   one for the contested path and one for an uncontested takeover -- and the follow-up on #33.
 
 ## Order semantics
