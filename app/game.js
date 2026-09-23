@@ -399,6 +399,17 @@ document.addEventListener(
       refreshCompanyManagementButtons
     });
 
+    const exchangeButton = document.getElementById('exchange-btn');
+    if (exchangeButton) {
+      exchangeButton.textContent = await resolveMessageText('exchange.open');
+      exchangeButton.addEventListener('click', () => {
+        window.modalManager.openExchangeModal().catch((error) => {
+          window.gameHelpers.logClientError('Failed to open the exchange', error);
+          addMessage('message:exchange.load_error');
+        });
+      });
+    }
+
     // --- Game startup ---
 
     addMessage('messages:game_start');

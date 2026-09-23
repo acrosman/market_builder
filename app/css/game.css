@@ -795,3 +795,67 @@
 .trade-error.hidden {
   display: none;
 }
+
+/* Stock exchange modal */
+.exchange-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.exchange-panel {
+  min-width: 0;
+}
+
+.exchange-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 8px;
+  padding: 3px 0;
+  align-items: center;
+}
+
+.exchange-header-row {
+  font-weight: bold;
+  border-bottom: 1px solid #444;
+}
+
+.exchange-listing-row {
+  cursor: pointer;
+}
+
+.exchange-listing-row:hover,
+.exchange-listing-row.selected {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.exchange-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exchange-flag {
+  color: #d9534f;
+  font-size: 0.8em;
+}
+
+.exchange-book {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.exchange-depth-row {
+  padding: 2px 0;
+}
+
+.exchange-order-row {
+  grid-template-columns: 1fr auto;
+}
+
+#exchange-price-chart {
+  width: 100%;
+  min-height: 140px;
+}

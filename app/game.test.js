@@ -151,7 +151,9 @@ async function loadGameJs() {
     openCompanyManagementModal: jest.fn(),
     openTradeModal: jest.fn(),
     openBuildingsModal: jest.fn(),
-    closeModal: jest.fn()
+    closeModal: jest.fn(),
+    loadModal: jest.fn(),
+    openExchangeModal: jest.fn().mockResolvedValue(undefined)
   };
 
   jest.isolateModules(() => {

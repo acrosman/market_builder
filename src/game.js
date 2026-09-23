@@ -8,10 +8,58 @@ const { Market } = require('./market');
 const { getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger } = require('./logger');
 const { createConstructionCreditSupport } = require('./stellarObject');
+const { EconomyState } = require('./economy/economyState');
+const { loadContent } = require('./contentCache');
+const { EconomyTickSubscriber } = require('./economy/economyTickSubscriber');
+const { operatorHolder } = require('./economy/production');
+const { INVESTOR_POOL_HOLDER, ACCOUNTS } = require('./economy/accounts');
+const { ticksPerQuarter } = require('./economy/clock');
+const { settingsBlock } = require('./settings');
+const {
+  recordOpeningBalance,
+  recordOpeningStock,
+  recordGoodsTrade,
+  recordConstructionSpend,
+  recordLoanDraw,
+  recordLoanPayment,
+  recordShareIssue
+} = require('./economy/transactions');
+const {
+  BANK_HOLDER,
+  corporationHolder,
+  playerHolder,
+  marketHolder
+} = require('./economy/accounts');
 
 const logger = createLogger('Game');
 
 const DEFAULT_DATA_DIRECTORY = 'data/default/en-us';
+
+/**
+ * Schema version for the overall save file.
+ *
+ * Saves written before versioning existed have no `schemaVersion` field and are
+ * treated as version 0. Bump this when the top-level save shape changes in a
+ * way `loadGame()` cannot infer. Subsystems that own nested blocks, such as the
+ * economy, carry their own independent version.
+ */
+const SAVE_SCHEMA_VERSION = 1;
+
+/**
+ * Opening cash endowments, in credits, from the `opening_endowments` setting.
+ *
+ * Markets are endowed generously enough that their cash never binds in normal
+ * play, preserving the long-standing behaviour that a market will absorb any
+ * quantity a player wants to sell. The constraint exists in the books and can
+ * be made to bite by lowering the setting, without touching the ledger.
+ * @param {Object} [settings] - Resolved game settings.
+ * @returns {Object} `{ bank, market }` opening cash.
+ * @example
+ * openingEndowments(this.getSettings()).bank; // => 100000000
+ */
+function openingEndowments(settings = {}) {
+  return settingsBlock(settings, 'opening_endowments');
+}
 
 /**
  * Throw when a value is not a non-null object.
@@ -74,10 +122,15 @@ class Game {
    * Create a game session.
    * @param {Object} universe - Universe instance holding systems and stellar objects.
    * @param {Object} settings - Resolved game settings.
+   * @param {Object} [options={}] - Optional session options.
+   * @param {number|string} [options.seed] - Master seed for economy determinism.
+   *   Omit for a new game to get a generated seed.
+   * @param {EconomyState} [options.economy] - Pre-built economy state, used by
+   *   `loadGame()` to restore exact PRNG positions. Takes precedence over seed.
    * @example
    * const game = new Game(universe, gameSettings);
    */
-  constructor(universe, settings) {
+  constructor(universe, settings, options = {}) {
     assertObject(universe, 'universe');
     assertObject(settings, 'settings');
 
@@ -91,6 +144,11 @@ class Game {
     this.exploredSystems = []; // List of system ids the player has explored
     this.eventBus = new EventBus(); // Event system for tick events
     this.market = new Market(universe, settings); // Market management
+    // Economy and exchange state. Session-scoped like universe/market: established
+    // here and never swapped, because subsystems hold references into it.
+    this.economy = options.economy instanceof EconomyState
+      ? options.economy
+      : new EconomyState({ seed: options.seed });
   }
 
   /**
@@ -134,6 +192,19 @@ class Game {
    */
   getEventBus() {
     return this.eventBus;
+  }
+
+  /**
+   * Get the economy and exchange state for this game session.
+   * Read-only by design, matching the other session-scoped collaborators:
+   * subsystems hold references into it, so swapping it on a live Game would
+   * leave them out of sync. Build a new Game instead, as loadGame() does.
+   * @returns {Object} EconomyState instance.
+   * @example
+   * const noise = game.getEconomy().getRandom().stream('price-noise');
+   */
+  getEconomy() {
+    return this.economy;
   }
 
   /**
@@ -408,6 +479,16 @@ class Game {
       logger.warn('No Farm World found outside system 1; player corporation starts without a planet');
     }
 
+    // Create the corporations the player does not control, before markets are
+    // stocked so their opening inventory lands on their own books.
+    const { createNpcCorporations } = require('./npc/npcCorporations');
+    createNpcCorporations(this);
+
+    // Endow the investing public before anything can be listed, so a flotation
+    // has a counterparty with real money rather than an unlimited buyer.
+    const { seedInvestorPool } = require('./npc/investorPool');
+    seedInvestorPool(this);
+
     // Create NPCs (one trader per system for now)
     this.getUniverse().systems.forEach((system) => {
       if (system.id === 1) return; // Skip player's starting system
@@ -420,8 +501,131 @@ class Game {
     // Mark starting system as explored
     this.addExploredSystem(player.location);
 
+    // Record opening balances once markets are stocked, so their opening stock
+    // gets a cost basis. Loads skip this: the journal is restored instead.
+    this.recordOpeningBalances();
+
     // Subscribe all stellar objects to tick events for automatic updates
     this.subscribeStellarObjectsToTicks();
+  }
+
+  /**
+   * Record every opening balance into the ledger.
+   *
+   * Starting credits, corporate reserves, bank capital, and the goods markets
+   * are stocked with at world generation all arrive from outside the simulation,
+   * so they are the only defined sources of value. Booking them as contributed
+   * capital means every later movement is a transfer between holders, which is
+   * what makes money conservation an assertable invariant rather than a hope.
+   *
+   * Runs once, at game start only. A loaded game already has these entries in
+   * its restored journal.
+   * @returns {void}
+   * @example
+   * game.recordOpeningBalances();
+   */
+  recordOpeningBalances() {
+    const economy = this.getEconomy();
+    const tick = this.getTicks();
+    const player = this.getPlayer();
+
+    // A holder is keyed by name, so an unnamed player or corporation cannot be
+    // tracked. Warn and skip rather than throwing: bookkeeping must not be able
+    // to stop a game from starting, and a silent skip would hide the bad state.
+    const openingBalanceFor = (holder, amount, label) => {
+      if (!holder?.id) {
+        logger.warn(`Skipping opening balance for unnamed ${label}`);
+        return;
+      }
+      recordOpeningBalance(economy, { tick, holder, amount });
+    };
+
+    if (player) {
+      openingBalanceFor(playerHolder(player), player.credits, 'player');
+    }
+
+    this.getCorporations().forEach(corporation => {
+      openingBalanceFor(
+        corporationHolder(corporation),
+        corporation.getTotalCashReserves(),
+        'corporation'
+      );
+    });
+
+    recordOpeningBalance(economy, {
+      tick,
+      holder: BANK_HOLDER,
+      amount: openingEndowments(this.getSettings()).bank
+    });
+
+    this.recordOpeningMarketBalances();
+  }
+
+  /**
+   * Endow each market with cash and record the cost basis of its opening stock.
+   *
+   * The assumed unit cost is the good's base value from goods.json. Without a
+   * basis, a market's first sale would book its entire sale price as profit and
+   * every market would look implausibly profitable to anyone valuing it.
+   * @returns {void}
+   * @example
+   * game.recordOpeningMarketBalances();
+   */
+  recordOpeningMarketBalances() {
+    const economy = this.getEconomy();
+    const tick = this.getTicks();
+    const goodsData = this.getGoodsData();
+
+    this.getUniverse().stellarObjects.forEach(stellarObject => {
+      const inventory = stellarObject.marketState?.inventory;
+      if (!inventory) {
+        return;
+      }
+
+      // Match the trading counterparty so opening stock, production, and sales
+      // all land on one set of books.
+      const holder = operatorHolder(stellarObject, this.getCorporations());
+
+      // Endow independent markets deeply enough that their cash never binds,
+      // preserving the behaviour that a market absorbs any quantity a player
+      // sells. A corporation-owned world trades on its owner's real books and
+      // gets no endowment: handing it one would show up directly as company
+      // value and make every owned world look ten million credits richer than
+      // it is.
+      if (holder.kind === marketHolder(stellarObject).kind) {
+        recordOpeningBalance(economy, {
+          tick,
+          holder,
+          amount: openingEndowments(this.getSettings()).market
+        });
+      }
+
+      Object.entries(inventory).forEach(([goodName, quantity]) => {
+        const units = Math.round(Number(quantity) || 0);
+        if (units <= 0) {
+          return;
+        }
+
+        const unitValue = Number(goodsData[goodName]?.value) || 0;
+        recordOpeningStock(economy, {
+          tick,
+          holder,
+          goodName,
+          quantity: units,
+          totalCost: Math.round(unitValue * units)
+        });
+      });
+    });
+  }
+
+  /**
+   * Load the goods catalog from the configured data directory.
+   * @returns {Object} Parsed goods.json contents, or an empty object on failure.
+   * @example
+   * const goods = game.getGoodsData();
+   */
+  getGoodsData() {
+    return loadContent('goods', this.getDataDirectory());
   }
 
   /**
@@ -436,6 +640,24 @@ class Game {
     this.getUniverse().stellarObjects.forEach(obj => {
       eventBus.subscribe('tick', obj);
     });
+
+    this.subscribeEconomyToTicks();
+  }
+
+  /**
+   * Subscribe the economy to tick events.
+   *
+   * Like the stellar object subscriptions this is behaviour rather than state,
+   * so it is not persisted and must be re-registered on both new games and
+   * loads. Subscribing is idempotent, but a fresh ticker is created each time
+   * so it binds to the current Game.
+   * @returns {void}
+   * @example
+   * game.subscribeEconomyToTicks();
+   */
+  subscribeEconomyToTicks() {
+    this.economyTickSubscriber = new EconomyTickSubscriber(this);
+    this.getEventBus().subscribe('tick', this.economyTickSubscriber);
   }
 
   /**
@@ -488,11 +710,22 @@ class Game {
   /**
    * Advance game time by the specified number of ticks.
    * Events are emitted one at a time to allow subscribers to react to each tick.
+   *
+   * The payload distinguishes two different quantities, and subscribers must not
+   * confuse them:
+   * - `ticks` is the **cumulative** game clock after this tick (1, 2, 3, ...).
+   * - `delta` is the number of ticks **elapsed in this event**, always 1 today.
+   *
+   * Time-based subscribers (population growth, construction, interest accrual)
+   * must use `delta`. Using `ticks` as an elapsed amount compounds every update
+   * by the whole age of the game.
+   *
    * @param {number} [numTicks=1] - Number of ticks to advance.
    * @param {string} [action='unknown'] - The action that triggered this tick.
-   * @returns {Object} Final tick event data.
+   * @returns {Object} Final tick event data as `{ ticks, delta, action }`.
    * @example
    * const tickData = game.advanceTicks(3, 'jump');
+   * // emits three events; the last is { ticks: 3, delta: 1, action: 'jump' }
    */
   advanceTicks(numTicks = 1, action = 'unknown') {
     let lastTickData;
@@ -503,6 +736,7 @@ class Game {
 
       lastTickData = {
         ticks: this.getTicks(),
+        delta: 1,
         action
       };
 
@@ -589,8 +823,7 @@ class Game {
    * const buildings = game.getBuildingsData();
    */
   getBuildingsData() {
-    const buildingsPath = path.join(__dirname, '..', this.getDataDirectory(), 'buildings.json');
-    return JSON.parse(fs.readFileSync(buildingsPath, 'utf-8'));
+    return loadContent('buildings', this.getDataDirectory());
   }
 
   /**
@@ -647,15 +880,101 @@ class Game {
       this.getCorporations(),
       (messageKey, vars = {}, fallback = '') => this.getMessage(messageKey, vars, fallback)
     );
+
+    // Construction credit can be drawn from corporate reserves, player credits,
+    // or both, and the credit support reports only success. Snapshot each source
+    // so the ledger records who actually paid what.
+    const controllingCorporation = stellarObject.findControllingCorporation(
+      this.getPlayer(),
+      this.getCorporations()
+    );
+    const reservesBefore = Game.corporationCash(controllingCorporation);
+    const playerCreditsBefore = this.getPlayer()?.credits ?? 0;
+
     const buildResult = stellarObject.constructBuilding(buildingType, this.getBuildingsData(), creditSupport);
     if (!buildResult.success) {
       return buildResult;
     }
 
+    this.recordConstructionSpends(stellarObject, buildingType, {
+      corporation: controllingCorporation,
+      reservesBefore,
+      playerCreditsBefore
+    });
+
     return {
       ...buildResult,
       objectId: stellarObject.id
     };
+  }
+
+  /**
+   * Read a corporation's spendable cash tolerantly.
+   *
+   * Mirrors the accessor chain in `createConstructionCreditSupport`, which
+   * accepts corporation-shaped objects that expose only a `cashReserves` field.
+   * @param {Object} [corporation] - Corporation or corporation-shaped object.
+   * @returns {number} Spendable cash, or 0 when unavailable.
+   * @example
+   * const cash = Game.corporationCash(corporation);
+   */
+  static corporationCash(corporation) {
+    return Number(
+      corporation?.getTotalCashReserves?.() ?? corporation?.cashReserves ?? 0
+    ) || 0;
+  }
+
+  /**
+   * Post the credits a completed construction consumed to the ledger.
+   *
+   * The spend is capitalized to PROPERTY rather than expensed, so building does
+   * not depress income in the period, and the credits are paid to the location's
+   * local economy rather than destroyed.
+   * @param {Object} stellarObject - Object that was built on.
+   * @param {string} buildingType - Building type constructed.
+   * @param {Object} sources - Pre-construction balances.
+   * @param {Object} [sources.corporation] - Controlling corporation, if any.
+   * @param {number} sources.reservesBefore - Corporate reserves before the build.
+   * @param {number} sources.playerCreditsBefore - Player credits before the build.
+   * @returns {void}
+   * @example
+   * game.recordConstructionSpends(object, 'Mine', sources);
+   */
+  recordConstructionSpends(stellarObject, buildingType, sources) {
+    const economy = this.getEconomy();
+    const tick = this.getTicks();
+    const refs = { stellarObjectId: stellarObject.id, buildingType };
+
+    // The location's local economy supplies the labour and materials. This
+    // holder represents the location itself, so it applies to objects without a
+    // tradeable market too; otherwise construction there would destroy credits.
+    const recipient = marketHolder(stellarObject);
+
+    const { corporation, reservesBefore, playerCreditsBefore } = sources;
+
+    const corporationSpent = corporation
+      ? reservesBefore - Game.corporationCash(corporation)
+      : 0;
+    if (corporationSpent > 0) {
+      recordConstructionSpend(economy, {
+        tick,
+        spender: corporationHolder(corporation),
+        recipient,
+        amount: corporationSpent,
+        refs
+      });
+    }
+
+    const playerSpent = playerCreditsBefore - (this.getPlayer()?.credits ?? 0);
+    if (playerSpent > 0) {
+      recordConstructionSpend(economy, {
+        tick,
+        spender: playerHolder(this.getPlayer()),
+        recipient,
+        amount: playerSpent,
+        refs
+      });
+    }
   }
 
   /**
@@ -922,6 +1241,31 @@ class Game {
   }
 
   /**
+   * Get the ledger holder that trades on a stellar object's market.
+   *
+   * A world owned by a corporation trades on that corporation's books, so the
+   * goods it produces and the credits from selling them belong to the owner.
+   * That is what makes owning and developing a world profitable, and it is what
+   * gives corporations the revenue a valuation needs to read. An independent
+   * world trades on its own local account.
+   *
+   * This must agree with the operator used by production, or goods would be
+   * produced onto one set of books and sold from another: the producer's
+   * inventory would grow forever while the seller booked sales with no cost.
+   * @param {number} stellarObjectId - ID of the stellar object.
+   * @returns {Object} Holder reference for the market's counterparty.
+   * @example
+   * const seller = game.marketCounterparty(3);
+   */
+  marketCounterparty(stellarObjectId) {
+    const stellarObject = this.findStellarObject(stellarObjectId);
+    if (!stellarObject) {
+      return marketHolder(stellarObjectId);
+    }
+    return operatorHolder(stellarObject, this.getCorporations());
+  }
+
+  /**
    * Buy goods from a stellar object.
    * @param {number} stellarObjectId - ID of the stellar object.
    * @param {string} goodName - Name of the good to buy.
@@ -932,7 +1276,23 @@ class Game {
    * const result = game.buyGood(1, 'wheat', 5);
    */
   buyGood(stellarObjectId, goodName, quantity, price) {
-    return this.getMarket().buyGood(this.getPlayer(), stellarObjectId, goodName, quantity, price);
+    const result = this.getMarket().buyGood(
+      this.getPlayer(), stellarObjectId, goodName, quantity, price
+    );
+
+    if (result.success) {
+      recordGoodsTrade(this.getEconomy(), {
+        tick: this.getTicks(),
+        buyer: playerHolder(this.getPlayer()),
+        seller: this.marketCounterparty(stellarObjectId),
+        goodName: result.goodName,
+        quantity: result.quantity,
+        totalPrice: result.totalPrice,
+        refs: { stellarObjectId }
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -946,7 +1306,203 @@ class Game {
    * const result = game.sellGood(1, 'wheat', 5);
    */
   sellGood(stellarObjectId, goodName, quantity, price) {
-    return this.getMarket().sellGood(this.getPlayer(), stellarObjectId, goodName, quantity, price);
+    const result = this.getMarket().sellGood(
+      this.getPlayer(), stellarObjectId, goodName, quantity, price
+    );
+
+    if (result.success) {
+      recordGoodsTrade(this.getEconomy(), {
+        tick: this.getTicks(),
+        buyer: this.marketCounterparty(stellarObjectId),
+        seller: playerHolder(this.getPlayer()),
+        goodName: result.goodName,
+        quantity: result.quantity,
+        totalPrice: result.totalPrice,
+        refs: { stellarObjectId }
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Take a loan for a corporation and record it in the ledger.
+   *
+   * Orchestrated here rather than in `Corporation.takeLoan` so the corporation
+   * stays a plain state holder with no dependency on the economy, matching how
+   * goods trades work. It also closes a real hole: `takeLoan` on its own adds
+   * cash reserves with no counterparty, creating credits from nothing. Posting
+   * the draw against the bank makes it a transfer.
+   * @param {string} corporationName - Name of the borrowing corporation.
+   * @param {number} amount - Principal to borrow.
+   * @returns {Object|null} The created loan, or null when the request is invalid.
+   * @example
+   * const loan = game.takeCorporationLoan('Acme Orbital', 50000);
+   */
+  takeCorporationLoan(corporationName, amount) {
+    const corporation = this.findCorporation(corporationName);
+    if (!corporation) {
+      return null;
+    }
+
+    // Balloon structure: the whole balance falls due one year out by default.
+    // A dated, public cliff is what makes the credit risk priceable.
+    const termTicks = ticksPerQuarter(this.getSettings())
+      * (this.getSettings().loan_term_quarters || 4);
+    const loan = corporation.takeLoan(amount, {
+      originTick: this.getTicks(),
+      maturityTick: this.getTicks() + termTicks,
+      // Price the loan against the borrower's collateral, not its cash alone
+      universe: this.getUniverse()
+    });
+    if (!loan) {
+      return null;
+    }
+
+    recordLoanDraw(this.getEconomy(), {
+      tick: this.getTicks(),
+      borrower: corporationHolder(corporation),
+      amount: loan.principal,
+      refs: { loanId: loan.id }
+    });
+
+    return loan;
+  }
+
+  /**
+   * Make a payment against a corporation loan and record it in the ledger.
+   * @param {string} corporationName - Name of the paying corporation.
+   * @param {number} loanId - Loan identifier.
+   * @param {number} amount - Amount to apply to the loan.
+   * @returns {boolean} True when the payment succeeded.
+   * @example
+   * game.makeCorporationLoanPayment('Acme Orbital', 1, 5000);
+   */
+  makeCorporationLoanPayment(corporationName, loanId, amount) {
+    const corporation = this.findCorporation(corporationName);
+    if (!corporation) {
+      return false;
+    }
+
+    // Capture what the payment will actually apply before it is made: an
+    // overpayment is capped at the remaining balance, so posting the requested
+    // amount would put the ledger out of step with the corporation's reserves.
+    const applied = corporation.loanPaymentApplied(loanId, Number(amount));
+
+    if (!corporation.makeLoanPayment(loanId, amount)) {
+      return false;
+    }
+
+    recordLoanPayment(this.getEconomy(), {
+      tick: this.getTicks(),
+      borrower: corporationHolder(corporation),
+      amount: applied,
+      refs: { loanId }
+    });
+
+    return true;
+  }
+
+  /**
+   * List a corporation on the exchange, raising capital by issuing shares.
+   *
+   * Going public is a transaction, not a flag. `issueShares()` previously
+   * incremented a counter connected to nothing: no cash arrived, no float
+   * existed, and nobody held the shares. Here the shares are sold to the
+   * investing public at the appraised value per share, the proceeds land in the
+   * corporation's treasury, and the buyers appear on the cap table so the stock
+   * can actually be traded.
+   *
+   * Pricing off appraisal rather than book value is the point of the firewall
+   * being there: a company is floated at what it is expected to earn.
+   * @param {string} corporationName - The corporation to list.
+   * @param {number} shares - Shares to issue and sell.
+   * @returns {Object} `{ success, reason, pricePerShare, proceeds, listing }`.
+   * @example
+   * const result = game.listCorporation('Acme Orbital', 10000);
+   */
+  listCorporation(corporationName, shares) {
+    const corporation = this.findCorporation(corporationName);
+    const count = Math.round(Number(shares) || 0);
+
+    if (!corporation || count <= 0) {
+      return { success: false, reason: 'invalid_request' };
+    }
+    if (corporation.isBankrupt) {
+      return { success: false, reason: 'bankrupt' };
+    }
+
+    const { appraiseCorporation } = require('./economy/appraisal');
+    const appraisal = appraiseCorporation(corporation, {
+      universe: this.getUniverse(),
+      settings: this.getSettings(),
+      tick: this.getTicks(),
+      costBasis: this.getEconomy().getCostBasis()
+    });
+
+    const alreadyIssued = Number(corporation.sharesIssued) || 0;
+    const totalAfter = alreadyIssued + count;
+
+    // Price against the whole company spread over every share that will exist,
+    // so issuing more shares dilutes rather than conjuring value.
+    const pricePerShare = Math.max(1, Math.round(appraisal.value / totalAfter));
+    const proceeds = pricePerShare * count;
+
+    if (!corporation.issueShares(count)) {
+      return { success: false, reason: 'invalid_request' };
+    }
+
+    const exchange = this.getEconomy().getExchange();
+    const listing = exchange.listCompany({
+      corporationName: corporation.name,
+      referencePrice: pricePerShare,
+      sharesOutstanding: totalAfter
+    });
+    listing.sharesOutstanding = totalAfter;
+
+    const holder = corporationHolder(corporation);
+
+    // The issue is spread across the investing public rather than sold to a
+    // single account. Investors pay from their own cash, so proceeds are a
+    // transfer rather than credits from nowhere, and the register ends up with
+    // several holders who can disagree about the price and therefore trade.
+    const { subscribeToIssue } = require('./npc/investorPool');
+    const raised = subscribeToIssue({
+      game: this,
+      issuer: holder,
+      symbol: listing.symbol,
+      shares: count,
+      pricePerShare
+    });
+
+    corporation.setCashPosition(
+      this.getEconomy().getLedger().balance(holder, ACCOUNTS.CASH)
+    );
+
+    return { success: true, reason: null, pricePerShare, proceeds: raised, listing };
+  }
+
+  /**
+   * Submit a share order to the exchange.
+   * @param {Object} params - Order parameters.
+   * @param {string} params.corporationName - The listed company.
+   * @param {Object} params.holder - Holder placing the order.
+   * @param {string} params.side - 'buy' or 'sell'.
+   * @param {number} params.quantity - Shares.
+   * @param {number|null} [params.limitPrice] - Limit, or null for a market order.
+   * @returns {Object} `{ accepted, order, reason }`.
+   * @example
+   * game.submitShareOrder({ corporationName: 'Acme', holder, side: 'buy', quantity: 100 });
+   */
+  submitShareOrder({ corporationName, holder, side, quantity, limitPrice = null }) {
+    return this.getEconomy().getExchange().submitOrder({
+      corporationName,
+      holder,
+      side,
+      quantity,
+      limitPrice,
+      tick: this.getTicks()
+    });
   }
 
   /**
@@ -1034,8 +1590,7 @@ class Game {
     // Check cargo capacity (10 people per ton)
     const cargoNeeded = requestedCount / 10;
     const currentCargo = this.calculateCargoUsed();
-    const shipsPath = path.join(__dirname, '..', this.getDataDirectory(), 'ships.json');
-    const shipsData = JSON.parse(fs.readFileSync(shipsPath, 'utf-8'));
+    const shipsData = loadContent('ships', this.getDataDirectory());
     const cargoCapacity = shipsData[player.ship].cargoCapacity;
 
     if (currentCargo + cargoNeeded > cargoCapacity) {
@@ -1227,6 +1782,7 @@ class Game {
     };
 
     return {
+      schemaVersion: SAVE_SCHEMA_VERSION,
       universe: universeData,
       player: this.getPlayer(),
       corporations: this.getCorporations(),
@@ -1234,7 +1790,8 @@ class Game {
       turn: this.getTurn(),
       ticks: this.getTicks(),
       settings: this.getSettings(),
-      exploredSystems: this.getExploredSystems()
+      exploredSystems: this.getExploredSystems(),
+      economy: this.getEconomy().toJSON()
     };
   }
 
@@ -1271,7 +1828,13 @@ class Game {
     }
 
     const universe = Game.deserializeUniverse(saveData.universe);
-    const game = new Game(universe, saveData.settings);
+
+    // Economy state is restored at construction, including exact mid-stream PRNG
+    // positions, so a loaded session replays identically. Saves written before
+    // the economy existed carry no block and get fresh state instead of throwing.
+    const game = new Game(universe, saveData.settings, {
+      economy: EconomyState.fromJSON(saveData.economy)
+    });
 
     game.setPlayer(Game.deserializePlayer(saveData.player, saveData.settings));
     game.setNPCs(saveData.npcs || []);
@@ -1409,14 +1972,38 @@ class Game {
       corpData.name,
       corpData.description,
       corpData.isPlayerOwned,
-      corpData.cashReserves || 0
+      0
     );
+
+    // Set the cash position directly rather than through the constructor: an
+    // overdrawn corporation has a negative balance, and normalizeCashReserves
+    // floors negatives to zero, which would quietly erase the deficit on load.
+    // The raw value is passed through so setCashPosition can still recognize
+    // the object shape older saves use.
+    corp.setCashPosition(corpData.cashReserves ?? 0);
 
     corp.stellarObjects = corpData.stellarObjects || [];
     corp.ships = corpData.ships || [];
     corp.goods = corpData.goods || {};
     corp.dividendRate = corpData.dividendRate || 0;
     corp.sharesIssued = corpData.sharesIssued || 0;
+
+    // Which strategy drives this company. A save written before agents existed
+    // has no name, and agentFor falls back to the default, so it loads as an
+    // ordinary market-driven company.
+    corp.setAgentName(corpData.agentName || null);
+
+    // Solvency state. These must be listed here or they would be written to the
+    // save and silently not restored, which is the standing hazard with this
+    // hand-maintained field list: a bankrupt corporation would quietly come
+    // back solvent, and a deficit clock would restart on every load.
+    corp.deficitSinceTick = Number.isFinite(Number(corpData.deficitSinceTick))
+      ? Number(corpData.deficitSinceTick)
+      : null;
+    corp.isBankrupt = Boolean(corpData.isBankrupt);
+    corp.bankruptSinceTick = Number.isFinite(Number(corpData.bankruptSinceTick))
+      ? Number(corpData.bankruptSinceTick)
+      : null;
     corp.loans = Array.isArray(corpData.loans) ? corpData.loans.map(loan => ({ ...loan })) : [];
 
     const maxLoanId = corp.loans.reduce((maxId, loan) => {

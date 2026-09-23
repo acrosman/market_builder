@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { loadContent } = require('./contentCache');
 const path = require('path');
 const { Trader } = require('./trader');
 
@@ -17,7 +18,7 @@ class Player extends Trader {
 
     // Load ship data to initialize ship-specific properties
     const dataDir = settings.data_directory || 'data/default/en-us';
-    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
+    const shipsData = loadContent('ships', dataDir);
     const shipData = shipsData[settings.initial_ship];
 
     // Track ship's current energy level

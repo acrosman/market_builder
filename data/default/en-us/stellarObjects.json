@@ -134,7 +134,7 @@
   },
   "Asteroid": {
     "nameSource": "stations",
-    "market": false,
+    "market": true,
     "buildings": true,
     "shipyard": false,
     "shields": false,

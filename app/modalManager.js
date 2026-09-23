@@ -37,6 +37,26 @@
     _executeJumpSequence = context.executeJumpSequence;
     _refreshCompanyManagementButtons = context.refreshCompanyManagementButtons;
 
+    // The exchange modal lives in its own file because this one already carries
+    // every other modal, but it is still a modal: game code asks this module
+    // for it like any other, and this module wires it up.
+    if (typeof window !== 'undefined' && window.exchangeModal) {
+      window.exchangeModal.init({
+        api: _api,
+        addMessage: _addMessage,
+        resolveMessageText: _resolveMessageText,
+        loadModal
+      });
+    }
+
+    if (typeof window !== 'undefined' && window.companyStatements) {
+      window.companyStatements.init({
+        api: _api,
+        addMessage: _addMessage,
+        resolveMessageText: _resolveMessageText
+      });
+    }
+
     _gameModal = document.getElementById('game-modal');
     _modalTitle = document.getElementById('modal-title');
     _modalBody = document.getElementById('modal-body');
@@ -272,57 +292,36 @@
 
       /**
        * Populate static labels and button text for the modal.
+       *
+       * The element-id to message-key map lives in
+       * `app/modals/company-management.labels.json` beside the modal markup, so
+       * adding a label is a change to the modal's own files rather than a new
+       * line in this file.
        * @returns {Promise<void>}
        */
       async function setCompanyManagementLabels() {
-        const labelMappings = [
-          ['company-tab-profile', 'company_management.tabs.profile'],
-          ['company-tab-finance', 'company_management.tabs.finance'],
-          ['company-tab-loans', 'company_management.tabs.loans'],
-          ['company-tab-trade-routes', 'company_management.tabs.trade_routes'],
-          ['company-profile-heading', 'company_management.profile.heading'],
-          ['company-overview-heading', 'company_management.profile.overview_heading'],
-          ['company-overview-total-value-label', 'company_management.finance.total_value'],
-          ['company-overview-cash-reserves-label', 'company_management.finance.cash_reserves'],
-          ['company-owned-stellar-objects-heading', 'company_management.profile.owned_stellar_objects'],
-          ['company-fleet-heading', 'company_management.profile.fleet'],
-          ['company-name-label', 'company_management.profile.name'],
-          ['company-description-label', 'company_management.profile.description'],
-          ['save-company-profile-btn', 'company_management.profile.save'],
-          ['company-finance-heading', 'company_management.finance.heading'],
-          ['company-value-label', 'company_management.finance.total_value'],
-          ['company-cash-reserves-label', 'company_management.finance.cash_reserves'],
-          ['company-shares-issued-label', 'company_management.finance.shares_issued'],
-          ['company-dividend-rate-label', 'company_management.finance.dividend_rate'],
-          ['set-company-dividend-btn', 'company_management.finance.set_dividend'],
-          ['company-issue-shares-label', 'company_management.finance.issue_shares'],
-          ['issue-company-shares-btn', 'company_management.finance.issue_shares_action'],
-          ['company-loans-heading', 'company_management.loans.heading'],
-          ['company-credit-rating-label', 'company_management.loans.credit_rating'],
-          ['company-interest-rate-label', 'company_management.loans.interest_rate'],
-          ['company-outstanding-debt-label', 'company_management.loans.outstanding_debt'],
-          ['company-loan-amount-label', 'company_management.loans.take_loan_amount'],
-          ['take-company-loan-btn', 'company_management.loans.take_loan_action'],
-          ['company-outstanding-loans-heading', 'company_management.loans.outstanding_loans'],
-          ['company-loan-payment-select-label', 'company_management.loans.loan_label'],
-          ['company-loan-payment-amount-label', 'company_management.loans.payment_amount'],
-          ['make-company-loan-payment-btn', 'company_management.loans.make_payment'],
-          ['company-loan-repayment-select-label', 'company_management.loans.loan_label'],
-          ['company-loan-repayment-rate-label', 'company_management.loans.repayment_rate'],
-          ['set-company-loan-repayment-btn', 'company_management.loans.set_repayment_rate'],
-          ['company-trade-routes-heading', 'company_management.trade_routes.heading'],
-          ['company-trade-routes-placeholder', 'company_management.trade_routes.placeholder']
-        ];
-
-        await Promise.all(labelMappings.map(([elementId, messageKey]) => setElementTextFromMessage(elementId, messageKey)));
+        try {
+          const labels = await window.gameHelpers.loadLabelMap(
+            './modals/company-management.labels.json'
+          );
+          await window.gameHelpers.applyLabelMap(labels, _resolveMessageText);
+        } catch (error) {
+          window.gameHelpers.logClientError('Error loading company labels:', error);
+        }
       }
 
       /**
-       * Switch the active company tab.
+       * Switch the active company tab and load anything that tab needs.
+       *
+       * Reports are fetched when the tab is opened rather than on every state
+       * refresh: a company's statement history only changes when a quarter
+       * closes, so there is no reason to pull it after every dividend or loan
+       * action.
        * @param {string} tabName - Tab name key.
+       * @returns {void}
        */
       function setActiveTab(tabName) {
-        const tabNames = ['profile', 'finance', 'loans', 'trade-routes'];
+        const tabNames = ['profile', 'finance', 'loans', 'reports', 'trade-routes'];
 
         tabNames.forEach((name) => {
           const tabButton = document.getElementById(`company-tab-${name}`);
@@ -342,6 +341,12 @@
             }
           }
         });
+
+        if (tabName === 'reports') {
+          window.companyStatements.refresh(selectedCompanyName).catch((error) => {
+            window.gameHelpers.logClientError('Failed to refresh company statements', error);
+          });
+        }
       }
 
       /**
@@ -500,6 +505,15 @@
         const companyOverviewTotalValue = document.getElementById('company-overview-total-value');
         if (companyOverviewTotalValue) {
           companyOverviewTotalValue.textContent = companyState.value.toLocaleString();
+        }
+
+        const companyAppraisedValue = document.getElementById('company-appraised-value');
+        if (companyAppraisedValue) {
+          // Appraisal can fail or be unavailable; fall back to showing nothing
+          // rather than a misleading zero.
+          companyAppraisedValue.textContent = Number.isFinite(companyState.appraisedValue)
+            ? companyState.appraisedValue.toLocaleString()
+            : '';
         }
 
         const companyCashReserves = document.getElementById('company-cash-reserves');
@@ -1506,6 +1520,24 @@
     document.getElementById('system-connections').textContent = connections || 'None';
   }
 
+  /**
+   * Open the share exchange.
+   *
+   * Delegates to `app/exchangeModal.js`, which owns the exchange's rendering.
+   * Routed through here so game code has one module to ask for a modal rather
+   * than having to know which ones were split into their own files.
+   * @returns {Promise<void>} Resolves once the modal is open.
+   * @throws {Error} When the exchange module is unavailable.
+   * @example
+   * await window.modalManager.openExchangeModal();
+   */
+  async function openExchangeModal() {
+    if (typeof window === 'undefined' || !window.exchangeModal) {
+      throw new Error('Exchange modal module is not loaded');
+    }
+    return window.exchangeModal.openExchangeModal();
+  }
+
   const api = {
     init,
     loadModal,
@@ -1514,6 +1546,7 @@
     openPlayerStatusModal,
     openCorporationStatusModal,
     openCompanyManagementModal,
+    openExchangeModal,
     openTradeModal,
     openBuildingsModal,
     openUniverseMapModal,

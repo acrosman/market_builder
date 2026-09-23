@@ -5,6 +5,8 @@ const os = require('os');
 const path = require('path');
 const { getGameMessages: loadGameMessages, getLocalizedGameMessage } = require('./gameMessages');
 const { createLogger, validLogLevels } = require('./logger');
+const { corporationHolder } = require('./economy/accounts');
+const { registerExchangeHandlers } = require('./ipc/exchangeHandlers');
 
 /**
  * Register all main-process IPC listeners and handlers.
@@ -39,6 +41,35 @@ function registerIpcHandlers(dependencies) {
   const baseDir = path.join(__dirname, '..');
   let currentUniverse = null;
 
+  // Choices made on the new-universe screen that belong to the game rather than
+  // to the universe graph. Cleared with the universe they were chosen for.
+  let currentSetupOptions = {};
+
+  /**
+   * Game settings with the new-universe choices folded in.
+   *
+   * The settings file holds the defaults; the setup screen overrides the few a
+   * player picks per game. Merging here keeps `Game` reading one settings
+   * object rather than knowing which values came from where.
+   * @returns {Object} Settings for the game about to be created.
+   * @example
+   * const newGame = new Game(currentUniverse, setupSettings());
+   */
+  function setupSettings() {
+    const { npcCorporationCount } = currentSetupOptions;
+    if (npcCorporationCount === undefined) {
+      return gameSettings;
+    }
+
+    return {
+      ...gameSettings,
+      npc_corporations: {
+        ...(gameSettings.npc_corporations || {}),
+        count: npcCorporationCount
+      }
+    };
+  }
+
   /**
    * Get a renderer-friendly company management snapshot.
    * @param {Object} corporation - Corporation instance.
@@ -51,7 +82,37 @@ function registerIpcHandlers(dependencies) {
       return null;
     }
 
-    return corporation.getCompanyManagementState(getCurrentGame()?.getUniverse());
+    const game = getCurrentGame();
+    const state = corporation.getCompanyManagementState(game?.getUniverse());
+
+    if (!state || !game) {
+      return state;
+    }
+
+    // Book value says what the company's assets cost; appraised value says what
+    // they are expected to earn. Showing both keeps the distinction visible
+    // rather than collapsing it into one number that means neither.
+    try {
+      // Required lazily: appraisal pulls in the content cache, which builds a
+      // logger at module load, and this module's tests mock the logger.
+      const { appraiseCorporation } = require('./economy/appraisal');
+
+      const appraisal = appraiseCorporation(corporation, {
+        universe: game.getUniverse(),
+        settings: game.getSettings(),
+        tick: game.getTicks(),
+        costBasis: game.getEconomy().getCostBasis()
+      });
+
+      return {
+        ...state,
+        appraisedValue: appraisal.value,
+        discountRate: appraisal.discountRate
+      };
+    } catch (error) {
+      logger.error('Failed to appraise corporation:', error);
+      return state;
+    }
   }
 
   /**
@@ -169,6 +230,13 @@ function registerIpcHandlers(dependencies) {
       params.stellarObjectCount
     );
 
+    // How many rivals populate this universe is chosen at creation, like its
+    // size, and is fixed for the life of the game.
+    const requested = Number(params.corporationCount);
+    currentSetupOptions = Number.isFinite(requested) && requested >= 0
+      ? { npcCorporationCount: Math.round(requested) }
+      : {};
+
     const setupWindow = getGameSetupWindow();
     if (setupWindow) {
       setupWindow.webContents.send('universe-created', {
@@ -198,7 +266,7 @@ function registerIpcHandlers(dependencies) {
       return;
     }
 
-    const newGame = new Game(currentUniverse, gameSettings);
+    const newGame = new Game(currentUniverse, setupSettings());
     newGame.initializeGame(playerData);
     setCurrentGame(newGame);
 
@@ -322,7 +390,9 @@ function registerIpcHandlers(dependencies) {
     }
 
     const amount = Number(payload.amount);
-    const loan = corporation.takeLoan(amount);
+    // Routed through Game so the draw is posted against the bank. Calling
+    // corporation.takeLoan directly would add reserves with no counterparty.
+    const loan = getCurrentGame().takeCorporationLoan(corporation.name, amount);
     return {
       success: Boolean(loan),
       loan,
@@ -339,7 +409,10 @@ function registerIpcHandlers(dependencies) {
 
     const loanId = Number(payload.loanId);
     const amount = Number(payload.amount);
-    const success = corporation.makeLoanPayment(loanId, amount);
+    // Routed through Game so the repayment is posted back to the bank.
+    const success = getCurrentGame().makeCorporationLoanPayment(
+      corporation.name, loanId, amount
+    );
     return { success, company: getCompanyManagementState(corporation) };
   });
 
@@ -355,6 +428,27 @@ function registerIpcHandlers(dependencies) {
     const success = corporation.setLoanRepaymentRate(loanId, repaymentRate);
     return { success, company: getCompanyManagementState(corporation) };
   });
+
+  // IPC: Return published quarterly statements for a player-controlled company.
+  ipcMain.handle('get-company-statements', (event, payload = {}) => {
+    const corporation = findPlayerControlledCorporation(payload.companyName);
+    if (!corporation) {
+      return { success: false, statements: [] };
+    }
+
+    const game = getCurrentGame();
+    const statements = game
+      ?.getEconomy()
+      ?.getStatements()
+      ?.forHolder(corporationHolder(corporation)) || [];
+
+    return { success: true, statements };
+  });
+
+  // Exchange channels live in their own module: this file already registers
+  // every other channel in the game and is close to the size at which modules
+  // here get split.
+  registerExchangeHandlers({ ipcMain, getCurrentGame });
 
   // IPC: Return map data, including explored systems, for map rendering.
   ipcMain.handle('get-universe-map-data', () => {

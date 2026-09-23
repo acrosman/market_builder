@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createLogger } = require('./logger');
+const { loadContent } = require('./contentCache');
 
 const logger = createLogger('Market');
 
@@ -18,7 +19,7 @@ class Market {
    */
   initializeMarkets() {
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
 
     // Categorize goods dynamically based on their category field from goods.json
     const categorizeGoods = () => {
@@ -121,7 +122,7 @@ class Market {
   calculateMarketPrice(stellarObject, goodName, priceType = 'buy') {
     logger.debug('[DEBUG calculateMarketPrice] stellarObject:', stellarObject?.id, 'goodName:', goodName, 'priceType:', priceType);
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
     const good = goodsData[goodName];
 
     if (!good) return 0;
@@ -271,7 +272,7 @@ class Market {
 
     // Calculate cargo space needed
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
     const good = goodsData[goodName];
     if (!good) {
       return { success: false, message: 'Unknown good' };
@@ -288,7 +289,7 @@ class Market {
 
     // Check cargo capacity
     const currentCargo = this.calculateCargoUsed(player);
-    const shipsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'ships.json'), 'utf-8'));
+    const shipsData = loadContent('ships', dataDir);
     const shipData = shipsData[player.ship];
     const cargoCapacity = shipData.cargoCapacity;
 
@@ -301,7 +302,17 @@ class Market {
     stellarObject.marketState.inventory[goodName] -= quantity;
     player.addCargo(goodName, quantity);
 
-    return { success: true, message: `Bought ${quantity} units of ${good.label || goodName} for ${totalCost} credits` };
+    // The numeric fields let the caller post this trade to the ledger using the
+    // same figures the trade actually used, rather than re-deriving a price that
+    // may have moved as inventory changed.
+    return {
+      success: true,
+      message: `Bought ${quantity} units of ${good.label || goodName} for ${totalCost} credits`,
+      goodName,
+      quantity,
+      unitPrice: actualPrice,
+      totalPrice: totalCost
+    };
   }
 
   /**
@@ -335,7 +346,7 @@ class Market {
 
     // Get good label for display
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
     const good = goodsData[goodName];
 
     // Execute transaction
@@ -343,7 +354,15 @@ class Market {
     stellarObject.marketState.inventory[goodName] = (stellarObject.marketState.inventory[goodName] || 0) + quantity;
     player.removeCargo(goodName, quantity);
 
-    return { success: true, message: `Sold ${quantity} units of ${good?.label || goodName} for ${totalRevenue} credits` };
+    // See buyGood: the caller posts this trade to the ledger using these figures.
+    return {
+      success: true,
+      message: `Sold ${quantity} units of ${good?.label || goodName} for ${totalRevenue} credits`,
+      goodName,
+      quantity,
+      unitPrice: actualPrice,
+      totalPrice: totalRevenue
+    };
   }
 
   /**
@@ -354,7 +373,7 @@ class Market {
   calculateCargoUsed(player) {
     let cargoUsed = 0;
     const dataDir = this.settings.data_directory || 'data/default/en-us';
-    const goodsData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', dataDir, 'goods.json'), 'utf-8'));
+    const goodsData = loadContent('goods', dataDir);
 
     for (const [goodName, quantity] of Object.entries(player.cargo)) {
       if (goodName === 'passengers') {

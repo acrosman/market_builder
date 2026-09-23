@@ -109,6 +109,7 @@
       "profile": "Profile",
       "finance": "Finance",
       "loans": "Loans",
+      "reports": "Reports",
       "trade_routes": "Trade Routes"
     },
     "profile": {
@@ -129,6 +130,8 @@
     "finance": {
       "heading": "Dividend and Shares",
       "total_value": "Total Value:",
+      "appraised_value": "Appraised Value",
+      "book_value_note": "Book value is what the company’s assets cost. Appraised value is what they are expected to earn.",
       "cash_reserves": "Cash Reserves:",
       "shares_issued": "Issued Shares:",
       "dividend_rate": "Dividend Rate (%):",
@@ -153,12 +156,89 @@
       "loan_option": "Loan #{loanId} ({balance})",
       "loan_line": "Loan #{loanId} | Principal: {principal} | Remaining: {remaining} | Interest: {interestRate}% | Repayment: {repaymentRate}%"
     },
+    "reports": {
+      "heading": "Quarterly Reports",
+      "no_statements": "No quarter has closed yet. The first report publishes at the end of quarter one.",
+      "select_quarter": "Quarter",
+      "quarter_option": "Q{quarterIndex}",
+      "period": "Ticks {fromTick} to {toTick}",
+      "income_heading": "Income Statement",
+      "revenue": "Revenue",
+      "cogs": "Cost of goods sold",
+      "gross_profit": "Gross profit",
+      "operating_expense": "Operating expenses",
+      "interest_expense": "Interest",
+      "net_income": "Net income",
+      "balance_heading": "Balance Sheet",
+      "cash": "Cash",
+      "inventory": "Inventory at cost",
+      "property": "Property",
+      "investments": "Investments",
+      "loan_receivable": "Loans receivable",
+      "total_assets": "Total assets",
+      "debt": "Debt",
+      "total_liabilities": "Total liabilities",
+      "net_worth": "Net worth",
+      "shares_issued": "Shares issued",
+      "bankrupt": "This company has been declared bankrupt.",
+      "load_error": "Could not load quarterly reports."
+    },
     "trade_routes": {
       "heading": "Trade Routes",
       "placeholder": "This tab will be implemented in issue #9."
     }
   },
+  "exchange": {
+    "modal_title": "Stock Exchange",
+    "open": "Exchange",
+    "no_listings": "No companies are listed yet. Take one public from the Company Management screen.",
+    "listings_heading": "Listings",
+    "symbol": "Company",
+    "last_price": "Last",
+    "shares_outstanding": "Shares",
+    "bankrupt_flag": "BANKRUPT",
+    "book_heading": "Order Book",
+    "bids": "Bids",
+    "asks": "Asks",
+    "no_bids": "No bids.",
+    "no_asks": "No offers.",
+    "depth_line": "{quantity} @ {price}",
+    "chart_heading": "Price History",
+    "no_history": "This listing has not traded yet.",
+    "portfolio_heading": "Your Holdings",
+    "no_positions": "You hold no shares.",
+    "position_line": "{shares} shares of {symbol}, last {lastPrice}",
+    "available_credits": "Available Credits:",
+    "orders_heading": "Your Open Orders",
+    "no_orders": "You have no open orders.",
+    "order_line": "{side} {quantity} {symbol} at {limitPrice}",
+    "order_line_market": "{side} {quantity} {symbol} at market",
+    "cancel_order": "Cancel",
+    "place_heading": "Place an Order",
+    "side_buy": "Buy",
+    "side_sell": "Sell",
+    "quantity_label": "Shares",
+    "limit_label": "Limit price (blank for market)",
+    "submit_order": "Place Order",
+    "account_label": "Account",
+    "account_personal": "Personal",
+    "order_placed": "Order placed. It will be filled at the next market close.",
+    "order_cancelled": "Order cancelled.",
+    "order_rejected": "Order rejected: {reason}",
+    "reason_unknown_listing": "that company is not listed",
+    "reason_invalid_order": "the order details are not valid",
+    "reason_insufficient_shares": "you do not hold enough shares to sell",
+    "reason_bankrupt": "that company is bankrupt",
+    "load_error": "Could not load the exchange."
+  },
   "settings": {
     "not_implemented": "Game Settings feature is not yet implemented."
+  },
+  "npc_corporations": {
+    "default_description": "An independent operator",
+    "agents": {
+      "market": "Builds and buys its way up",
+      "military": "Takes what it wants by force"
+    }
   }
 }

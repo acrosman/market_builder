@@ -1,47 +1,187 @@
 {
-    "data_directory": "data/default/en-us",
-    "initial_ship": "Cargo Hauler",
-    "food_per_person": 1,
-    "starting_credits": 1000,
-    "population_growth_divisor": 1000000,
-    "starting_system": {
-        "required_objects": [
-            {
-                "type": "Planet",
-                "class": "Earth-like",
-                "description": "Your home planet"
-            },
-            {
-                "type": "Space Station",
-                "class": "Trading Post",
-                "description": "Your first trading post"
-            }
-        ]
-    },
-    "pronoun_options": [
-        {
-            "subject": "he",
-            "object": "him",
-            "possessive": "his",
-            "reflexive": "himself"
-        },
-        {
-            "subject": "she",
-            "object": "her",
-            "possessive": "hers",
-            "reflexive": "herself"
-        },
-        {
-            "subject": "ze",
-            "object": "zir",
-            "possessive": "zirs",
-            "reflexive": "zirself"
-        },
-        {
-            "subject": "they",
-            "object": "them",
-            "possessive": "their",
-            "reflexive": "themselves"
-        }
+  "data_directory": "data/default/en-us",
+  "initial_ship": "Cargo Hauler",
+  "food_per_person": 1,
+  "starting_credits": 1000,
+  "population_growth_divisor": 1000000,
+  "time": {
+    "ticks_per_day": 24,
+    "days_per_quarter": 90,
+    "quarters_per_year": 4
+  },
+  "production": {
+    "units_per_point_per_day": 1,
+    "staff_wage_per_day": 1,
+    "energy_cost_per_unit_per_day": 2,
+    "food_consumed_per_billion_people_per_day": 2
+  },
+  "restock": {
+    "daily_gap_fraction": 0.05,
+    "max_ideal_multiple": 3,
+    "import_markup": 0.1,
+    "export_discount": 0.1
+  },
+  "solvency": {
+    "deficit_grace_days": 30,
+    "forced_loan_buffer": 0.1
+  },
+  "statements": {
+    "detail_quarters_retained": 1
+  },
+  "opening_endowments": {
+    "bank": 100000000,
+    "market": 10000000
+  },
+  "loan_term_quarters": 4,
+  "news": {
+    "items_retained": 256
+  },
+  "appraisal": {
+    "base_discount_rate": 0.12,
+    "distress_spread": 0.4,
+    "inventory_liquidation_discount": 0.3,
+    "infrastructure_floor_weight": 0.5,
+    "max_default_probability": 0.95
+  },
+  "npc_corporations": {
+    "count": 10,
+    "starting_cash": 250000,
+    "max_objects_each": 3,
+    "build_cash_floor": 100000,
+    "build_check_days": 7,
+    "dividend_rate_range": [
+      15,
+      45
+    ],
+    "acquisition_cash_floor": 400000,
+    "acquisition_distress_threshold": 0.3,
+    "acquisition_discount": 0.7,
+    "agent_mix": {
+      "market": 1,
+      "military": 0
+    }
+  },
+  "investors": {
+    "starting_capital": 50000000,
+    "savings_per_day": 20000,
+    "belief_dispersion": 0.15,
+    "participation_rate": 0.6,
+    "max_position_fraction": 0.35,
+    "order_size_fraction": 0.02,
+    "investor_count": 8,
+    "bid_withdrawal_probability": 0.5
+  },
+  "dividends": {
+    "pay_on_quarter_close": true
+  },
+  "starting_system": {
+    "required_objects": [
+      {
+        "type": "Planet",
+        "class": "Earth-like",
+        "description": "Your home planet"
+      },
+      {
+        "type": "Space Station",
+        "class": "Trading Post",
+        "description": "Your first trading post"
+      }
     ]
+  },
+  "pronoun_options": [
+    {
+      "subject": "he",
+      "object": "him",
+      "possessive": "his",
+      "reflexive": "himself"
+    },
+    {
+      "subject": "she",
+      "object": "her",
+      "possessive": "hers",
+      "reflexive": "herself"
+    },
+    {
+      "subject": "ze",
+      "object": "zir",
+      "possessive": "zirs",
+      "reflexive": "zirself"
+    },
+    {
+      "subject": "they",
+      "object": "them",
+      "possessive": "their",
+      "reflexive": "themselves"
+    }
+  ],
+  "credit": {
+    "comment": "Credit ratings, best to worst. A corporation is graded by leverage (debt divided by the book value of its assets) against max_leverage, and pays annual_rate on any loan it takes while holding that grade. F is the terminal grade and needs no band: it is assigned to a corporation that is bankrupt, has debt with nothing behind it, or has let a loan run past its maturity unpaid.",
+    "ratings": [
+      {
+        "grade": "A+",
+        "max_leverage": 0,
+        "annual_rate": 3.5
+      },
+      {
+        "grade": "A",
+        "max_leverage": 0.1,
+        "annual_rate": 4.0
+      },
+      {
+        "grade": "A-",
+        "max_leverage": 0.2,
+        "annual_rate": 5.0
+      },
+      {
+        "grade": "B+",
+        "max_leverage": 0.3,
+        "annual_rate": 6.0
+      },
+      {
+        "grade": "B",
+        "max_leverage": 0.4,
+        "annual_rate": 7.0
+      },
+      {
+        "grade": "B-",
+        "max_leverage": 0.5,
+        "annual_rate": 8.0
+      },
+      {
+        "grade": "C+",
+        "max_leverage": 0.65,
+        "annual_rate": 10.0
+      },
+      {
+        "grade": "C",
+        "max_leverage": 0.8,
+        "annual_rate": 12.0
+      },
+      {
+        "grade": "C-",
+        "max_leverage": 0.95,
+        "annual_rate": 14.0
+      },
+      {
+        "grade": "D+",
+        "max_leverage": 1.1,
+        "annual_rate": 17.0
+      },
+      {
+        "grade": "D",
+        "max_leverage": 1.3,
+        "annual_rate": 20.0
+      },
+      {
+        "grade": "D-",
+        "max_leverage": 1.5,
+        "annual_rate": 23.0
+      },
+      {
+        "grade": "F",
+        "max_leverage": null,
+        "annual_rate": 28.0
+      }
+    ]
+  }
 }

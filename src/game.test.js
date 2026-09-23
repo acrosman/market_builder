@@ -264,7 +264,7 @@ describe('Game Module', () => {
     });
 
     test('gets current location state', () => {
-      game.initializeGame('TestPlayer');
+      game.initializeGame(createTestPlayerData());
       const state = game.getCurrentLocationState();
 
       expect(state.system).toBe(mockUniverse.systems[1]);
@@ -946,10 +946,11 @@ describe('Game Module', () => {
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({
             ticks: 1,
+            delta: 1,
             action: 'jump'
           })
         );
-        expect(result).toEqual({ ticks: 1, action: 'jump' });
+        expect(result).toEqual({ ticks: 1, delta: 1, action: 'jump' });
       });
 
       test('should emit multiple tick events for multiple advances', () => {
@@ -986,6 +987,115 @@ describe('Game Module', () => {
         expect(listener).toHaveBeenNthCalledWith(3, expect.objectContaining({ ticks: 3 }));
         expect(listener).toHaveBeenNthCalledWith(4, expect.objectContaining({ ticks: 4 }));
         expect(listener).toHaveBeenNthCalledWith(5, expect.objectContaining({ ticks: 5 }));
+      });
+
+      test('should emit delta of 1 on every tick regardless of the clock', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const listener = jest.fn();
+        game.getEventBus().on('tick', listener);
+
+        game.advanceTicks(3, 'test');
+
+        // delta is elapsed time per event; ticks is the cumulative clock
+        expect(listener).toHaveBeenNthCalledWith(1, { ticks: 1, delta: 1, action: 'test' });
+        expect(listener).toHaveBeenNthCalledWith(2, { ticks: 2, delta: 1, action: 'test' });
+        expect(listener).toHaveBeenNthCalledWith(3, { ticks: 3, delta: 1, action: 'test' });
+      });
+    });
+
+    // Regression coverage for the cumulative-vs-delta tick bug. The mock stellar
+    // objects above use no-op onTick handlers, so only a real StellarObject wired
+    // to a real Game exercises the contract end to end.
+    describe('real StellarObject subscribed to a real Game', () => {
+      const buildRealUniverse = () => {
+        const { StellarObject } = require('./stellarObject');
+        const typeDetails = {
+          market: true,
+          buildings: true,
+          shipyard: false,
+          shields: false,
+          cannons: false,
+          fighters: false,
+          resistance: false,
+          classes: {
+            'Earth-like': {
+              description: 'Integration test planet',
+              populationLimit: 8000000000,
+              initialPopulationPercent: [30, 30],
+              reproductionRate: 5,
+              buildingCredits: 0,
+              buildingLimit: 150,
+              productivityModifiers: { metal: 5, food: 7, chemicals: 6, energy: 8 }
+            }
+          }
+        };
+
+        const obj = new StellarObject(0, 'Planet', 'Earth-like', 0, typeDetails, 'Test Planet');
+
+        return {
+          universe: {
+            systems: [{ id: 0, name: 'Alpha' }],
+            stellarObjects: [obj]
+          },
+          obj
+        };
+      };
+
+      test('should advance construction by elapsed time, not by the game clock', () => {
+        const { universe, obj } = buildRealUniverse();
+        const game = new Game(universe, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 10 }];
+
+        // Nine ticks of elapsed time must not finish a ten-tick build
+        game.advanceTicks(9, 'test');
+        expect(obj.buildingsUnderConstruction).toHaveLength(1);
+        expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(1);
+        expect(obj.buildings.Warehouse).toBeUndefined();
+
+        // The tenth completes it exactly once
+        game.advanceTicks(1, 'test');
+        expect(obj.buildingsUnderConstruction).toHaveLength(0);
+        expect(obj.buildings.Warehouse.count).toBe(1);
+      });
+
+      test('should not compound construction progress as the clock grows', () => {
+        const { universe, obj } = buildRealUniverse();
+        const game = new Game(universe, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        // Run the clock well past any build cost before queueing work
+        game.advanceTicks(100, 'test');
+        obj.buildingsUnderConstruction = [{ type: 'Warehouse', ticksRemaining: 5 }];
+
+        // At tick 100 the old code subtracted 100 per tick and finished instantly
+        game.advanceTicks(1, 'test');
+        expect(obj.buildingsUnderConstruction[0].ticksRemaining).toBe(4);
+        expect(obj.buildings.Warehouse).toBeUndefined();
+      });
+
+      test('should grow population by elapsed ticks, not by the triangular sum', () => {
+        const { universe, obj } = buildRealUniverse();
+        const game = new Game(universe, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const start = obj.population.current;
+        const growthFactor = 1 + (obj.population.growthRate / obj.populationGrowthDivisor);
+
+        game.advanceTicks(10, 'test');
+
+        // Ten ticks of compounding, not growthFactor ** 55
+        const expected = Math.min(
+          Math.floor(start * Math.pow(growthFactor, 10)),
+          obj.population.limit
+        );
+        expect(obj.population.current).toBeLessThanOrEqual(expected);
+        expect(obj.population.current).toBeLessThan(
+          Math.floor(start * Math.pow(growthFactor, 55))
+        );
       });
     });
 
@@ -1121,6 +1231,82 @@ describe('Game Module', () => {
 
         const loadedGame = Game.loadGame(saveData);
         expect(loadedGame.getTicks()).toBe(0);
+      });
+
+      test('should stamp a schema version on save data', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        expect(game.getSaveData().schemaVersion).toBe(1);
+      });
+
+      test('should load a pre-versioning save with no schemaVersion or economy', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+        game.advanceTicks(4, 'test');
+
+        // Simulate a save written before versioning and the economy existed
+        const saveData = game.getSaveData();
+        delete saveData.schemaVersion;
+        delete saveData.economy;
+
+        const loadedGame = Game.loadGame(saveData);
+        expect(loadedGame.getTicks()).toBe(4);
+        expect(loadedGame.getPlayer().name).toBe('TestPlayer');
+        // Fresh economy state rather than a throw
+        expect(Number.isFinite(loadedGame.getEconomy().getRandom().stream('x').next()))
+          .toBe(true);
+      });
+
+      test('should ignore unknown future top-level fields', () => {
+        const game = new Game(mockUniverse, mockSettings);
+        game.initializeGame(createTestPlayerData());
+
+        const saveData = game.getSaveData();
+        saveData.somethingFromTheFuture = { nested: true };
+
+        expect(() => Game.loadGame(saveData)).not.toThrow();
+      });
+
+      test('should resume economy randomness mid-stream across a save and load', () => {
+        const game = new Game(mockUniverse, mockSettings, { seed: 'determinism-check' });
+        game.initializeGame(createTestPlayerData());
+
+        // Draw partway through two streams before saving
+        const noise = game.getEconomy().getRandom().stream('price-noise');
+        const beliefs = game.getEconomy().getRandom().stream('investor-beliefs');
+        for (let i = 0; i < 11; i += 1) {
+          noise.next();
+          beliefs.int(1, 100);
+        }
+
+        // Round trip through JSON exactly as the save file does
+        const saveData = JSON.parse(JSON.stringify(game.getSaveData()));
+        const loadedGame = Game.loadGame(saveData);
+
+        const loadedRandom = loadedGame.getEconomy().getRandom();
+        expect(loadedRandom.stream('price-noise').next()).toBe(noise.next());
+        expect(loadedRandom.stream('investor-beliefs').int(1, 100)).toBe(beliefs.int(1, 100));
+      });
+
+      test('should carry the economy seed through a save and load', () => {
+        const game = new Game(mockUniverse, mockSettings, { seed: 4242 });
+        game.initializeGame(createTestPlayerData());
+
+        const loadedGame = Game.loadGame(JSON.parse(JSON.stringify(game.getSaveData())));
+        expect(loadedGame.getEconomy().getRandom().seed).toBe(4242);
+      });
+
+      test('should give two games with the same seed identical economy streams', () => {
+        const first = new Game(mockUniverse, mockSettings, { seed: 'same-seed' });
+        const second = new Game(mockUniverse, mockSettings, { seed: 'same-seed' });
+
+        const drawTen = (game) => Array.from(
+          { length: 10 },
+          () => game.getEconomy().getRandom().stream('price-noise').next()
+        );
+
+        expect(drawTen(first)).toEqual(drawTen(second));
       });
 
       test('should recreate EventBus on load', () => {
