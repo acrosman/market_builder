@@ -8,7 +8,6 @@ const {
   recordConstructionSpend,
   recordAssetTransfer
 } = require('./transactions');
-const { ENTRY_KINDS } = require('./ledger');
 const {
   ACCOUNTS,
   BANK_HOLDER,
@@ -294,7 +293,7 @@ describe('recordLoanDraw and recordLoanPayment', () => {
   test('should tag entries with the loan kind', () => {
     const economy = freshEconomy();
     const posted = recordLoanDraw(economy, { tick: 10, borrower: ACME, amount: 5000 });
-    posted.forEach(entry => expect(entry.kind).toBe(ENTRY_KINDS.LOAN_DRAW));
+    posted.forEach(entry => expect(entry.kind).toBe('loan_draw'));
   });
 });
 
@@ -459,7 +458,7 @@ describe('recordAssetTransfer', () => {
     // Correctness does not depend on detecting relatedness: a fair price simply
     // produces no difference to book
     expect(ledger.balance(RIVAL, ACCOUNTS.CONTRIBUTED_CAPITAL)).toBe(before);
-    expect(ledger.query({ kind: ENTRY_KINDS.RELATED_PARTY_GIFT })).toEqual([]);
+    expect(ledger.query({ kind: 'related_party_gift' })).toEqual([]);
   });
 
   test('should book a bargain purchase as capital, never as income', () => {
@@ -575,7 +574,7 @@ describe('recordAssetTransfer', () => {
       appraisedValue: 250000, consideration: 1
     });
 
-    const gift = posted.find(entry => entry.kind === ENTRY_KINDS.RELATED_PARTY_GIFT);
+    const gift = posted.find(entry => entry.kind === 'related_party_gift');
     expect(gift.refs.underpaid).toBe(true);
   });
 });

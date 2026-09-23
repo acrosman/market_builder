@@ -1,8 +1,5 @@
 const { holderKey, parseHolderKey } = require('../economy/accounts');
 
-/** Schema version for the serialized holdings store. */
-const PORTFOLIO_SCHEMA_VERSION = 1;
-
 /**
  * Who owns which shares.
  *
@@ -171,7 +168,7 @@ class Portfolio {
       return { holder: key, positions };
     }).filter(entry => Object.keys(entry.positions).length > 0);
 
-    return { schemaVersion: PORTFOLIO_SCHEMA_VERSION, holders };
+    return { holders };
   }
 
   /**
@@ -207,6 +204,5 @@ class Portfolio {
 }
 
 module.exports = {
-  Portfolio,
-  PORTFOLIO_SCHEMA_VERSION
+  Portfolio
 };

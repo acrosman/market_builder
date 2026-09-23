@@ -1,6 +1,7 @@
 const { ticksPerDay } = require('./clock');
 const { ACCOUNTS, corporationHolder } = require('./accounts');
 const { NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('./news');
+const { numericReader } = require('../settings');
 
 /**
  * Solvency enforcement for corporations.
@@ -37,12 +38,6 @@ const ASSET_ACCOUNTS = [
 /** Liability accounts that count against net worth. */
 const LIABILITY_ACCOUNTS = [ACCOUNTS.DEBT];
 
-/** Defaults for the solvency settings block. */
-const DEFAULT_SOLVENCY = {
-  deficit_grace_days: 30,
-  forced_loan_buffer: 0.1
-};
-
 /**
  * Read solvency configuration from settings, filling in defaults.
  * @param {Object} [settings={}] - Resolved game settings.
@@ -51,11 +46,7 @@ const DEFAULT_SOLVENCY = {
  * const config = solvencyConfig(game.getSettings());
  */
 function solvencyConfig(settings = {}) {
-  const configured = settings.solvency || {};
-  const read = (key) => {
-    const value = Number(configured[key]);
-    return Number.isFinite(value) ? value : DEFAULT_SOLVENCY[key];
-  };
+  const read = numericReader(settings, 'solvency');
   return {
     deficitGraceDays: read('deficit_grace_days'),
     forcedLoanBuffer: read('forced_loan_buffer')
@@ -204,8 +195,8 @@ function warnOnApproachingMaturity({ game, corporation, tick, assessment }) {
     game,
     corporation,
     tick,
-    kind: NEWS_KINDS.MATURITY_APPROACHING,
-    severity: SEVERITY.CRITICAL,
+    kind: 'maturity_approaching',
+    severity: 'critical',
     tokens: {
       companyName: corporation.name,
       principal: Math.round(principal),
@@ -288,8 +279,8 @@ function enforceSolvency({ economy, game, corporation, tick }) {
     game,
     corporation,
     tick,
-    kind: NEWS_KINDS.FORCED_LOAN,
-    severity: SEVERITY.NOTABLE,
+    kind: 'forced_loan',
+    severity: 'notable',
     tokens: { companyName: corporation.name, principal }
   });
 
@@ -322,8 +313,8 @@ function declareBankrupt({ game, corporation, tick, assessment }) {
     game,
     corporation,
     tick,
-    kind: NEWS_KINDS.BANKRUPTCY,
-    severity: SEVERITY.CRITICAL,
+    kind: 'bankruptcy',
+    severity: 'critical',
     tokens: {
       companyName: corporation.name,
       netWorth: Math.round(assessment.netWorth),
@@ -337,7 +328,6 @@ module.exports = {
   warnOnApproachingMaturity,
   declareBankrupt,
   LIABILITY_ACCOUNTS,
-  DEFAULT_SOLVENCY,
   solvencyConfig,
   bookNetWorth,
   assessSolvency,

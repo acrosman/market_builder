@@ -6,6 +6,7 @@ const { recordConstructionSpend } = require('../economy/transactions');
 const { ticksPerDay } = require('../economy/clock');
 const { defaultProbability } = require('../economy/appraisal');
 const { SIDES } = require('../exchange/auction');
+const { settingsBlock, numericReader } = require('../settings');
 /**
  * Build a construction credit source backed by one corporation's treasury.
  *
@@ -37,19 +38,6 @@ function corporateCreditSupport(corporation, getMessage) {
   };
 }
 
-/** Defaults for the npc_corporations settings block. */
-const DEFAULT_NPC_CORPORATIONS = {
-  count: 12,
-  starting_cash: 250000,
-  max_objects_each: 3,
-  build_cash_floor: 100000,
-  build_check_days: 7,
-  dividend_rate_range: [15, 45],
-  acquisition_cash_floor: 400000,
-  acquisition_distress_threshold: 0.3,
-  acquisition_discount: 0.7
-};
-
 /**
  * Corporations the player does not control.
  *
@@ -74,20 +62,15 @@ const DEFAULT_NPC_CORPORATIONS = {
  * const config = npcCorporationConfig(game.getSettings());
  */
 function npcCorporationConfig(settings = {}) {
-  const configured = settings.npc_corporations || {};
-  const read = (key) => {
-    const value = Number(configured[key]);
-    return Number.isFinite(value) ? value : DEFAULT_NPC_CORPORATIONS[key];
-  };
+  const read = numericReader(settings, 'npc_corporations');
+  const configured = settingsBlock(settings, 'npc_corporations');
   return {
     count: read('count'),
     startingCash: read('starting_cash'),
     maxObjectsEach: read('max_objects_each'),
     buildCashFloor: read('build_cash_floor'),
     buildCheckDays: read('build_check_days'),
-    dividendRateRange: Array.isArray(configured.dividend_rate_range)
-      ? configured.dividend_rate_range
-      : DEFAULT_NPC_CORPORATIONS.dividend_rate_range,
+    dividendRateRange: configured.dividend_rate_range,
     acquisitionCashFloor: read('acquisition_cash_floor'),
     acquisitionDistressThreshold: read('acquisition_distress_threshold'),
     acquisitionDiscount: read('acquisition_discount')
@@ -483,7 +466,6 @@ function runAcquisitions({ game, tick }) {
 }
 
 module.exports = {
-  DEFAULT_NPC_CORPORATIONS,
   runAcquisitions,
   corporateCreditSupport,
   PRODUCTIVE_FIELDS,

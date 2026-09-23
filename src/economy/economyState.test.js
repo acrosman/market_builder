@@ -1,6 +1,6 @@
-const { EconomyState, ECONOMY_SCHEMA_VERSION } = require('./economyState');
+const { EconomyState } = require('./economyState');
 const { RandomSource } = require('./rng');
-const { Ledger, ENTRY_KINDS } = require('./ledger');
+const { Ledger } = require('./ledger');
 const { CostBasis } = require('./costBasis');
 const { ACCOUNTS, corporationHolder } = require('./accounts');
 
@@ -19,7 +19,7 @@ function recordPurchase(economy, quantity, totalCost) {
     amount: totalCost,
     debit: { holder: ACME, account: ACCOUNTS.INVENTORY },
     credit: { holder: ACME, account: ACCOUNTS.CASH },
-    kind: ENTRY_KINDS.GOODS_PURCHASE
+    kind: 'goods_purchase'
   });
   economy.getCostBasis().acquire(ACME, 'metal', quantity, totalCost);
 }
@@ -58,11 +58,6 @@ describe('EconomyState', () => {
   });
 
   describe('toJSON', () => {
-    test('should carry its own schema version', () => {
-      const block = new EconomyState({ seed: 1 }).toJSON();
-      expect(block.schemaVersion).toBe(ECONOMY_SCHEMA_VERSION);
-    });
-
     test('should include the random source state', () => {
       const economy = new EconomyState({ seed: 1 });
       economy.getRandom().stream('price-noise').next();
@@ -174,7 +169,7 @@ describe('EconomyState', () => {
         amount: cost,
         debit: { holder: ACME, account: ACCOUNTS.COGS },
         credit: { holder: ACME, account: ACCOUNTS.INVENTORY },
-        kind: ENTRY_KINDS.COST_OF_SALE
+        kind: 'cost_of_sale'
       });
 
       expect(basis.holderInventoryValue(ACME)).toBe(0);

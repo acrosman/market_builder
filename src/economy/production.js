@@ -1,7 +1,7 @@
 const { loadContent } = require('../contentCache');
-const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, corporationHolder, marketHolder, holderKey } = require('./accounts');
 const { recordGoodsTrade } = require('./transactions');
+const { numericReader } = require('../settings');
 
 /**
  * Goods production, operating costs, and population consumption.
@@ -36,14 +36,6 @@ const EXTRACTION_RATINGS = {
   recycling: 'chemicals'
 };
 
-/** Defaults for the production settings block. */
-const DEFAULT_PRODUCTION = {
-  units_per_point_per_day: 1,
-  staff_wage_per_day: 1,
-  energy_cost_per_unit_per_day: 2,
-  food_consumed_per_billion_people_per_day: 2
-};
-
 /**
  * Read the production configuration from settings, filling in defaults.
  * @param {Object} [settings={}] - Resolved game settings.
@@ -52,14 +44,7 @@ const DEFAULT_PRODUCTION = {
  * const config = productionConfig(game.getSettings());
  */
 function productionConfig(settings = {}) {
-  const configured = settings.production || {};
-
-  // Zero is a legal value for the cost settings, so fall back only when the
-  // configured value is absent or unusable rather than when it is falsy.
-  const read = (key) => {
-    const value = Number(configured[key]);
-    return Number.isFinite(value) ? value : DEFAULT_PRODUCTION[key];
-  };
+  const read = numericReader(settings, 'production');
 
   return {
     unitsPerPointPerDay: read('units_per_point_per_day'),
@@ -296,7 +281,7 @@ function runProduction({ economy, stellarObject, corporations, settings, days, t
           amount: creditCost,
           debit: { holder: operator, account: ACCOUNTS.INVENTORY },
           credit: { holder: operator, account: ACCOUNTS.CASH },
-          kind: ENTRY_KINDS.PRODUCTION_OUTPUT,
+          kind: 'production_output',
           refs: { stellarObjectId: stellarObject.id, buildingType }
         });
         entries.push({
@@ -304,7 +289,7 @@ function runProduction({ economy, stellarObject, corporations, settings, days, t
           amount: creditCost,
           debit: { holder: locals, account: ACCOUNTS.CASH },
           credit: { holder: locals, account: ACCOUNTS.REVENUE },
-          kind: ENTRY_KINDS.PRODUCTION_OUTPUT,
+          kind: 'production_output',
           refs: { stellarObjectId: stellarObject.id, buildingType }
         });
       }
@@ -478,7 +463,7 @@ function consumeFood({ economy, stellarObject, market, corporations, settings, d
       amount: cost,
       debit: { holder: seller, account: ACCOUNTS.OPERATING_EXPENSE },
       credit: { holder: seller, account: ACCOUNTS.INVENTORY },
-      kind: ENTRY_KINDS.PRODUCTION_OUTPUT,
+      kind: 'production_output',
       refs: { stellarObjectId: stellarObject.id, reason: 'population_consumption' }
     });
   }
@@ -488,7 +473,6 @@ function consumeFood({ economy, stellarObject, market, corporations, settings, d
 
 module.exports = {
   EXTRACTION_RATINGS,
-  DEFAULT_PRODUCTION,
   productionConfig,
   rawGoodsInCategory,
   resolveInputGoods,

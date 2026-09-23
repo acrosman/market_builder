@@ -1,3 +1,5 @@
+const { numericReader } = require('../settings');
+
 /**
  * Time conversions for the economy.
  *
@@ -8,13 +10,6 @@
  * the pacing tunable from game_settings.json rather than from code.
  */
 
-/** Defaults used when settings do not specify a time block. */
-const DEFAULT_TIME = {
-  ticks_per_day: 24,
-  days_per_quarter: 90,
-  quarters_per_year: 4
-};
-
 /**
  * Read the time configuration from settings, filling in defaults.
  * @param {Object} [settings={}] - Resolved game settings.
@@ -23,11 +18,11 @@ const DEFAULT_TIME = {
  * const time = timeConfig(game.getSettings());
  */
 function timeConfig(settings = {}) {
-  const configured = settings.time || {};
+  const read = numericReader(settings, 'time', true);
   return {
-    ticksPerDay: Number(configured.ticks_per_day) || DEFAULT_TIME.ticks_per_day,
-    daysPerQuarter: Number(configured.days_per_quarter) || DEFAULT_TIME.days_per_quarter,
-    quartersPerYear: Number(configured.quarters_per_year) || DEFAULT_TIME.quarters_per_year
+    ticksPerDay: read('ticks_per_day'),
+    daysPerQuarter: read('days_per_quarter'),
+    quartersPerYear: read('quarters_per_year')
   };
 }
 
@@ -112,7 +107,6 @@ function perTickRate(annualPercent, settings = {}) {
 }
 
 module.exports = {
-  DEFAULT_TIME,
   timeConfig,
   ticksPerDay,
   ticksPerQuarter,

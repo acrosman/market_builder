@@ -1,21 +1,9 @@
 const {
   ACCOUNTS, HOLDER_KINDS, INVESTOR_POOL_HOLDER, corporationHolder
 } = require('../economy/accounts');
-const { ENTRY_KINDS } = require('../economy/ledger');
 const { appraiseCorporation, defaultProbability } = require('../economy/appraisal');
 const { SIDES } = require('../exchange/auction');
-
-/** Defaults for the investors settings block. */
-const DEFAULT_INVESTORS = {
-  starting_capital: 50000000,
-  savings_per_day: 20000,
-  belief_dispersion: 0.15,
-  participation_rate: 0.25,
-  max_position_fraction: 1,
-  order_size_fraction: 0.02,
-  investor_count: 8,
-  bid_withdrawal_probability: 0.5
-};
+const { numericReader } = require('../settings');
 
 /**
  * The investing public: the other side of every trade the player makes.
@@ -52,11 +40,7 @@ const DEFAULT_INVESTORS = {
  * const config = investorConfig(game.getSettings());
  */
 function investorConfig(settings = {}) {
-  const configured = settings.investors || {};
-  const read = (key) => {
-    const value = Number(configured[key]);
-    return Number.isFinite(value) ? value : DEFAULT_INVESTORS[key];
-  };
+  const read = numericReader(settings, 'investors');
   return {
     startingCapital: read('starting_capital'),
     savingsPerDay: read('savings_per_day'),
@@ -115,13 +99,11 @@ function seedInvestorPool(game) {
 
   const ledger = game.getEconomy().getLedger();
   holders.forEach(holder => {
-    ledger.post({
+    ledger.addCapital({
       tick: game.getTicks(),
+      holder,
       amount: each,
-      debit: { holder, account: ACCOUNTS.CASH },
-      credit: { holder, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
-      kind: ENTRY_KINDS.SHARE_ISSUE,
-      refs: { reason: 'investor_pool_opening' }
+      reason: 'investor_pool_opening'
     });
   });
 
@@ -171,7 +153,7 @@ function subscribeToIssue({ game, issuer, symbol, shares, pricePerShare }) {
         amount,
         debit: { holder: issuer, account: ACCOUNTS.CASH },
         credit: { holder: issuer, account: ACCOUNTS.SHARE_CAPITAL },
-        kind: ENTRY_KINDS.SHARE_ISSUE,
+        kind: 'share_issue',
         refs: { symbol, shares: allocation, pricePerShare }
       });
       entries.push({
@@ -179,7 +161,7 @@ function subscribeToIssue({ game, issuer, symbol, shares, pricePerShare }) {
         amount,
         debit: { holder, account: ACCOUNTS.INVESTMENTS },
         credit: { holder, account: ACCOUNTS.CASH },
-        kind: ENTRY_KINDS.SHARE_ISSUE,
+        kind: 'share_issue',
         refs: { symbol, shares: allocation, pricePerShare }
       });
     }
@@ -218,14 +200,14 @@ function accrueSavings({ economy, settings, days, tick }) {
     return 0;
   }
 
-  economy.getLedger().postMany(holders.map(holder => ({
-    tick,
-    amount: each,
-    debit: { holder, account: ACCOUNTS.CASH },
-    credit: { holder, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
-    kind: ENTRY_KINDS.SHARE_ISSUE,
-    refs: { reason: 'investor_savings' }
-  })));
+  holders.forEach(holder => {
+    economy.getLedger().addCapital({
+      tick,
+      holder,
+      amount: each,
+      reason: 'investor_savings'
+    });
+  });
 
   return each * holders.length;
 }
@@ -456,7 +438,6 @@ function investorCapital(economy, settings = {}) {
 }
 
 module.exports = {
-  DEFAULT_INVESTORS,
   investorHolder,
   investorHolders,
   subscribeToIssue,

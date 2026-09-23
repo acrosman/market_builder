@@ -1,10 +1,10 @@
+const { Corporation } = require('../corporation');
 const fs = require('fs');
 const path = require('path');
 const { Game } = require('../game');
 const { createUniverse } = require('../universe');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 const { ticksPerYear, ticksPerQuarter } = require('./clock');
-const { checkConservation } = require('./conservation');
 const { recordOpeningBalance } = require('./transactions');
 
 const settings = JSON.parse(
@@ -118,15 +118,17 @@ describe('EconomyTicker interest accrual', () => {
       const game = startedGame();
       const corporation = game.getPlayer().corporation;
 
+      const bestRate = Corporation.interestRateForRating(Corporation.RATING_ORDER[0]);
+
       const cheap = game.takeCorporationLoan('Debt Co', 10000);
-      expect(cheap.interestRate).toBe(4);
+      expect(cheap.interestRate).toBe(bestRate);
 
       // Borrowing heavily downgrades the corporation
       game.takeCorporationLoan('Debt Co', 400000);
-      expect(corporation.getInterestRate()).toBeGreaterThan(4);
+      expect(corporation.getInterestRate()).toBeGreaterThan(bestRate);
 
       // The first loan keeps its original rate
-      expect(corporation.loans.find(l => l.id === cheap.id).interestRate).toBe(4);
+      expect(corporation.loans.find(l => l.id === cheap.id).interestRate).toBe(bestRate);
     });
   });
 
@@ -142,11 +144,11 @@ describe('EconomyTicker interest accrual', () => {
       // moves no cash. Checked against the conservation invariant rather than a
       // raw total, because the investing public's savings are a defined inflow
       // and would otherwise read as a leak.
-      expect(checkConservation(ledger)).toMatchObject({ holds: true });
+      expect(ledger.audit().cashMatches).toBe(true);
       expect(ledger.audit()).toMatchObject({ balanced: true, balancesMatch: true });
 
       // And interest specifically added nothing to the money supply
-      expect(checkConservation(ledger).byReason.interest_accrual).toBeUndefined();
+      expect(ledger.capitalByReason().interest_accrual).toBeUndefined();
     });
 
     test('should recognize expense for the borrower and income for the bank', () => {
@@ -315,7 +317,7 @@ describe('EconomyTicker interest accrual', () => {
       const accruals = corporation.accrueLoanInterest(8640, 1);
       expect(accruals).toHaveLength(1);
       expect(accruals[0].loanId).toBe(loan.id);
-      expect(accruals[0].interest).toBeCloseTo(100000 * (4 / 100) / 8640, 8);
+      expect(accruals[0].interest).toBeCloseTo(100000 * (loan.interestRate / 100) / 8640, 8);
     });
   });
 });

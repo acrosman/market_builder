@@ -1,4 +1,3 @@
-const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, corporationHolder, holderKey } = require('./accounts');
 
 /**
@@ -99,7 +98,7 @@ function payDividend({ economy, corporation, amount, tick }) {
       amount: entry.amount,
       debit: { holder: entry.holder, account: ACCOUNTS.CASH },
       credit: { holder: issuer, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.DIVIDEND,
+      kind: 'dividend',
       refs: { corporationName: corporation.name }
     });
     entries.push({
@@ -107,7 +106,7 @@ function payDividend({ economy, corporation, amount, tick }) {
       amount: entry.amount,
       debit: { holder: issuer, account: ACCOUNTS.RETAINED_EARNINGS },
       credit: { holder: entry.holder, account: ACCOUNTS.RETAINED_EARNINGS },
-      kind: ENTRY_KINDS.DIVIDEND,
+      kind: 'dividend',
       refs: { corporationName: corporation.name }
     });
   });

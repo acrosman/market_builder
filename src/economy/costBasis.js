@@ -1,8 +1,5 @@
 const { holderKey } = require('./accounts');
 
-/** Schema version for the cost basis serialized form. */
-const COST_BASIS_SCHEMA_VERSION = 1;
-
 /**
  * Weighted-average cost basis for goods inventory, per holder per good.
  *
@@ -225,7 +222,7 @@ class CostBasis {
       }
     });
 
-    return { schemaVersion: COST_BASIS_SCHEMA_VERSION, holders };
+    return { holders };
   }
 
   /**
@@ -256,6 +253,5 @@ class CostBasis {
 }
 
 module.exports = {
-  CostBasis,
-  COST_BASIS_SCHEMA_VERSION
+  CostBasis
 };

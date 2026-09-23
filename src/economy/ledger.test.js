@@ -1,4 +1,4 @@
-const { Ledger, ENTRY_KINDS } = require('./ledger');
+const { Ledger } = require('./ledger');
 const {
   ACCOUNTS,
   BANK_HOLDER,
@@ -22,7 +22,7 @@ function entry(overrides = {}) {
     amount: 100,
     debit: { holder: ACME, account: ACCOUNTS.INVENTORY },
     credit: { holder: ACME, account: ACCOUNTS.CASH },
-    kind: ENTRY_KINDS.GOODS_PURCHASE,
+    kind: 'goods_purchase',
     ...overrides
   };
 }
@@ -218,21 +218,21 @@ describe('Ledger', () => {
           amount: 1800,
           debit: { holder: ACME, account: ACCOUNTS.CASH },
           credit: { holder: ACME, account: ACCOUNTS.REVENUE },
-          kind: ENTRY_KINDS.GOODS_SALE
+          kind: 'goods_sale'
         },
         {
           tick: 5,
           amount: 1200,
           debit: { holder: ACME, account: ACCOUNTS.COGS },
           credit: { holder: ACME, account: ACCOUNTS.INVENTORY },
-          kind: ENTRY_KINDS.COST_OF_SALE
+          kind: 'cost_of_sale'
         },
         {
           tick: 5,
           amount: 1800,
           debit: { holder: RIVAL, account: ACCOUNTS.INVENTORY },
           credit: { holder: RIVAL, account: ACCOUNTS.CASH },
-          kind: ENTRY_KINDS.GOODS_PURCHASE
+          kind: 'goods_purchase'
         }
       ]);
 
@@ -241,6 +241,99 @@ describe('Ledger', () => {
       expect(ledger.balance(ACME, ACCOUNTS.COGS)).toBe(1200);
       expect(ledger.balance(ACME, ACCOUNTS.INVENTORY)).toBe(0);
       expect(ledger.audit().balanced).toBe(true);
+    });
+  });
+
+  describe('addCapital', () => {
+    test('should be the only way the money supply grows', () => {
+      const ledger = new Ledger();
+
+      ledger.addCapital({ tick: 0, holder: ACME, amount: 250000, reason: 'opening_balance' });
+
+      expect(ledger.audit()).toMatchObject({
+        cashMatches: true,
+        totalCash: 250000,
+        additionalCapital: 250000
+      });
+    });
+
+    test('should leave the supply alone for a transfer between holders', () => {
+      const ledger = new Ledger();
+      ledger.addCapital({ tick: 0, holder: ACME, amount: 250000, reason: 'opening_balance' });
+
+      ledger.post(entry({
+        amount: 40000,
+        debit: { holder: RIVAL, account: ACCOUNTS.CASH },
+        credit: { holder: ACME, account: ACCOUNTS.CASH },
+        kind: 'goods_sale'
+      }));
+
+      expect(ledger.audit()).toMatchObject({ cashMatches: true, totalCash: 250000 });
+    });
+
+    test('should report a mismatch when cash appears without capital behind it', () => {
+      const ledger = new Ledger();
+      ledger.addCapital({ tick: 0, holder: ACME, amount: 1000, reason: 'opening_balance' });
+
+      // A posting that credits revenue rather than another holder's cash is how
+      // a subsystem accidentally mints money. The audit has to catch it.
+      ledger.post(entry({
+        amount: 500,
+        debit: { holder: RIVAL, account: ACCOUNTS.CASH },
+        credit: { holder: RIVAL, account: ACCOUNTS.REVENUE },
+        kind: 'goods_sale'
+      }));
+
+      expect(ledger.audit()).toMatchObject({
+        cashMatches: false,
+        totalCash: 1500,
+        additionalCapital: 1000
+      });
+    });
+
+    test('should ignore a non-positive amount', () => {
+      const ledger = new Ledger();
+
+      expect(ledger.addCapital({ tick: 0, holder: ACME, amount: 0, reason: 'x' })).toBeNull();
+      expect(ledger.addCapital({ tick: 0, holder: ACME, amount: -5, reason: 'x' })).toBeNull();
+      expect(ledger.audit().additionalCapital).toBe(0);
+    });
+
+    test('should survive a save and restore with its running total intact', () => {
+      const ledger = new Ledger();
+      ledger.addCapital({ tick: 0, holder: ACME, amount: 7500, reason: 'opening_balance' });
+
+      const restored = Ledger.fromJSON(JSON.parse(JSON.stringify(ledger.toJSON())));
+
+      expect(restored.audit()).toMatchObject({ cashMatches: true, additionalCapital: 7500 });
+    });
+  });
+
+  describe('diagnostics', () => {
+    test('capitalByReason should name which inflow grew', () => {
+      const ledger = new Ledger();
+      ledger.addCapital({ tick: 0, holder: ACME, amount: 1000, reason: 'opening_balance' });
+      ledger.addCapital({ tick: 1, holder: PLAYER, amount: 250, reason: 'investor_savings' });
+      ledger.addCapital({ tick: 2, holder: PLAYER, amount: 250, reason: 'investor_savings' });
+
+      expect(ledger.capitalByReason()).toEqual({
+        opening_balance: 1000,
+        investor_savings: 500
+      });
+    });
+
+    test('cashByHolder should rank holders and omit empty ones', () => {
+      const ledger = new Ledger();
+      ledger.addCapital({ tick: 0, holder: ACME, amount: 1000, reason: 'opening_balance' });
+      ledger.addCapital({ tick: 0, holder: RIVAL, amount: 4000, reason: 'opening_balance' });
+
+      expect(ledger.cashByHolder().map(row => ({
+        holder: holderKey(row.holder),
+        cash: row.cash
+      }))).toEqual([
+        { holder: holderKey(RIVAL), cash: 4000 },
+        { holder: holderKey(ACME), cash: 1000 }
+      ]);
     });
   });
 
@@ -254,7 +347,7 @@ describe('Ledger', () => {
         amount: 1000000,
         debit: { holder: BANK_HOLDER, account: ACCOUNTS.CASH },
         credit: { holder: BANK_HOLDER, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
-        kind: ENTRY_KINDS.SHARE_ISSUE
+        kind: 'share_issue'
       });
 
       const cashBefore = ledger.totalAcrossHolders(ACCOUNTS.CASH);
@@ -266,14 +359,14 @@ describe('Ledger', () => {
           amount: 50000,
           debit: { holder: ACME, account: ACCOUNTS.CASH },
           credit: { holder: ACME, account: ACCOUNTS.DEBT },
-          kind: ENTRY_KINDS.LOAN_DRAW
+          kind: 'loan_draw'
         },
         {
           tick: 10,
           amount: 50000,
           debit: { holder: BANK_HOLDER, account: ACCOUNTS.LOAN_RECEIVABLE },
           credit: { holder: BANK_HOLDER, account: ACCOUNTS.CASH },
-          kind: ENTRY_KINDS.LOAN_DRAW
+          kind: 'loan_draw'
         }
       ]);
 
@@ -337,10 +430,10 @@ describe('Ledger', () => {
 
     test('should filter by kind', () => {
       const ledger = new Ledger();
-      ledger.post(entry({ kind: ENTRY_KINDS.GOODS_PURCHASE }));
-      ledger.post(entry({ kind: ENTRY_KINDS.DIVIDEND }));
+      ledger.post(entry({ kind: 'goods_purchase' }));
+      ledger.post(entry({ kind: 'dividend' }));
 
-      expect(ledger.query({ kind: ENTRY_KINDS.DIVIDEND })).toHaveLength(1);
+      expect(ledger.query({ kind: 'dividend' })).toHaveLength(1);
     });
 
     test('should accept a holder key string', () => {
@@ -359,7 +452,7 @@ describe('Ledger', () => {
         amount,
         debit: { holder: ACME, account: ACCOUNTS.CASH },
         credit: { holder: ACME, account: ACCOUNTS.REVENUE },
-        kind: ENTRY_KINDS.GOODS_SALE
+        kind: 'goods_sale'
       });
 
       sale(10, 500);
@@ -436,7 +529,10 @@ describe('Ledger', () => {
         balanced: true,
         totalDebits: 0,
         totalCredits: 0,
-        balancesMatch: true
+        balancesMatch: true,
+        cashMatches: true,
+        totalCash: 0,
+        additionalCapital: 0
       });
     });
 
@@ -497,10 +593,6 @@ describe('Ledger', () => {
       expect(restored.entries).toEqual([]);
       expect(restored.post(entry()).id).toBe(1);
     });
-
-    test('should carry a schema version', () => {
-      expect(new Ledger().toJSON().schemaVersion).toBe(1);
-    });
   });
 
   describe('rollupThrough', () => {
@@ -523,14 +615,14 @@ describe('Ledger', () => {
           amount: 10,
           debit: { holder: RIVAL, account: ACCOUNTS.CASH },
           credit: { holder: ACME, account: ACCOUNTS.CASH },
-          kind: ENTRY_KINDS.GOODS_SALE
+          kind: 'goods_sale'
         });
         ledger.post({
           tick,
           amount: 4,
           debit: { holder: ACME, account: ACCOUNTS.COGS },
           credit: { holder: ACME, account: ACCOUNTS.INVENTORY },
-          kind: ENTRY_KINDS.COST_OF_SALE
+          kind: 'cost_of_sale'
         });
       }
       return ledger;
@@ -612,7 +704,7 @@ describe('Ledger', () => {
       const rolled = ledger.entries.filter(entry => entry.tick <= 150);
       expect(rolled.length).toBeGreaterThan(0);
       rolled.forEach(entry => {
-        expect(entry.kind).toBe(ENTRY_KINDS.PERIOD_CLOSE);
+        expect(entry.kind).toBe('period_close');
         expect(entry.refs.rollup).toBe(true);
       });
     });

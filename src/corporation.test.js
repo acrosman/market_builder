@@ -1,9 +1,11 @@
 const { Corporation } = require('./corporation');
 const { Universe, System, StellarObject } = require('./universe');
 
-// Ratings from strongest to weakest, so tests can assert one is worse than
-// another without hardcoding the ladder's shape.
-const RATING_ORDER = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'D'];
+// Grades from strongest to weakest, read from the settings ladder so these
+// tests assert one rating is worse than another without restating the bands.
+const RATING_ORDER = Corporation.RATING_ORDER;
+const BEST = RATING_ORDER[0];
+const WORST = RATING_ORDER[RATING_ORDER.length - 1];
 
 describe('Corporation', () => {
   let corporation;
@@ -498,12 +500,12 @@ describe('Corporation', () => {
 
     test('should rate a debt-free corporation at the top', () => {
       corporation.addCashReserve(1000);
-      expect(corporation.getCreditRating(universe)).toBe('AAA');
+      expect(corporation.getCreditRating(universe)).toBe(BEST);
     });
 
     test('should rate a bankrupt corporation at the bottom', () => {
       corporation.isBankrupt = true;
-      expect(corporation.getCreditRating(universe)).toBe('D');
+      expect(corporation.getCreditRating(universe)).toBe(WORST);
     });
 
     test('should rate on leverage rather than the size of the debt', () => {
@@ -541,8 +543,8 @@ describe('Corporation', () => {
       corporation.takeLoan(100000);
       corporation.spendCashReserve(100000);
 
-      // Debt with nothing behind it
-      expect(corporation.getCreditRating(universe)).toBe('CCC');
+      // Debt with nothing behind it is a failure, not merely a bad ratio
+      expect(corporation.getCreditRating(universe)).toBe(WORST);
     });
 
     test('should improve when debt is repaid', () => {
@@ -556,11 +558,22 @@ describe('Corporation', () => {
         .toBeLessThan(RATING_ORDER.indexOf(leveraged));
     });
 
+    test('should fail a corporation that let a loan mature unpaid', () => {
+      corporation.addStellarObject(1);
+      corporation.takeLoan(10000, { originTick: 0, maturityTick: 100 });
+
+      // Well covered by assets, so the ratios alone would rate it highly
+      expect(corporation.getCreditRating(universe, {}, {}, { tick: 99 }))
+        .not.toBe(WORST);
+      expect(corporation.getCreditRating(universe, {}, {}, { tick: 101 }))
+        .toBe(WORST);
+    });
+
     test('should fall back to cash when no universe is supplied', () => {
       corporation.addCashReserve(100000);
       corporation.takeLoan(10000);
 
-      expect(corporation.getCreditRating()).not.toBe('D');
+      expect(corporation.getCreditRating()).not.toBe(WORST);
       expect(RATING_ORDER).toContain(corporation.getCreditRating());
     });
   });
@@ -575,7 +588,8 @@ describe('Corporation', () => {
 
     test('should charge the least to the best rated', () => {
       corporation.addCashReserve(1000);
-      expect(corporation.getInterestRate(universe)).toBe(4);
+      expect(corporation.getInterestRate(universe))
+        .toBe(Corporation.interestRateForRating(BEST));
     });
 
     test('should charge more as the rating falls', () => {

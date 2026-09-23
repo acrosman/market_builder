@@ -7,8 +7,7 @@ const { payQuarterlyDividends } = require('./dividends');
 const { runInvestorPool } = require('../agents/investorPool');
 const { runCorporateAI, runAcquisitions, corporateCycleTicks } = require('../agents/corporateAI');
 const { detectControlChanges } = require('../exchange/control');
-const { NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('./news');
-const { ENTRY_KINDS } = require('./ledger');
+const { corporationOriginSystem } = require('./news');
 const { ACCOUNTS, BANK_HOLDER, corporationHolder } = require('./accounts');
 
 /**
@@ -43,7 +42,7 @@ class EconomyTicker {
    * @param {Object} item - The event as `{ tick, kind, severity, tokens, corporation }`.
    * @returns {void}
    * @example
-   * ticker.report({ tick, kind: NEWS_KINDS.BANKRUPTCY, corporation, tokens });
+   * ticker.report({ tick, kind: 'bankruptcy', corporation, tokens });
    */
   report({ tick, kind, severity, tokens, corporation }) {
     this.game.getEconomy().getNews().record({
@@ -126,7 +125,7 @@ class EconomyTicker {
             amount: toPost,
             debit: { holder, account: ACCOUNTS.INTEREST_EXPENSE },
             credit: { holder, account: ACCOUNTS.DEBT },
-            kind: ENTRY_KINDS.INTEREST_ACCRUAL,
+            kind: 'interest_accrual',
             refs: { loanId: loan.id }
           },
           {
@@ -134,7 +133,7 @@ class EconomyTicker {
             amount: toPost,
             debit: { holder: BANK_HOLDER, account: ACCOUNTS.LOAN_RECEIVABLE },
             credit: { holder: BANK_HOLDER, account: ACCOUNTS.REVENUE },
-            kind: ENTRY_KINDS.INTEREST_ACCRUAL,
+            kind: 'interest_accrual',
             refs: { loanId: loan.id }
           }
         ]);
@@ -311,8 +310,8 @@ class EconomyTicker {
       game.getEventBus().emit('control-changed', { tick, ...change });
       this.report({
         tick,
-        kind: NEWS_KINDS.CONTROL_CHANGED,
-        severity: SEVERITY.CRITICAL,
+        kind: 'control_changed',
+        severity: 'critical',
         corporation: game.findCorporation(change.corporationName),
         tokens: {
           companyName: change.corporationName,
@@ -352,8 +351,8 @@ class EconomyTicker {
       game.getEventBus().emit('dividend-paid', { tick, ...dividend });
       this.report({
         tick,
-        kind: NEWS_KINDS.DIVIDEND_PAID,
-        severity: SEVERITY.ROUTINE,
+        kind: 'dividend_paid',
+        severity: 'routine',
         corporation: game.findCorporation(dividend.corporationName),
         tokens: {
           companyName: dividend.corporationName,
@@ -372,8 +371,8 @@ class EconomyTicker {
       });
       this.report({
         tick,
-        kind: NEWS_KINDS.STATEMENT_PUBLISHED,
-        severity: SEVERITY.ROUTINE,
+        kind: 'statement_published',
+        severity: 'routine',
         corporation: game.findCorporation(statement.corporationName),
         tokens: {
           companyName: statement.corporationName,

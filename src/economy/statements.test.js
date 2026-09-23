@@ -13,7 +13,6 @@ const {
   closeElapsedQuarters
 } = require('./statements');
 const { recordOpeningBalance } = require('./transactions');
-const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, corporationHolder, holderKey } = require('./accounts');
 const { ticksPerQuarter } = require('./clock');
 
@@ -40,14 +39,14 @@ function economyWithHistory() {
       amount: 5000,
       debit: { holder: ACME, account: ACCOUNTS.CASH },
       credit: { holder: ACME, account: ACCOUNTS.REVENUE },
-      kind: ENTRY_KINDS.GOODS_SALE
+      kind: 'goods_sale'
     },
     {
       tick: 100,
       amount: 3000,
       debit: { holder: ACME, account: ACCOUNTS.COGS },
       credit: { holder: ACME, account: ACCOUNTS.INVENTORY },
-      kind: ENTRY_KINDS.COST_OF_SALE
+      kind: 'cost_of_sale'
     }
   ]);
 
@@ -57,7 +56,7 @@ function economyWithHistory() {
     amount: 8000,
     debit: { holder: ACME, account: ACCOUNTS.CASH },
     credit: { holder: ACME, account: ACCOUNTS.REVENUE },
-    kind: ENTRY_KINDS.GOODS_SALE
+    kind: 'goods_sale'
   });
 
   return economy;
@@ -145,7 +144,7 @@ describe('buildBalanceSheet', () => {
         amount: 40000,
         debit: { holder: ACME, account: ACCOUNTS.CASH },
         credit: { holder: ACME, account: ACCOUNTS.DEBT },
-        kind: ENTRY_KINDS.LOAN_DRAW
+        kind: 'loan_draw'
       }
     ]);
 

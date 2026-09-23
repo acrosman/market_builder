@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Game } = require('../game');
 const { createUniverse } = require('../universe');
-const { NewsStore, NEWS_KINDS, SEVERITY, corporationOriginSystem } = require('./news');
+const { NewsStore, corporationOriginSystem } = require('./news');
 const { ticksPerQuarter } = require('./clock');
 
 const settings = JSON.parse(
@@ -12,10 +12,10 @@ const settings = JSON.parse(
 describe('NewsStore', () => {
   test('should record items with an id and defaults', () => {
     const store = new NewsStore();
-    const item = store.record({ tick: 24, kind: NEWS_KINDS.BANKRUPTCY });
+    const item = store.record({ tick: 24, kind: 'bankruptcy' });
 
     expect(item.id).toBe(1);
-    expect(item.severity).toBe(SEVERITY.ROUTINE);
+    expect(item.severity).toBe('routine');
     expect(item.tokens).toEqual({});
   });
 
@@ -56,11 +56,11 @@ describe('NewsStore', () => {
 
   test('should filter by kind and by tick', () => {
     const store = new NewsStore();
-    store.record({ tick: 10, kind: NEWS_KINDS.BANKRUPTCY });
-    store.record({ tick: 20, kind: NEWS_KINDS.DIVIDEND_PAID });
-    store.record({ tick: 30, kind: NEWS_KINDS.BANKRUPTCY });
+    store.record({ tick: 10, kind: 'bankruptcy' });
+    store.record({ tick: 20, kind: 'dividend_paid' });
+    store.record({ tick: 30, kind: 'bankruptcy' });
 
-    expect(store.recent({ kind: NEWS_KINDS.BANKRUPTCY })).toHaveLength(2);
+    expect(store.recent({ kind: 'bankruptcy' })).toHaveLength(2);
     expect(store.recent({ sinceTick: 20 })).toHaveLength(2);
   });
 
@@ -76,7 +76,7 @@ describe('NewsStore', () => {
   describe('serialization', () => {
     test('should round trip', () => {
       const store = new NewsStore(10);
-      store.record({ tick: 5, kind: NEWS_KINDS.BANKRUPTCY, tokens: { companyName: 'Acme' } });
+      store.record({ tick: 5, kind: 'bankruptcy', tokens: { companyName: 'Acme' } });
 
       const restored = NewsStore.fromJSON(JSON.parse(JSON.stringify(store.toJSON())));
 
@@ -159,7 +159,7 @@ describe('news through a running game', () => {
     game.advanceTicks(ticksPerQuarter(settings) * 2, 'test');
 
     const kinds = new Set(game.getEconomy().getNews().items.map(item => item.kind));
-    expect(kinds.has(NEWS_KINDS.STATEMENT_PUBLISHED)).toBe(true);
+    expect(kinds.has('statement_published')).toBe(true);
   });
 
   test('should tag company news with where the company operates', () => {
@@ -167,7 +167,7 @@ describe('news through a running game', () => {
     game.advanceTicks(ticksPerQuarter(settings) * 2, 'test');
 
     const items = game.getEconomy().getNews().items
-      .filter(item => item.kind === NEWS_KINDS.STATEMENT_PUBLISHED);
+      .filter(item => item.kind === 'statement_published');
 
     expect(items.length).toBeGreaterThan(0);
     // Recorded so news can be made to travel at ship speed later without

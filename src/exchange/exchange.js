@@ -1,12 +1,8 @@
 const { Listing, ORDER_STATUS } = require('./listing');
 const { Portfolio } = require('./portfolio');
 const { SIDES, remainingQuantity } = require('./auction');
-const { ENTRY_KINDS } = require('../economy/ledger');
 const { ACCOUNTS, holderKey, corporationHolder } = require('../economy/accounts');
 const { equityInstrument, symbolFor, settlesByShareTransfer } = require('./instruments');
-
-/** Schema version for the serialized exchange. */
-const EXCHANGE_SCHEMA_VERSION = 1;
 
 /** Reasons an order may be refused. */
 const REJECTIONS = {
@@ -294,7 +290,7 @@ class Exchange {
               amount,
               debit: { holder: sellFill.holder, account: ACCOUNTS.CASH },
               credit: { holder: buyFill.holder, account: ACCOUNTS.CASH },
-              kind: ENTRY_KINDS.SHARE_TRADE,
+              kind: 'share_trade',
               refs: { symbol: listing.symbol, shares: matched, price }
             });
             entries.push({
@@ -302,7 +298,7 @@ class Exchange {
               amount,
               debit: { holder: buyFill.holder, account: ACCOUNTS.INVESTMENTS },
               credit: { holder: sellFill.holder, account: ACCOUNTS.INVESTMENTS },
-              kind: ENTRY_KINDS.SHARE_TRADE,
+              kind: 'share_trade',
               refs: { symbol: listing.symbol, shares: matched, price }
             });
           }
@@ -334,7 +330,6 @@ class Exchange {
    */
   toJSON() {
     return {
-      schemaVersion: EXCHANGE_SCHEMA_VERSION,
       lastClearedTick: this.lastClearedTick,
       portfolio: this.portfolio.toJSON(),
       // Sorted so saves diff cleanly
@@ -372,7 +367,6 @@ class Exchange {
 
 module.exports = {
   Exchange,
-  EXCHANGE_SCHEMA_VERSION,
   REJECTIONS,
   ORDER_STATUS,
   SIDES,

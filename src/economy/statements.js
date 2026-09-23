@@ -2,9 +2,6 @@ const { quarterForTick, quarterTickRange } = require('./clock');
 const { ACCOUNTS, holderKey, corporationHolder } = require('./accounts');
 const { ASSET_ACCOUNTS, LIABILITY_ACCOUNTS } = require('./solvency');
 
-/** Schema version for the serialized statement store. */
-const STATEMENTS_SCHEMA_VERSION = 1;
-
 /**
  * Quarterly financial statements derived from the ledger.
  *
@@ -205,7 +202,6 @@ class StatementStore {
    */
   toJSON() {
     return {
-      schemaVersion: STATEMENTS_SCHEMA_VERSION,
       lastClosedQuarter: this.lastClosedQuarter,
       // Sorted for stable output so saves diff cleanly
       holders: [...this.byHolder.keys()].sort().map(key => ({
@@ -321,7 +317,6 @@ function compressOldJournal({ economy, settings, store }) {
 }
 
 module.exports = {
-  STATEMENTS_SCHEMA_VERSION,
   balanceAsOf,
   buildIncomeStatement,
   buildBalanceSheet,

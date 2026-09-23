@@ -1,6 +1,3 @@
-/** Schema version for the serialized news store. */
-const NEWS_SCHEMA_VERSION = 1;
-
 /** How many items to retain. */
 const DEFAULT_NEWS_LENGTH = 256;
 
@@ -21,24 +18,24 @@ const DEFAULT_NEWS_LENGTH = 256;
  * come from.
  */
 
-/** Categories of news, used for filtering and for choosing how to present it. */
-const NEWS_KINDS = {
-  STATEMENT_PUBLISHED: 'statement_published',
-  DIVIDEND_PAID: 'dividend_paid',
-  FORCED_LOAN: 'forced_loan',
-  MATURITY_APPROACHING: 'maturity_approaching',
-  BANKRUPTCY: 'bankruptcy',
-  CONTROL_CHANGED: 'control_changed',
-  LISTING_OPENED: 'listing_opened',
-  DISTRESS: 'distress'
-};
+/** Every kind of item the news can carry. */
+const NEWS_KINDS = Object.freeze([
+  'statement_published',
+  'dividend_paid',
+  'forced_loan',
+  'maturity_approaching',
+  'bankruptcy',
+  'control_changed',
+  'listing_opened',
+  'distress'
+]);
 
-/** How much a reader should care. */
-const SEVERITY = {
-  ROUTINE: 'routine',
-  NOTABLE: 'notable',
-  CRITICAL: 'critical'
-};
+/** How much a news item matters, least to most. */
+const SEVERITY = Object.freeze([
+  'routine',
+  'notable',
+  'critical'
+]);
 
 /**
  * A bounded, ordered record of economic events.
@@ -67,7 +64,7 @@ class NewsStore {
    * @param {Object} [item.tokens] - Values for the message that presents it.
    * @returns {Object} The recorded item.
    * @example
-   * news.record({ tick, kind: NEWS_KINDS.BANKRUPTCY, tokens: { companyName } });
+   * news.record({ tick, kind: 'bankruptcy', tokens: { companyName } });
    */
   record(item) {
     const recorded = {
@@ -77,7 +74,7 @@ class NewsStore {
       // Null rather than omitted: an event with no place is different from one
       // whose place was never captured, and only the first is legitimate.
       originSystemId: item?.originSystemId ?? null,
-      severity: item?.severity || SEVERITY.ROUTINE,
+      severity: item?.severity || 'routine',
       tokens: item?.tokens ? { ...item.tokens } : {}
     };
 
@@ -96,7 +93,7 @@ class NewsStore {
    * @param {Object} [options={}] - `{ limit, kind, sinceTick }`.
    * @returns {Array<Object>} Matching items, newest first.
    * @example
-   * news.recent({ limit: 20, kind: NEWS_KINDS.BANKRUPTCY });
+   * news.recent({ limit: 20, kind: 'bankruptcy' });
    */
   recent({ limit = 50, kind = null, sinceTick = null } = {}) {
     return this.items
@@ -114,7 +111,6 @@ class NewsStore {
    */
   toJSON() {
     return {
-      schemaVersion: NEWS_SCHEMA_VERSION,
       capacity: this.capacity,
       nextId: this.nextId,
       items: this.items
@@ -173,7 +169,6 @@ function corporationOriginSystem(game, corporation) {
 }
 
 module.exports = {
-  NEWS_SCHEMA_VERSION,
   DEFAULT_NEWS_LENGTH,
   NEWS_KINDS,
   SEVERITY,

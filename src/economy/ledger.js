@@ -6,29 +6,28 @@ const {
   parseHolderKey
 } = require('./accounts');
 
-/** Schema version for the ledger's serialized form. */
-const LEDGER_SCHEMA_VERSION = 1;
-
 /**
- * Entry kinds. Recorded on every posting so periods can be summarized and
+ * Every kind of entry the journal can hold.
+ *
+ * Recorded on each posting so a period can be summarized by activity and
  * related-party transactions can be found later.
  */
-const ENTRY_KINDS = {
-  GOODS_PURCHASE: 'goods_purchase',
-  GOODS_SALE: 'goods_sale',
-  COST_OF_SALE: 'cost_of_sale',
-  LOAN_DRAW: 'loan_draw',
-  LOAN_REPAYMENT: 'loan_repayment',
-  INTEREST_ACCRUAL: 'interest_accrual',
-  CONSTRUCTION_SPEND: 'construction_spend',
-  PRODUCTION_OUTPUT: 'production_output',
-  DIVIDEND: 'dividend',
-  SHARE_ISSUE: 'share_issue',
-  SHARE_TRADE: 'share_trade',
-  PROPERTY_TRANSFER: 'property_transfer',
-  RELATED_PARTY_GIFT: 'related_party_gift',
-  PERIOD_CLOSE: 'period_close'
-};
+const ENTRY_KINDS = Object.freeze([
+  'goods_purchase',
+  'goods_sale',
+  'cost_of_sale',
+  'loan_draw',
+  'loan_repayment',
+  'interest_accrual',
+  'construction_spend',
+  'production_output',
+  'dividend',
+  'share_issue',
+  'share_trade',
+  'property_transfer',
+  'related_party_gift',
+  'period_close'
+]);
 
 /**
  * Double-entry journal for the whole economy.
@@ -69,7 +68,7 @@ class Ledger {
      * that do not keep that shape. Deriving it would make the money supply
      * appear to shrink every time history was compressed.
      */
-    this.injectedTotal = 0;
+    this.additionalCapital = 0;
   }
 
   /**
@@ -187,7 +186,7 @@ class Ledger {
    *   amount: 1200,
    *   debit:  { holder: corpHolder, account: ACCOUNTS.INVENTORY },
    *   credit: { holder: corpHolder, account: ACCOUNTS.CASH },
-   *   kind: ENTRY_KINDS.GOODS_PURCHASE,
+   *   kind: 'goods_purchase',
    *   refs: { goodName: 'metal', quantity: 100 }
    * });
    */
@@ -199,10 +198,48 @@ class Ledger {
     this.entries.push(normalized);
     this.applyToBalances(normalized);
     if (this.isInjection(normalized)) {
-      this.injectedTotal += normalized.amount;
+      this.additionalCapital += normalized.amount;
     }
 
     return normalized;
+  }
+
+  /**
+   * Bring new credits into the game.
+   *
+   * This is the only way money is created. Cash is debited to a holder and
+   * credited to that same holder's contributed capital, so the entry balances
+   * like any other and the running total of capital put in stays exact. Every
+   * other posting moves credits sideways between holders and leaves the money
+   * supply alone, which is what lets `audit()` check the supply against this
+   * total and report when something has started creating or destroying money.
+   *
+   * Opening balances, market endowments and the investing public's savings all
+   * come through here. **Nothing else should post a CASH / CONTRIBUTED_CAPITAL
+   * pair by hand.**
+   * @param {Object} params - Capital parameters.
+   * @param {number} params.tick - Game tick.
+   * @param {Object} params.holder - Who receives the capital.
+   * @param {number} params.amount - Credits to create, must be positive.
+   * @param {string} params.reason - Why, recorded for diagnostics.
+   * @returns {Object|null} The posted entry, or null when the amount is not positive.
+   * @example
+   * ledger.addCapital({ tick: 0, holder, amount: 250000, reason: 'opening_balance' });
+   */
+  addCapital({ tick, holder, amount, reason }) {
+    const value = Math.round(Number(amount) || 0);
+    if (value <= 0) {
+      return null;
+    }
+
+    return this.post({
+      tick,
+      amount: value,
+      debit: { holder, account: ACCOUNTS.CASH },
+      credit: { holder, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
+      kind: 'share_issue',
+      refs: { reason }
+    });
   }
 
   /**
@@ -231,7 +268,7 @@ class Ledger {
       this.entries.push(entry);
       this.applyToBalances(entry);
       if (this.isInjection(entry)) {
-        this.injectedTotal += entry.amount;
+        this.additionalCapital += entry.amount;
       }
       return entry;
     });
@@ -366,10 +403,14 @@ class Ledger {
   /**
    * Verify that the journal is internally consistent.
    *
-   * Every entry contributes an equal debit and credit, so across the whole
-   * journal total debits must equal total credits, and the balances maintained
-   * incrementally must match a full replay of the journal.
-   * @returns {Object} `{ balanced, totalDebits, totalCredits, balancesMatch }`.
+   * Three things have to hold at once. Every entry contributes an equal debit
+   * and credit, so total debits must equal total credits. The balances kept
+   * incrementally must match a full replay of the journal. And total cash must
+   * equal the capital put in, because cash only ever enters through
+   * `addCapital()` and every other posting moves it sideways between holders --
+   * if that stops holding, something has learned to create or destroy credits.
+   * @returns {Object} `{ balanced, totalDebits, totalCredits, balancesMatch,
+   *   cashMatches, totalCash, additionalCapital }`.
    * @example
    * expect(ledger.audit().balanced).toBe(true);
    */
@@ -403,12 +444,60 @@ class Ledger {
       });
     });
 
+    const totalCash = this.totalAcrossHolders(ACCOUNTS.CASH);
+
     return {
       balanced: totalDebits === totalCredits,
       totalDebits,
       totalCredits,
-      balancesMatch
+      balancesMatch,
+      cashMatches: totalCash === this.additionalCapital,
+      totalCash,
+      additionalCapital: this.additionalCapital
     };
+  }
+
+  /**
+   * Capital added, broken down by the reason recorded on it.
+   *
+   * The second thing to read when `audit()` reports `cashMatches: false`: it
+   * names which inflow grew, which is usually enough to identify the subsystem
+   * responsible. Scanned from the journal, so it covers only history that has
+   * not yet been compressed.
+   * @returns {Object} Map of reason to total credits added.
+   * @example
+   * ledger.capitalByReason(); // => { opening_balance: 3250000, investor_savings: 480000 }
+   */
+  capitalByReason() {
+    const totals = {};
+
+    this.entries.forEach(entry => {
+      if (!this.isInjection(entry)) {
+        return;
+      }
+      const reason = entry.refs?.reason || 'opening_balance';
+      totals[reason] = (totals[reason] || 0) + entry.amount;
+    });
+
+    return totals;
+  }
+
+  /**
+   * Cash held by each holder, largest first.
+   *
+   * The thing to read first when `audit()` reports `cashMatches: false`: it
+   * names the holder whose balance moved unexpectedly without having to read
+   * the journal by hand.
+   * @returns {Array<Object>} `{ holder, cash }` rows, omitting empty holders.
+   * @example
+   * ledger.cashByHolder(); // => [{ holder: 'corporation:Acme', cash: 8400 }]
+   */
+  cashByHolder() {
+    return this.listHolders()
+      .map(holder => ({ holder, cash: this.balance(holder, ACCOUNTS.CASH) }))
+      .filter(row => row.cash !== 0)
+      .sort((a, b) => (b.cash - a.cash)
+        || holderKey(a.holder).localeCompare(holderKey(b.holder)));
   }
 
   /**
@@ -481,7 +570,7 @@ class Ledger {
           id: 0,
           tick: cutoff,
           amount,
-          kind: ENTRY_KINDS.PERIOD_CLOSE,
+          kind: 'period_close',
           debit: { holder: debit.holder, account: debit.account },
           credit: { holder: credit.holder, account: credit.account },
           refs: { rollup: true }
@@ -500,7 +589,7 @@ class Ledger {
 
     const newer = this.entries.filter(entry => entry.tick > cutoff);
 
-    // injectedTotal is deliberately not recomputed here. The replacement
+    // additionalCapital is deliberately not recomputed here. The replacement
     // entries preserve balances but not entry shapes, so counting them would
     // make the money supply appear to change whenever history is compressed.
     this.entries = [];
@@ -527,9 +616,8 @@ class Ledger {
    */
   toJSON() {
     return {
-      schemaVersion: LEDGER_SCHEMA_VERSION,
       nextEntryId: this.nextEntryId,
-      injectedTotal: this.injectedTotal,
+      additionalCapital: this.additionalCapital,
       entries: this.entries
     };
   }
@@ -556,8 +644,8 @@ class Ledger {
 
     // Restored rather than recounted, for the same reason rollup does not
     // recount it: compressed history no longer carries the original shapes.
-    const savedInjected = Number(data?.injectedTotal);
-    ledger.injectedTotal = Number.isFinite(savedInjected)
+    const savedInjected = Number(data?.additionalCapital);
+    ledger.additionalCapital = Number.isFinite(savedInjected)
       ? savedInjected
       : ledger.entries.reduce(
         (total, entry) => (ledger.isInjection(entry) ? total + entry.amount : total),
@@ -580,6 +668,5 @@ class Ledger {
 module.exports = {
   Ledger,
   ENTRY_KINDS,
-  LEDGER_SCHEMA_VERSION,
   ACCOUNTS
 };

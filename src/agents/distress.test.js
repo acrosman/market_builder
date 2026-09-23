@@ -6,8 +6,6 @@ const { runAcquisitions, npcCorporationConfig } = require('./corporateAI');
 const { ordersForListing, investorHolder, investorHolders } = require('./investorPool');
 const { defaultProbability, appraiseCorporation } = require('../economy/appraisal');
 const { controllingHolder } = require('../exchange/control');
-const { checkConservation } = require('../economy/conservation');
-const { NEWS_KINDS } = require('../economy/news');
 const { ACCOUNTS, corporationHolder, marketHolder } = require('../economy/accounts');
 const { ticksPerDay } = require('../economy/clock');
 
@@ -120,7 +118,7 @@ describe('distress pricing', () => {
     game.advanceTicks(DAY * 360, 'test');
 
     const warnings = game.getEconomy().getNews().items.filter(
-      item => item.kind === NEWS_KINDS.MATURITY_APPROACHING
+      item => item.kind === 'maturity_approaching'
         && item.tokens.companyName === victim.name
     );
 
@@ -315,7 +313,7 @@ describe('the Stage 5 milestone', () => {
     expect(listing.lastPrice).toBeLessThan(openingPrice);
 
     // Without a credit being created or destroyed anywhere
-    expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
+    expect(game.getEconomy().getLedger().audit().cashMatches).toBe(true);
   });
 
   test('an uncontested bidder takes control outright', () => {
@@ -347,6 +345,6 @@ describe('the Stage 5 milestone', () => {
     expect(controller).not.toBeNull();
     expect(controller.holder).toEqual(corporationHolder(buyer));
     expect(changes.some(change => change.corporationName === victim.name)).toBe(true);
-    expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
+    expect(game.getEconomy().getLedger().audit().cashMatches).toBe(true);
   });
 });

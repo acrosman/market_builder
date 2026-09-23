@@ -2,6 +2,7 @@ const { loadContent } = require('../contentCache');
 const { recordGoodsTrade, recordOpeningStock } = require('./transactions');
 const { ACCOUNTS, EXTERNAL_HOLDER } = require('./accounts');
 const { operatorHolder } = require('./production');
+const { numericReader } = require('../settings');
 
 /**
  * Market restocking: trade between a local market and the wider galaxy.
@@ -34,14 +35,6 @@ const { operatorHolder } = require('./production');
  * short, which lifts its prices and makes it somewhere worth trading to.
  */
 
-/** Defaults for the restock settings block. */
-const DEFAULT_RESTOCK = {
-  daily_gap_fraction: 0.05,
-  max_ideal_multiple: 3,
-  import_markup: 0.1,
-  export_discount: 0.1
-};
-
 /**
  * Read restock configuration from settings, filling in defaults.
  * @param {Object} [settings={}] - Resolved game settings.
@@ -50,11 +43,7 @@ const DEFAULT_RESTOCK = {
  * const config = restockConfig(game.getSettings());
  */
 function restockConfig(settings = {}) {
-  const configured = settings.restock || {};
-  const read = (key) => {
-    const value = Number(configured[key]);
-    return Number.isFinite(value) ? value : DEFAULT_RESTOCK[key];
-  };
+  const read = numericReader(settings, 'restock');
   return {
     dailyGapFraction: read('daily_gap_fraction'),
     maxIdealMultiple: read('max_ideal_multiple'),
@@ -228,7 +217,6 @@ function restockMarket({ economy, market, stellarObject, corporations, settings,
 }
 
 module.exports = {
-  DEFAULT_RESTOCK,
   restockConfig,
   idealStockFor,
   restockMarket

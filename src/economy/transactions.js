@@ -1,4 +1,3 @@
-const { ENTRY_KINDS } = require('./ledger');
 const { ACCOUNTS, BANK_HOLDER } = require('./accounts');
 
 /**
@@ -42,12 +41,21 @@ function recordOpeningBalance(economy, { tick, holder, amount, account = ACCOUNT
     return null;
   }
 
+  if (account === ACCOUNTS.CASH) {
+    return economy.getLedger().addCapital({
+      tick,
+      holder,
+      amount: value,
+      reason: refs?.reason || 'opening_balance'
+    });
+  }
+
   return economy.getLedger().post({
     tick,
     amount: value,
     debit: { holder, account },
     credit: { holder, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
-    kind: ENTRY_KINDS.SHARE_ISSUE,
+    kind: 'share_issue',
     refs
   });
 }
@@ -90,7 +98,7 @@ function recordOpeningStock(economy, { tick, holder, goodName, quantity, totalCo
     amount: cost,
     debit: { holder, account: ACCOUNTS.INVENTORY },
     credit: { holder, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
-    kind: ENTRY_KINDS.PRODUCTION_OUTPUT,
+    kind: 'production_output',
     refs: { goodName, quantity: units }
   });
 }
@@ -139,7 +147,7 @@ function recordGoodsTrade(economy, { tick, buyer, seller, goodName, quantity, to
       amount: price,
       debit: { holder: seller, account: ACCOUNTS.CASH },
       credit: { holder: seller, account: ACCOUNTS.REVENUE },
-      kind: ENTRY_KINDS.GOODS_SALE,
+      kind: 'goods_sale',
       refs: entryRefs
     });
     entries.push({
@@ -147,7 +155,7 @@ function recordGoodsTrade(economy, { tick, buyer, seller, goodName, quantity, to
       amount: price,
       debit: { holder: buyer, account: ACCOUNTS.INVENTORY },
       credit: { holder: buyer, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.GOODS_PURCHASE,
+      kind: 'goods_purchase',
       refs: entryRefs
     });
   }
@@ -158,7 +166,7 @@ function recordGoodsTrade(economy, { tick, buyer, seller, goodName, quantity, to
       amount: costOfSale,
       debit: { holder: seller, account: ACCOUNTS.COGS },
       credit: { holder: seller, account: ACCOUNTS.INVENTORY },
-      kind: ENTRY_KINDS.COST_OF_SALE,
+      kind: 'cost_of_sale',
       refs: entryRefs
     });
   }
@@ -200,7 +208,7 @@ function recordLoanDraw(economy, { tick, borrower, amount, refs }) {
       amount: principal,
       debit: { holder: borrower, account: ACCOUNTS.CASH },
       credit: { holder: borrower, account: ACCOUNTS.DEBT },
-      kind: ENTRY_KINDS.LOAN_DRAW,
+      kind: 'loan_draw',
       refs
     },
     {
@@ -208,7 +216,7 @@ function recordLoanDraw(economy, { tick, borrower, amount, refs }) {
       amount: principal,
       debit: { holder: BANK_HOLDER, account: ACCOUNTS.LOAN_RECEIVABLE },
       credit: { holder: BANK_HOLDER, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.LOAN_DRAW,
+      kind: 'loan_draw',
       refs
     }
   ]);
@@ -241,7 +249,7 @@ function recordLoanPayment(economy, { tick, borrower, amount, refs }) {
       amount: payment,
       debit: { holder: borrower, account: ACCOUNTS.DEBT },
       credit: { holder: borrower, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.LOAN_REPAYMENT,
+      kind: 'loan_repayment',
       refs
     },
     {
@@ -249,7 +257,7 @@ function recordLoanPayment(economy, { tick, borrower, amount, refs }) {
       amount: payment,
       debit: { holder: BANK_HOLDER, account: ACCOUNTS.CASH },
       credit: { holder: BANK_HOLDER, account: ACCOUNTS.LOAN_RECEIVABLE },
-      kind: ENTRY_KINDS.LOAN_REPAYMENT,
+      kind: 'loan_repayment',
       refs
     }
   ]);
@@ -295,7 +303,7 @@ function recordConstructionSpend(economy, { tick, spender, recipient, amount, re
       amount: spend,
       debit: { holder: spender, account: ACCOUNTS.PROPERTY },
       credit: { holder: spender, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.CONSTRUCTION_SPEND,
+      kind: 'construction_spend',
       refs
     }
   ];
@@ -306,7 +314,7 @@ function recordConstructionSpend(economy, { tick, spender, recipient, amount, re
       amount: spend,
       debit: { holder: recipient, account: ACCOUNTS.CASH },
       credit: { holder: recipient, account: ACCOUNTS.REVENUE },
-      kind: ENTRY_KINDS.CONSTRUCTION_SPEND,
+      kind: 'construction_spend',
       refs
     });
   }
@@ -367,7 +375,7 @@ function recordAssetTransfer(economy, {
       amount: appraised,
       debit: { holder: buyer, account },
       credit: { holder: seller, account },
-      kind: ENTRY_KINDS.PROPERTY_TRANSFER,
+      kind: 'property_transfer',
       refs
     });
   }
@@ -378,7 +386,7 @@ function recordAssetTransfer(economy, {
       amount: paid,
       debit: { holder: seller, account: ACCOUNTS.CASH },
       credit: { holder: buyer, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.PROPERTY_TRANSFER,
+      kind: 'property_transfer',
       refs
     });
   }
@@ -397,7 +405,7 @@ function recordAssetTransfer(economy, {
       credit: difference > 0
         ? { holder: buyer, account: ACCOUNTS.CONTRIBUTED_CAPITAL }
         : { holder: seller, account: ACCOUNTS.CONTRIBUTED_CAPITAL },
-      kind: ENTRY_KINDS.RELATED_PARTY_GIFT,
+      kind: 'related_party_gift',
       refs: giftRefs
     });
   }
@@ -438,7 +446,7 @@ function recordShareIssue(economy, { tick, issuer, subscriber, amount, refs }) {
       amount: proceeds,
       debit: { holder: issuer, account: ACCOUNTS.CASH },
       credit: { holder: issuer, account: ACCOUNTS.SHARE_CAPITAL },
-      kind: ENTRY_KINDS.SHARE_ISSUE,
+      kind: 'share_issue',
       refs
     },
     {
@@ -446,7 +454,7 @@ function recordShareIssue(economy, { tick, issuer, subscriber, amount, refs }) {
       amount: proceeds,
       debit: { holder: subscriber, account: ACCOUNTS.INVESTMENTS },
       credit: { holder: subscriber, account: ACCOUNTS.CASH },
-      kind: ENTRY_KINDS.SHARE_ISSUE,
+      kind: 'share_issue',
       refs
     }
   ]);

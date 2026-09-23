@@ -2,6 +2,7 @@ const { loadContent } = require('../contentCache');
 const { ticksPerDay, ticksPerYear } = require('./clock');
 const { restockConfig, idealStockFor } = require('./restock');
 const { corporationHolder } = require('./accounts');
+const { numericReader } = require('../settings');
 const {
   EXTRACTION_RATINGS,
   productionConfig,
@@ -41,15 +42,6 @@ const {
  * once investor agents exist and there is something to calibrate against.
  */
 
-/** Defaults for the appraisal settings block. */
-const DEFAULT_APPRAISAL = {
-  base_discount_rate: 0.12,
-  distress_spread: 0.4,
-  inventory_liquidation_haircut: 0.3,
-  infrastructure_floor_weight: 0.5,
-  max_default_probability: 0.95
-};
-
 /**
  * Read appraisal configuration from settings, filling in defaults.
  * @param {Object} [settings={}] - Resolved game settings.
@@ -58,11 +50,7 @@ const DEFAULT_APPRAISAL = {
  * const config = appraisalConfig(game.getSettings());
  */
 function appraisalConfig(settings = {}) {
-  const configured = settings.appraisal || {};
-  const read = (key) => {
-    const value = Number(configured[key]);
-    return Number.isFinite(value) ? value : DEFAULT_APPRAISAL[key];
-  };
+  const read = numericReader(settings, 'appraisal');
   return {
     baseDiscountRate: read('base_discount_rate'),
     distressSpread: read('distress_spread'),
@@ -546,7 +534,6 @@ function appraiseCorporation(corporation, context = {}) {
 }
 
 module.exports = {
-  DEFAULT_APPRAISAL,
   appraisalConfig,
   referenceGoodsPrices,
   categoryPrice,

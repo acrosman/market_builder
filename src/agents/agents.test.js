@@ -12,7 +12,6 @@ const {
   runInvestorPool, investorCapital
 } = require('./investorPool');
 const { dividendDue, payDividend } = require('../economy/dividends');
-const { checkConservation } = require('../economy/conservation');
 const { RandomSource } = require('../economy/rng');
 const { ACCOUNTS, corporationHolder, playerHolder } = require('../economy/accounts');
 const { ticksPerDay, ticksPerQuarter } = require('../economy/clock');
@@ -125,7 +124,7 @@ describe('createNpcCorporations', () => {
           .toBe(npcCorporationConfig(settings).startingCash);
       });
 
-    expect(checkConservation(ledger).holds).toBe(true);
+    expect(ledger.audit().cashMatches).toBe(true);
   });
 });
 
@@ -214,7 +213,7 @@ describe('runCorporateAI', () => {
     const game = startedGame();
     runCorporateAI({ game, tick: DAY * 7 });
 
-    expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
+    expect(game.getEconomy().getLedger().audit().cashMatches).toBe(true);
   });
 });
 
@@ -267,7 +266,7 @@ describe('seedInvestorPool and savings', () => {
 
     expect(added).toBeGreaterThan(0);
     expect(investorCapital(game.getEconomy(), settings)).toBe(before + added);
-    expect(checkConservation(game.getEconomy().getLedger()).byReason.investor_savings)
+    expect(game.getEconomy().getLedger().capitalByReason().investor_savings)
       .toBe(added);
   });
 
@@ -299,7 +298,7 @@ describe('flotation across the public', () => {
     const corporation = game.getCorporations().find(c => !c.isPlayerOwned);
     game.listCorporation(corporation.name, 10000);
 
-    expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
+    expect(game.getEconomy().getLedger().audit().cashMatches).toBe(true);
   });
 });
 
@@ -402,13 +401,13 @@ describe('dividends', () => {
     game.listCorporation(corporation.name, 10000);
 
     const economy = game.getEconomy();
-    const before = checkConservation(economy.getLedger()).totalCash;
+    const before = economy.getLedger().audit().totalCash;
 
     const result = payDividend({ economy, corporation, amount: 8000, tick: DAY });
 
     expect(result.paid).toBe(8000);
     expect(result.recipients).toBeGreaterThan(1);
-    expect(checkConservation(economy.getLedger()).totalCash).toBe(before);
+    expect(economy.getLedger().audit().totalCash).toBe(before);
   });
 
   test('should pay nothing for an unlisted company', () => {
@@ -458,7 +457,7 @@ describe('the agents through the tick loop', () => {
 
     expect(clears).toBeGreaterThan(0);
     expect(builds).toBeGreaterThan(0);
-    expect(checkConservation(game.getEconomy().getLedger()).holds).toBe(true);
+    expect(game.getEconomy().getLedger().audit().cashMatches).toBe(true);
   });
 
   test('should give companies differing results', () => {

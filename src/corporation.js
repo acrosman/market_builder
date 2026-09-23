@@ -1,3 +1,4 @@
+const { settingsBlock } = require('./settings');
 /**
  * Represents a Corporation in Universe Market Builder.
  * Corporations own assets (stellar objects, ships, goods) and track their total value.
@@ -231,94 +232,131 @@ class Corporation {
   }
 
   /**
-   * Ratings from strongest to weakest.
+   * The rating ladder, best grade first.
    *
-   * Exposed so callers can compare two ratings without knowing the ladder's
-   * shape, and so the interest map cannot drift out of step with it.
-   * @type {Array<string>}
+   * Read from the `credit` block in game settings, which is the one place the
+   * grades, their leverage bands and their interest rates are written down.
+   * Keeping all three in one table is what stops a grade existing with no rate
+   * behind it, or a rate surviving a grade being renamed.
+   * @param {Object} [settings] - Resolved game settings.
+   * @returns {Array<Object>} `{ grade, max_leverage, annual_rate }`, best first.
+   * @example
+   * Corporation.ratingLadder()[0].grade; // => 'A+'
    */
-  static get RATING_ORDER() {
-    return ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'D'];
+  static ratingLadder(settings = {}) {
+    return settingsBlock(settings, 'credit').ratings || [];
   }
 
   /**
-   * Annual interest rate charged at each rating, as a percentage.
-   * @param {string} rating - One of RATING_ORDER.
+   * Grades from best to worst, for comparing two ratings.
+   * @param {Object} [settings] - Resolved game settings.
+   * @returns {Array<string>} Grades, best first.
+   * @example
+   * Corporation.RATING_ORDER; // => ['A+', 'A', 'A-', ... 'F']
+   */
+  static ratingOrder(settings = {}) {
+    return Corporation.ratingLadder(settings).map(entry => entry.grade);
+  }
+
+  /**
+   * Grades from best to worst, using the shipped settings.
+   * @type {Array<string>}
+   */
+  static get RATING_ORDER() {
+    return Corporation.ratingOrder();
+  }
+
+  /**
+   * The worst grade on the ladder, assigned to a company that has failed.
+   * @param {Object} [settings] - Resolved game settings.
+   * @returns {string} The terminal grade.
+   * @example
+   * Corporation.failingGrade(); // => 'F'
+   */
+  static failingGrade(settings = {}) {
+    const order = Corporation.ratingOrder(settings);
+    return order[order.length - 1] || 'F';
+  }
+
+  /**
+   * Annual interest rate charged at a grade, as a percentage.
+   * @param {string} rating - A grade from the ladder.
+   * @param {Object} [settings] - Resolved game settings.
    * @returns {number} Annual percentage rate.
    * @example
-   * Corporation.interestRateForRating('BBB'); // => 8
+   * Corporation.interestRateForRating('B'); // => 7
    */
-  static interestRateForRating(rating) {
-    const rates = {
-      AAA: 4.0,
-      AA: 5.0,
-      A: 6.0,
-      BBB: 8.0,
-      BB: 10.0,
-      B: 13.0,
-      CCC: 18.0,
-      D: 25.0
-    };
-    return rates[rating] || rates.CCC;
+  static interestRateForRating(rating, settings = {}) {
+    const ladder = Corporation.ratingLadder(settings);
+    const match = ladder.find(entry => entry.grade === rating);
+    return Number(
+      (match || ladder[ladder.length - 1] || {}).annual_rate
+    ) || 0;
   }
 
   /**
    * Get the credit rating from how leveraged the corporation is.
    *
-   * This used to ladder on the raw size of the debt, which rated a company with
-   * a small loan and nothing behind it as safer than one with a large loan
-   * against valuable worlds. Size is not risk. What matters is how much of the
-   * debt the assets actually cover.
+   * Grades run like school grades, A+ down to F, and come from the leverage
+   * bands in settings. Leverage rather than the raw size of the debt: a small
+   * loan with nothing behind it is worse credit than a large one against
+   * valuable worlds.
+   *
+   * F is reserved for a company that has actually failed rather than one that
+   * is merely stretched -- bankrupt, carrying debt against no assets, or past a
+   * loan's maturity without having paid it.
    *
    * Book value is used rather than appraised value, deliberately. A lender
    * assessing collateral cares what it could recover, not what the borrower
-   * hopes to earn, and keeping the rating on book value also keeps this method
-   * free of any dependency that could reach a share price.
+   * hopes to earn, and book value also keeps this method free of any dependency
+   * that could reach a share price.
    * @param {Object} [universe] - Universe for valuing owned worlds; without it
    *   only cash counts as cover, which is the conservative reading.
    * @param {Object} [shipValues={}] - Optional ship valuation map.
    * @param {Object} [goodPrices={}] - Optional goods pricing map.
-   * @returns {string} A rating from RATING_ORDER.
+   * @param {Object} [options={}] - `{ settings, tick }`.
+   * @returns {string} A grade from the ladder.
    * @example
    * const rating = corporation.getCreditRating(universe);
    */
-  getCreditRating(universe = null, shipValues = {}, goodPrices = {}) {
+  getCreditRating(universe = null, shipValues = {}, goodPrices = {}, options = {}) {
+    const settings = options.settings || {};
+    const ladder = Corporation.ratingLadder(settings);
+    const failing = Corporation.failingGrade(settings);
+
     if (this.isBankrupt) {
-      return 'D';
+      return failing;
+    }
+
+    // Letting a balloon come due unpaid is a default, whatever the ratios say
+    const tick = Number(options.tick);
+    if (Number.isFinite(tick) && this.getMaturedLoans(tick).length > 0) {
+      return failing;
     }
 
     const debt = this.getOutstandingDebt();
     if (debt <= 0) {
-      return 'AAA';
+      return ladder[0]?.grade || failing;
     }
 
     const assets = universe && Array.isArray(universe.stellarObjects)
       ? this.calculateTotalAssetValue(universe, shipValues, goodPrices)
       : this.getTotalCashReserves();
 
-    // Debt with nothing behind it is the worst rating short of already failing
+    // Debt with nothing behind it is a failure, not a bad ratio
     if (assets <= 0) {
-      return 'CCC';
+      return failing;
     }
 
     const leverage = debt / assets;
+    const band = ladder.find(
+      entry => entry.max_leverage !== null
+        && entry.max_leverage !== undefined
+        && entry.max_leverage > 0
+        && leverage <= entry.max_leverage
+    );
 
-    if (leverage <= 0.1) {
-      return 'AA';
-    }
-    if (leverage <= 0.25) {
-      return 'A';
-    }
-    if (leverage <= 0.5) {
-      return 'BBB';
-    }
-    if (leverage <= 0.75) {
-      return 'BB';
-    }
-    if (leverage < 1) {
-      return 'B';
-    }
-    return 'CCC';
+    return band ? band.grade : failing;
   }
 
   /**
@@ -330,9 +368,10 @@ class Corporation {
    * @example
    * const rate = corporation.getInterestRate(universe);
    */
-  getInterestRate(universe = null, shipValues = {}, goodPrices = {}) {
+  getInterestRate(universe = null, shipValues = {}, goodPrices = {}, options = {}) {
     return Corporation.interestRateForRating(
-      this.getCreditRating(universe, shipValues, goodPrices)
+      this.getCreditRating(universe, shipValues, goodPrices, options),
+      options.settings || {}
     );
   }
 
@@ -354,7 +393,8 @@ class Corporation {
     const interestRate = this.getInterestRate(
       options.universe || null,
       options.shipValues || {},
-      options.goodPrices || {}
+      options.goodPrices || {},
+      { settings: options.settings || {}, tick: options.originTick }
     );
     const loan = {
       id: this.nextLoanId,

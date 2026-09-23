@@ -1,9 +1,6 @@
 const { clearAuction, remainingQuantity, SIDES } = require('./auction');
 const { equityInstrument, symbolFor, INSTRUMENT_KINDS } = require('./instruments');
 
-/** Schema version for a serialized listing. */
-const LISTING_SCHEMA_VERSION = 1;
-
 /** How many closing prices to retain per listing. */
 const DEFAULT_HISTORY_LENGTH = 512;
 
@@ -259,7 +256,6 @@ class Listing {
    */
   toJSON() {
     return {
-      schemaVersion: LISTING_SCHEMA_VERSION,
       instrument: this.instrument,
       symbol: this.symbol,
       corporationName: this.corporationName,
@@ -312,6 +308,5 @@ module.exports = {
   Listing,
   INSTRUMENT_KINDS,
   ORDER_STATUS,
-  LISTING_SCHEMA_VERSION,
   DEFAULT_HISTORY_LENGTH
 };

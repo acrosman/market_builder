@@ -6,17 +6,6 @@ const { Exchange } = require('../exchange/exchange');
 const { NewsStore } = require('./news');
 
 /**
- * Schema version for the economy save block.
- *
- * This is versioned independently of the overall save file so economy
- * subsystems can evolve without forcing a migration of universe, player, or
- * corporation data. Bump this whenever the shape of `toJSON()` output changes
- * in a way `fromJSON()` cannot infer, and handle the older shape in
- * `fromJSON()`.
- */
-const ECONOMY_SCHEMA_VERSION = 1;
-
-/**
  * Container for all economy and exchange simulation state.
  *
  * This exists to solve a specific persistence hazard. `Game.getSaveData()`
@@ -127,7 +116,6 @@ class EconomyState {
    */
   toJSON() {
     return {
-      schemaVersion: ECONOMY_SCHEMA_VERSION,
       random: this.random.toJSON(),
       ledger: this.ledger.toJSON(),
       costBasis: this.costBasis.toJSON(),
@@ -168,6 +156,5 @@ class EconomyState {
 }
 
 module.exports = {
-  EconomyState,
-  ECONOMY_SCHEMA_VERSION
+  EconomyState
 };
